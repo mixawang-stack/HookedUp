@@ -1,0 +1,500 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  MODERATOR
+  ADMIN
+  OFFICIAL
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+  DELETED
+}
+
+enum VerificationType {
+  AGE
+  HEALTH
+  CRIMINAL_RECORD
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ReportStatus {
+  OPEN
+  REVIEWING
+  RESOLVED
+  DISMISSED
+}
+
+enum SwipeAction {
+  LIKE
+  PASS
+}
+
+enum RoomStatus {
+  SCHEDULED
+  LIVE
+  ENDED
+}
+
+enum RoomMembershipMode {
+  PARTICIPANT
+  OBSERVER
+}
+
+enum RoomMembershipRole {
+  OWNER
+  MEMBER
+  OBSERVER
+}
+
+enum RoomInviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELED
+}
+
+enum RoomGameSelectionType {
+  NONE
+  DICE
+  ONE_THING
+}
+
+enum RoomJoinRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum IntentStatus {
+  PENDING
+  CONFIRMED
+}
+
+model User {
+  id                       String     @id @default(uuid())
+  email                    String     @unique
+  passwordHash             String
+  role                     Role       @default(USER)
+  status                   UserStatus @default(ACTIVE)
+  gender                   String?
+  emailVerifiedAt          DateTime?
+  ageVerifiedAt            DateTime?
+  healthVerifiedAt         DateTime?
+  criminalRecordVerifiedAt DateTime?
+  agreedTermsAt            DateTime?
+  maskName                 String?
+  maskAvatarUrl            String?
+  dob                      DateTime?
+  country                  String?
+  createdAt                DateTime   @default(now())
+  updatedAt                DateTime   @updatedAt
+
+  emailVerificationTokens  EmailVerificationToken[]
+  refreshTokens            RefreshToken[]
+  verifications            Verification[]            @relation("VerificationUser")
+  verificationReviews      Verification[]            @relation("VerificationReviewer")
+  preference               Preference?
+  swipesSent               Swipe[]                   @relation("SwipesSent")
+  swipesReceived           Swipe[]                   @relation("SwipesReceived")
+  matchesAsUser1           Match[]                   @relation("MatchUser1")
+  matchesAsUser2           Match[]                   @relation("MatchUser2")
+  messagesSent             Message[]                 @relation("MessagesSent")
+  consentAsA               ConsentRecord[]           @relation("ConsentA")
+  consentAsB               ConsentRecord[]           @relation("ConsentB")
+  reportsMade              Report[]                  @relation("ReportsMade")
+  reportsHandled           Report[]                  @relation("ReportsHandled")
+  auditLogs                AuditLog[]
+  exposuresAsViewer        RecommendationExposure[]  @relation("ExposureViewer")
+  exposuresAsTarget        RecommendationExposure[]  @relation("ExposureTarget")
+  createdRooms             Room[]                    @relation("RoomCreator")
+  roomMemberships          RoomMembership[]
+  roomInvitesSent          RoomInvite[]              @relation("RoomInviter")
+  roomInvitesReceived      RoomInvite[]              @relation("RoomInvitee")
+  roomShareLinks           RoomShareLink[]           @relation("RoomShareCreator")
+  roomGameSelections       RoomGameSelection[]       @relation("RoomGameSelector")
+  joinRequests             RoomJoinRequest[]         @relation("RoomJoinRequestUser")
+  decidedJoinRequests      RoomJoinRequest[]         @relation("RoomJoinRequestDecider")
+  traces                   Trace[]                   @relation("TraceAuthor")
+  traceReplies             TraceReply[]              @relation("TraceReplyAuthor")
+  roomMessagesSent         RoomMessage[]             @relation("RoomMessagesSent")
+  conversationParticipants ConversationParticipant[]
+  intentRequests           IntentOffline[]           @relation("IntentRequester")
+  intentResponses          IntentOffline[]           @relation("IntentResponder")
+}
+
+model EmailVerificationToken {
+  id         String    @id @default(uuid())
+  userId     String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model PendingRegistration {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String
+  dob           DateTime
+  country       String
+  agreedTermsAt DateTime
+  tokenHash     String   @unique
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Verification {
+  id           String             @id @default(uuid())
+  userId       String
+  type         VerificationType
+  status       VerificationStatus @default(PENDING)
+  reviewedBy   String?
+  reason       String?
+  fileKey      String?
+  fileHash     String?
+  metadataJson Json?
+  createdAt    DateTime           @default(now())
+  reviewedAt   DateTime?
+
+  user     User  @relation("VerificationUser", fields: [userId], references: [id])
+  reviewer User? @relation("VerificationReviewer", fields: [reviewedBy], references: [id])
+}
+
+model Preference {
+  id               String  @id @default(uuid())
+  userId           String  @unique
+  gender           String?
+  lookingForGender String?
+  smPreference     String?
+  tagsJson         Json?
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Swipe {
+  id         String      @id @default(uuid())
+  fromUserId String
+  toUserId   String
+  action     SwipeAction
+  createdAt  DateTime    @default(now())
+
+  fromUser User @relation("SwipesSent", fields: [fromUserId], references: [id])
+  toUser   User @relation("SwipesReceived", fields: [toUserId], references: [id])
+
+  @@unique([fromUserId, toUserId])
+}
+
+model Match {
+  id        String   @id @default(uuid())
+  user1Id   String
+  user2Id   String
+  matchedAt DateTime @default(now())
+
+  user1          User            @relation("MatchUser1", fields: [user1Id], references: [id])
+  user2          User            @relation("MatchUser2", fields: [user2Id], references: [id])
+  messages       Message[]
+  consentRecords ConsentRecord[]
+  conversation   Conversation?
+
+  @@unique([user1Id, user2Id])
+}
+
+model Message {
+  id         String    @id @default(uuid())
+  matchId    String
+  senderId   String
+  ciphertext String
+  createdAt  DateTime  @default(now())
+  deletedAt  DateTime?
+
+  match  Match @relation(fields: [matchId], references: [id])
+  sender User  @relation("MessagesSent", fields: [senderId], references: [id])
+}
+
+model ConsentRecord {
+  id           String    @id @default(uuid())
+  matchId      String
+  userAId      String
+  userBId      String
+  termsVersion String
+  hash         String
+  confirmedAtA DateTime?
+  confirmedAtB DateTime?
+  createdAt    DateTime  @default(now())
+
+  match Match @relation(fields: [matchId], references: [id])
+  userA User  @relation("ConsentA", fields: [userAId], references: [id])
+  userB User  @relation("ConsentB", fields: [userBId], references: [id])
+
+  @@unique([matchId, userAId, userBId])
+}
+
+model Report {
+  id         String       @id @default(uuid())
+  reporterId String
+  targetType String
+  targetId   String
+  reasonType String
+  detail     String?
+  status     ReportStatus @default(OPEN)
+  handledBy  String?
+  handledAt  DateTime?
+  createdAt  DateTime     @default(now())
+
+  reporter User  @relation("ReportsMade", fields: [reporterId], references: [id])
+  handler  User? @relation("ReportsHandled", fields: [handledBy], references: [id])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String?
+  action     String
+  targetType String
+  targetId   String
+  metaJson   Json?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id])
+}
+
+model Article {
+  id          String    @id @default(uuid())
+  slug        String    @unique
+  title       String
+  content     String
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model RecommendationExposure {
+  id          String   @id @default(uuid())
+  viewerId    String
+  targetId    String
+  lastShownAt DateTime
+  createdAt   DateTime @default(now())
+
+  viewer User @relation("ExposureViewer", fields: [viewerId], references: [id])
+  target User @relation("ExposureTarget", fields: [targetId], references: [id])
+
+  @@unique([viewerId, targetId])
+  @@index([viewerId, lastShownAt])
+}
+
+model Room {
+  id              String     @id @default(uuid())
+  title           String
+  description     String?
+  tagsJson        Json?
+  status          RoomStatus @default(LIVE)
+  startsAt        DateTime?
+  endsAt          DateTime?
+  createdById     String
+  isOfficial      Boolean    @default(false)
+  allowSpectators Boolean    @default(true)
+  capacity        Int        @default(3)
+  createdAt       DateTime   @default(now())
+
+  createdBy   User             @relation("RoomCreator", fields: [createdById], references: [id])
+  memberships RoomMembership[]
+  invites     RoomInvite[]
+  shareLinks  RoomShareLink[]
+  gameSelection RoomGameSelection?
+  gameState   RoomGameState?
+  joinRequests RoomJoinRequest[] @relation("RoomJoinRequestRoom")
+  messages    RoomMessage[]
+}
+
+model RoomMembership {
+  roomId   String
+  userId   String
+  role     RoomMembershipRole @default(MEMBER)
+  mode     RoomMembershipMode
+  joinedAt DateTime           @default(now())
+  leftAt   DateTime?
+
+  room Room @relation(fields: [roomId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([roomId, userId])
+}
+
+model RoomInvite {
+  id          String           @id @default(uuid())
+  roomId      String
+  inviterId   String
+  inviteeId   String
+  status      RoomInviteStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+  respondedAt DateTime?
+
+  room     Room @relation(fields: [roomId], references: [id])
+  inviter  User @relation("RoomInviter", fields: [inviterId], references: [id])
+  invitee  User @relation("RoomInvitee", fields: [inviteeId], references: [id])
+
+  @@index([roomId])
+  @@index([inviteeId])
+}
+
+model RoomShareLink {
+  id          String    @id @default(uuid())
+  roomId      String
+  createdById String
+  token       String    @unique
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  revokedAt   DateTime?
+
+  room      Room @relation(fields: [roomId], references: [id])
+  createdBy User @relation("RoomShareCreator", fields: [createdById], references: [id])
+
+  @@index([roomId])
+}
+
+model RoomGameSelection {
+  roomId        String                @id
+  selectedGame  RoomGameSelectionType @default(NONE)
+  selectedAt    DateTime              @default(now())
+  selectedById  String
+
+  room       Room @relation(fields: [roomId], references: [id])
+  selectedBy User @relation("RoomGameSelector", fields: [selectedById], references: [id])
+
+  @@index([selectedById])
+}
+
+model RoomJoinRequest {
+  id          String                @id @default(uuid())
+  roomId      String
+  userId      String
+  status      RoomJoinRequestStatus @default(PENDING)
+  requestedAt DateTime              @default(now())
+  decidedAt   DateTime?
+  decidedById String?
+
+  room      Room  @relation("RoomJoinRequestRoom", fields: [roomId], references: [id])
+  user      User  @relation("RoomJoinRequestUser", fields: [userId], references: [id])
+  decidedBy User? @relation("RoomJoinRequestDecider", fields: [decidedById], references: [id])
+
+  @@unique([roomId, userId])
+  @@index([roomId, status])
+}
+
+model RoomGameState {
+  roomId    String   @id
+  gameType  String
+  stateJson Json
+  updatedAt DateTime @updatedAt
+
+  room Room @relation(fields: [roomId], references: [id])
+}
+
+model RoomMessage {
+  id        String   @id @default(uuid())
+  roomId    String
+  senderId  String
+  content   String   @db.VarChar(2000)
+  createdAt DateTime @default(now())
+
+  room   Room @relation(fields: [roomId], references: [id])
+  sender User @relation("RoomMessagesSent", fields: [senderId], references: [id])
+
+  @@index([roomId, createdAt])
+}
+
+model Trace {
+  id          String   @id @default(uuid())
+  authorId    String?
+  content     String   @db.VarChar(200)
+  imageUrl    String?  @db.Text @map("image_url")
+  imageWidth  Int?     @map("image_width")
+  imageHeight Int?     @map("image_height")
+  createdAt   DateTime @default(now())
+
+  author  User?        @relation("TraceAuthor", fields: [authorId], references: [id])
+  replies TraceReply[]
+}
+
+model TraceReply {
+  id        String   @id @default(uuid())
+  traceId   String
+  authorId  String
+  content   String   @db.VarChar(200)
+  createdAt DateTime @default(now())
+
+  trace  Trace @relation(fields: [traceId], references: [id])
+  author User  @relation("TraceReplyAuthor", fields: [authorId], references: [id])
+}
+
+model Conversation {
+  id        String   @id @default(uuid())
+  matchId   String?  @unique
+  createdAt DateTime @default(now())
+
+  match         Match?                    @relation(fields: [matchId], references: [id])
+  participants  ConversationParticipant[]
+  intentOffline IntentOffline?
+}
+
+model ConversationParticipant {
+  conversationId String
+  userId         String
+  isMuted        Boolean   @default(false)
+  mutedAt        DateTime?
+  lastSeenAt     DateTime?
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@unique([conversationId, userId])
+}
+
+model IntentOffline {
+  id                   String       @id @default(uuid())
+  conversationId       String       @unique
+  requesterId          String
+  responderId          String
+  status               IntentStatus @default(PENDING)
+  termsVersion         String
+  requestedAt          DateTime     @default(now())
+  requesterConfirmedAt DateTime?
+  responderConfirmedAt DateTime?
+  confirmedAt          DateTime?
+  updatedAt            DateTime     @updatedAt
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  requester    User         @relation("IntentRequester", fields: [requesterId], references: [id])
+  responder    User         @relation("IntentResponder", fields: [responderId], references: [id])
+
+  @@index([requesterId])
+  @@index([responderId])
+}

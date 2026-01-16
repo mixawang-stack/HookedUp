@@ -1,0 +1,79 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="hair" x1="128" y1="64" x2="384" y2="416" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F2A277"/>
+      <stop offset="1" stop-color="#E07C5F"/>
+    </linearGradient>
+    <linearGradient id="dress" x1="192" y1="272" x2="320" y2="464" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFF6E5"/>
+      <stop offset="1" stop-color="#FDE6C8"/>
+    </linearGradient>
+    <linearGradient id="skin" x1="200" y1="120" x2="320" y2="280" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FAD9C7"/>
+      <stop offset="1" stop-color="#F3BFA7"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" fill="none"/>
+
+  <!-- Hair back -->
+  <path d="M128 196C128 128 176 80 256 80C336 80 384 128 384 196C384 232 372 264 352 288L336 304L320 288C328 264 328 232 320 208C312 180 288 160 256 160C224 160 200 180 192 208C184 232 184 264 192 288L176 304L160 288C140 264 128 232 128 196Z" fill="url(#hair)"/>
+
+  <!-- Braids -->
+  <path d="M176 304C156 328 148 360 152 392C156 424 176 448 200 456C220 464 236 448 232 424C228 400 216 380 212 356C208 332 216 312 232 296L176 304Z" fill="url(#hair)"/>
+  <path d="M336 304C356 328 364 360 360 392C356 424 336 448 312 456C292 464 276 448 280 424C284 400 296 380 300 356C304 332 296 312 280 296L336 304Z" fill="url(#hair)"/>
+
+  <!-- Face -->
+  <ellipse cx="256" cy="208" rx="72" ry="64" fill="url(#skin)"/>
+
+  <!-- Eyes -->
+  <g id="eyes">
+    <circle cx="228" cy="208" r="10" fill="#2B1F2A"/>
+    <circle cx="284" cy="208" r="10" fill="#2B1F2A"/>
+    <circle cx="224" cy="204" r="3" fill="#FFFFFF"/>
+    <circle cx="280" cy="204" r="3" fill="#FFFFFF"/>
+    <animate attributeName="opacity" values="1;1;0;1;1" keyTimes="0;0.45;0.5;0.55;1" dur="4s" repeatCount="indefinite"/>
+  </g>
+
+  <!-- Mouth -->
+  <path d="M240 236C246 244 266 244 272 236" stroke="#B86C5A" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- Hair front -->
+  <path d="M160 184C176 120 220 96 256 96C292 96 336 120 352 184C336 176 320 168 296 160C272 152 240 152 216 160C192 168 176 176 160 184Z" fill="url(#hair)"/>
+
+  <!-- Flower clip -->
+  <g transform="translate(180 124)">
+    <circle cx="0" cy="0" r="10" fill="#FFFFFF"/>
+    <circle cx="-10" cy="0" r="10" fill="#FFFFFF"/>
+    <circle cx="10" cy="0" r="10" fill="#FFFFFF"/>
+    <circle cx="0" cy="-10" r="10" fill="#FFFFFF"/>
+    <circle cx="0" cy="10" r="10" fill="#FFFFFF"/>
+    <circle cx="0" cy="0" r="6" fill="#F7B1B1"/>
+  </g>
+
+  <!-- Body -->
+  <path d="M176 272C176 240 336 240 336 272V416C336 440 320 456 296 456H216C192 456 176 440 176 416V272Z" fill="url(#dress)" stroke="#F2D9B5" stroke-width="6"/>
+
+  <!-- Sleeves -->
+  <path d="M160 300C136 320 132 348 144 372C156 396 180 396 188 372C196 348 192 320 176 300H160Z" fill="#FFF1DA"/>
+  <path d="M352 300C376 320 380 348 368 372C356 396 332 396 324 372C316 348 320 320 336 300H352Z" fill="#FFF1DA"/>
+
+  <!-- Arms -->
+  <g id="arm-wave" transform="translate(336 320)">
+    <path d="M0 0C24 8 40 28 44 48C48 68 36 84 20 80C4 76 -8 52 -8 28C-8 12 -4 4 0 0Z" fill="url(#skin)"/>
+    <animateTransform attributeName="transform" type="rotate" values="0 0 0;8 0 0;-6 0 0;8 0 0;0 0 0" dur="2.6s" repeatCount="indefinite"/>
+  </g>
+  <path d="M176 320C160 336 156 360 164 384C172 408 188 408 196 384C204 360 204 336 192 320H176Z" fill="url(#skin)"/>
+
+  <!-- Legs -->
+  <rect x="220" y="456" width="28" height="40" rx="12" fill="#2B1F2A"/>
+  <rect x="264" y="456" width="28" height="40" rx="12" fill="#2B1F2A"/>
+
+  <!-- Shoes -->
+  <rect x="212" y="488" width="48" height="16" rx="8" fill="#2B1F2A"/>
+  <rect x="256" y="488" width="48" height="16" rx="8" fill="#2B1F2A"/>
+
+  <!-- Blush -->
+  <circle cx="212" cy="228" r="10" fill="#F7B1B1" opacity="0.6"/>
+  <circle cx="300" cy="228" r="10" fill="#F7B1B1" opacity="0.6"/>
+</svg>

@@ -1,0 +1,82 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background: #020617;
+  color: #f8fafc;
+  min-height: 100vh;
+  overflow-y: scroll;
+}
+
+/* auth-page styling moved to page-level layout instead of body class */
+
+@keyframes chatBubbleEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-chat-bubble {
+  animation: chatBubbleEnter 150ms ease-out;
+}
+
+@keyframes traceDrawerIn {
+  from {
+    transform: translateX(30px);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes traceBackdropIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-trace-drawer {
+  animation: traceDrawerIn 180ms ease-out;
+}
+
+.animate-trace-backdrop {
+  animation: traceBackdropIn 180ms ease-out;
+}
+
+@keyframes hostFloat {
+  0% {
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-4px) rotate(-1.5deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(0.5deg);
+  }
+  75% {
+    transform: translateY(-4px) rotate(1.2deg);
+  }
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+}
+
+.animate-host-float {
+  animation: hostFloat 3.8s ease-in-out infinite;
+  transform-origin: center;
+}

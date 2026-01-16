@@ -1,0 +1,42 @@
+import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from "@nestjs/common";
+import { JwtAuthGuard } from "../auth/jwt-auth.guard";
+import { CreateTraceDto } from "./dto/create-trace.dto";
+import { TracesService } from "./traces.service";
+
+@Controller("traces")
+export class TracesController {
+  constructor(private readonly tracesService: TracesService) {}
+
+  @Post()
+  @UseGuards(JwtAuthGuard)
+  async createTrace(
+    @Req() req: { user: { sub: string; role: string } },
+    @Body() dto: CreateTraceDto
+  ) {
+    return this.tracesService.createTrace(req.user.sub, req.user.role, dto);
+  }
+
+  @Post(":id/replies")
+  @UseGuards(JwtAuthGuard)
+  async createReply(
+    @Req() req: { user: { sub: string; role: string } },
+    @Param("id") traceId: string,
+    @Body() dto: CreateTraceDto
+  ) {
+    return this.tracesService.createReply(traceId, req.user.sub, req.user.role, dto);
+  }
+
+  @Get(":id")
+  async getTrace(
+    @Param("id") traceId: string,
+    @Query("cursor") cursor?: string,
+    @Query("limit") limit?: string
+  ) {
+    const parsedLimit = limit ? Number(limit) : undefined;
+    return this.tracesService.getTrace(
+      traceId,
+      cursor,
+      Number.isFinite(parsedLimit) ? parsedLimit : undefined
+    );
+  }
+}
