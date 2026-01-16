@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
 import { randomBytes } from "crypto";
-import { Prisma } from "@prisma/client";
+import { Prisma, RoomStatus } from "@prisma/client";
 import { PrismaService } from "../prisma.service";
 import { AuditService } from "../audit.service";
 import { CreateRoomDto } from "./dto/create-room.dto";
@@ -111,8 +111,8 @@ export class RoomsService {
       data: {
         title: dto.title,
         description: dto.description ?? null,
-        tagsJson: dto.tagsJson ?? null,
-        status: isOfficial ? dto.status : "LIVE",
+        tagsJson: (dto.tagsJson as any) ?? Prisma.JsonNull,
+        status: isOfficial ? (dto.status as RoomStatus) : "LIVE",
         startsAt: dto.startsAt ? new Date(dto.startsAt) : null,
         endsAt: isOfficial && dto.endsAt ? new Date(dto.endsAt) : null,
         createdById: userId,
@@ -222,7 +222,7 @@ export class RoomsService {
       if (!["SCHEDULED", "LIVE", "ENDED"].includes(normalized)) {
         throw new BadRequestException("ROOM_STATUS_INVALID");
       }
-      where.status = normalized as Prisma.RoomStatus;
+      where.status = normalized as RoomStatus;
     }
 
     if (tags && tags.length > 0) {

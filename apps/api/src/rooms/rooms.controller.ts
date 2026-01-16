@@ -22,7 +22,7 @@ export class RoomsController {
 
   @Post()
   @UseGuards(JwtAuthGuard, ThrottlerGuard)
-  @Throttle(5, 60)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiBearerAuth()
   @ApiOperation({ summary: "Create a room and auto-join as owner." })
   async createRoom(@Req() req: AuthenticatedRequest, @Body() dto: CreateRoomDto) {
@@ -162,7 +162,7 @@ export class RoomsController {
 
   @Post(":id/share-links")
   @UseGuards(JwtAuthGuard, RoomOwnerGuard, ThrottlerGuard)
-  @Throttle(5, 60)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiBearerAuth()
   @ApiOperation({ summary: "Create a share link for the room (owner only)." })
   async createShareLink(
@@ -175,7 +175,7 @@ export class RoomsController {
 
   @Post(":id/share-links/:linkId/revoke")
   @UseGuards(JwtAuthGuard, RoomOwnerGuard, ThrottlerGuard)
-  @Throttle(5, 60)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiBearerAuth()
   @ApiOperation({ summary: "Revoke a share link (owner only)." })
   async revokeShareLink(
@@ -199,7 +199,7 @@ export class RoomsController {
 
   @Post(":id/invites")
   @UseGuards(JwtAuthGuard, RoomOwnerGuard, ThrottlerGuard)
-  @Throttle(10, 60)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @ApiBearerAuth()
   @ApiOperation({ summary: "Send an invite to a user (owner only)." })
   async createInvite(

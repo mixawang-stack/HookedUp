@@ -79,7 +79,7 @@ export class AuthService {
         email,
         passwordHash,
         dob,
-        country: dto.country.toUpperCase(),
+        country: (dto.country ?? "US").toUpperCase(),
         agreedTermsAt,
         tokenHash,
         expiresAt
@@ -87,7 +87,7 @@ export class AuthService {
       update: {
         passwordHash,
         dob,
-        country: dto.country.toUpperCase(),
+        country: (dto.country ?? "US").toUpperCase(),
         agreedTermsAt,
         tokenHash,
         expiresAt,

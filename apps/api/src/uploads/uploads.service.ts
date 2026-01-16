@@ -74,7 +74,7 @@ export class UploadsService {
     filePath: string
   ): Promise<{ width: number; height: number } | null> {
     try {
-      const dimensions = sizeOf(filePath);
+      const dimensions = sizeOf(filePath as any);
       if (dimensions.width && dimensions.height) {
         return {
           width: dimensions.width,
