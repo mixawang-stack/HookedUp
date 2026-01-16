@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { io, Socket } from "socket.io-client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+
+export const dynamic = "force-dynamic";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
@@ -38,7 +40,7 @@ async function readPagedResponse<T>(res: Response): Promise<PagedResponse<T>> {
   return data as PagedResponse<T>;
 }
 
-export default function ChatPage() {
+function ChatPageContent() {
   const searchParams = useSearchParams();
   const matchIdParam = searchParams.get("matchId");
   const [token, setToken] = useState<string | null>(null);
@@ -350,5 +352,13 @@ export default function ChatPage() {
         </div>
       </section>
     </main>
+  );
+}
+
+export default function ChatPage() {
+  return (
+    <Suspense fallback={null}>
+      <ChatPageContent />
+    </Suspense>
   );
 }

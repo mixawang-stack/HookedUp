@@ -3,6 +3,8 @@
 import { io, Socket } from "socket.io-client";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+export const dynamic = "force-dynamic";
+
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
 

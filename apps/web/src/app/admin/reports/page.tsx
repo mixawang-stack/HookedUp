@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+export const dynamic = "force-dynamic";
+
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
 

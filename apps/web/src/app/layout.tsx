@@ -1,5 +1,6 @@
 import "./globals.css";
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import AuthGate from "./components/AuthGate";
 import ActiveRoomPanel from "./components/ActiveRoomPanel";
 import GlobalTips from "./components/GlobalTips";
@@ -20,7 +21,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen antialiased bg-slate-950 text-slate-100" suppressHydrationWarning>
-        <AuthGate />
+        <Suspense fallback={null}>
+          <AuthGate />
+        </Suspense>
         <TopNav />
         {children}
         <GlobalTips />
