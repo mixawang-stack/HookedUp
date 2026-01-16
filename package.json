@@ -6,5 +6,11 @@
     "dev": "pnpm dev:web",
     "dev:web": "pnpm -C apps/web dev",
     "dev:api": "pnpm -C apps/api dev"
+  },
+  "devDependencies": {
+    "prisma": "5.19.1",
+    "@prisma/client": "5.19.1"
+  },
+    "prisma": "5.19.1",
+    "@prisma/client": "5.19.1"
   }
-}
