@@ -5,12 +5,12 @@
   "scripts": {
     "dev": "pnpm dev:web",
     "dev:web": "pnpm -C apps/web dev",
-    "dev:api": "pnpm -C apps/api dev"
+    "dev:api": "pnpm -C apps/api dev",
+    "build:api": "pnpm -C apps/api build",
+    "build:web": "pnpm -C apps/web build"
   },
   "devDependencies": {
-    "prisma": "5.19.1",
-    "@prisma/client": "5.19.1"
-  },
-    "prisma": "5.19.1",
-    "@prisma/client": "5.19.1"
+    "prisma": "^5.22.0",
+    "@prisma/client": "^5.22.0"
   }
+}
