@@ -11,6 +11,8 @@ import {
 
 const STORAGE_KEY = "host_pos";
 const HOST_MARGIN = 16;
+// Keep the floating host below the top nav/header.
+const HOST_TOP_GUARD = 140;
 
 type Position = { x: number; y: number };
 
@@ -170,7 +172,7 @@ export default function HostFloating() {
     );
     const maxBottom = Math.max(
       HOST_MARGIN,
-      window.innerHeight - hostHeight - HOST_MARGIN
+      window.innerHeight - hostHeight - HOST_TOP_GUARD
     );
     return {
       x: Math.min(Math.max(pos.x, HOST_MARGIN), maxRight),
@@ -312,7 +314,7 @@ export default function HostFloating() {
       );
       const maxBottom = Math.max(
         HOST_MARGIN,
-        window.innerHeight - hostHeight - HOST_MARGIN
+        window.innerHeight - hostHeight - HOST_TOP_GUARD
       );
       const edge = Math.floor(Math.random() * 4);
       let x = position.x;
