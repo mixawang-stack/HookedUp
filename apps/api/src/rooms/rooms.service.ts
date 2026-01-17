@@ -213,9 +213,10 @@ export class RoomsService {
       ];
     }
 
-    if (!this.isRooms08Enabled()) {
-      where.isOfficial = true;
-    }
+    // 取消仅显示官方房间的限制，允许显示所有房间
+    // if (!this.isRooms08Enabled()) {
+    //   where.isOfficial = true;
+    // }
 
     if (status) {
       const normalized = status.toUpperCase();
@@ -272,9 +273,10 @@ export class RoomsService {
       throw new BadRequestException("ROOM_NOT_FOUND");
     }
 
-    if (!this.isRooms08Enabled() && !room.isOfficial) {
-      throw new BadRequestException("ROOM_NOT_FOUND");
-    }
+    // 取消仅官方可见的限制
+    // if (!this.isRooms08Enabled() && !room.isOfficial) {
+    //   throw new BadRequestException("ROOM_NOT_FOUND");
+    // }
 
     const [count, membership, selection] = await Promise.all([
       this.prisma.roomMembership.count({
@@ -346,9 +348,10 @@ export class RoomsService {
       throw new BadRequestException("ROOM_NOT_FOUND");
     }
 
-    if (!this.isRooms08Enabled() && !room.isOfficial) {
-      throw new BadRequestException("ROOM_NOT_FOUND");
-    }
+    // 取消仅官方可加入的限制
+    // if (!this.isRooms08Enabled() && !room.isOfficial) {
+    //   throw new BadRequestException("ROOM_NOT_FOUND");
+    // }
 
     const mode = dto.mode ?? "PARTICIPANT";
     if (mode === "OBSERVER" && !room.allowSpectators) {
@@ -1159,13 +1162,12 @@ export class RoomsService {
   }
 
   private isRooms08Enabled() {
-    return (process.env.FF_ROOMS_08 ?? "false").toLowerCase() === "true";
+    return true; // 默认开启
   }
 
   private ensureRooms08Enabled() {
-    if (!this.isRooms08Enabled()) {
-      throw new ForbiddenException("ROOM_GAMES_DISABLED");
-    }
+    // 默认开启，不再报错
+    return;
   }
 
   async getDiceState(roomId: string, userId: string) {
