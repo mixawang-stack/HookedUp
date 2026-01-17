@@ -4,6 +4,7 @@ import { NestFactory } from "@nestjs/core";
 import { ValidationPipe } from "@nestjs/common";
 import { NestExpressApplication } from "@nestjs/platform-express";
 import cookieParser from "cookie-parser";
+import { NextFunction, Request, Response } from "express";
 import { AppModule } from "./app.module";
 import { STORAGE_DIR } from "./uploads/uploads.constants";
 
@@ -26,7 +27,7 @@ async function bootstrap() {
     .filter(Boolean);
   const allowAllOrigins =
     corsOrigins.length === 0 || corsOrigins.includes("*");
-  app.use((req, res, next) => {
+  app.use((req: Request, res: Response, next: NextFunction) => {
     const origin = req.headers.origin as string | undefined;
     if (origin && (allowAllOrigins || corsOrigins.includes(origin))) {
       res.setHeader("Access-Control-Allow-Origin", origin);
