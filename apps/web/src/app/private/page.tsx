@@ -414,6 +414,11 @@ function PrivateConversationDrawer({
                     redirectToLogin("Session expired. Please sign in again.");
                     return;
                 }
+                if (String(errorMessage).includes("PRIVATE_REPLY_REQUIRED")) {
+                    throw new Error(
+                        "You can send up to 3 messages until they reply."
+                    );
+                }
                 throw new Error(errorMessage);
             }
 

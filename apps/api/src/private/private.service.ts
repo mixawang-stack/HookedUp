@@ -111,6 +111,8 @@ export class PrivateService {
   async sendMessage(userId: string, conversationId: string, content: string) {
     const conversation = await this.getConversationForUser(userId, conversationId);
 
+    await this.ensureReplyGate(userId, conversation.matchId);
+
     const message = await this.chatService.createMessage(
       userId,
       conversation.matchId,
@@ -294,6 +296,44 @@ export class PrivateService {
     });
 
     return conversation;
+  }
+
+  private async ensureReplyGate(userId: string, matchId: string) {
+    const match = await this.prisma.match.findUnique({
+      where: { id: matchId },
+      select: { user1Id: true, user2Id: true }
+    });
+
+    if (!match) {
+      throw new BadRequestException("MATCH_NOT_FOUND");
+    }
+
+    const otherUserId = match.user1Id === userId ? match.user2Id : match.user1Id;
+
+    const otherReplied = await this.prisma.message.findFirst({
+      where: {
+        matchId,
+        senderId: otherUserId,
+        deletedAt: null
+      },
+      select: { id: true }
+    });
+
+    if (otherReplied) {
+      return;
+    }
+
+    const sentCount = await this.prisma.message.count({
+      where: {
+        matchId,
+        senderId: userId,
+        deletedAt: null
+      }
+    });
+
+    if (sentCount >= 3) {
+      throw new ForbiddenException("PRIVATE_REPLY_REQUIRED");
+    }
   }
 
   private async resolveOtherUser(
