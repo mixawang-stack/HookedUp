@@ -12,6 +12,25 @@ export const dynamic = "force-dynamic";
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
 
+const resolveMediaUrl = (value?: string | null) => {
+  if (!value) return null;
+  if (value.startsWith("/uploads/")) {
+    return `${API_BASE}${value}`;
+  }
+  if (!value.startsWith("http://") && !value.startsWith("https://")) {
+    return value;
+  }
+  try {
+    const parsed = new URL(value);
+    if (parsed.pathname.startsWith("/uploads/")) {
+      return `${API_BASE}${parsed.pathname}`;
+    }
+  } catch {
+    return value;
+  }
+  return value;
+};
+
 const QUICK_PROMPTS = [
   "Ask a question that makes you curious.",
   "Listening well still counts as participating.",
@@ -716,7 +735,7 @@ export default function HallPage() {
                 <>
                   <div className="mt-4 overflow-hidden rounded-xl bg-slate-100">
                     <img
-                      src={trace.imageUrl.startsWith("http") ? trace.imageUrl : `${API_BASE}${trace.imageUrl}`}
+                      src={resolveMediaUrl(trace.imageUrl) ?? ""}
                       alt={trace.content.slice(0, 40)}
                       className="aspect-[4/5] w-full object-cover"
                     />
@@ -924,7 +943,7 @@ export default function HallPage() {
               {traceDetail.trace.imageUrl && (
                 <div className="overflow-hidden rounded-2xl bg-slate-100">
                   <img
-                    src={traceDetail.trace.imageUrl.startsWith("http") ? traceDetail.trace.imageUrl : `${API_BASE}${traceDetail.trace.imageUrl}`}
+                    src={resolveMediaUrl(traceDetail.trace.imageUrl) ?? ""}
                     alt={traceDetail.trace.content.slice(0, 40)}
                     className="w-full object-cover"
                   />
