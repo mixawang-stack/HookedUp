@@ -67,7 +67,9 @@ export class HallService {
       createdAt: trace.createdAt,
       replyCount: trace._count.replies,
       likeCount: trace._count.likes,
-      likedByMe: userId ? (trace as { likes?: { id: string }[] }).likes?.length > 0 : false,
+      likedByMe: userId
+        ? ((trace as { likes?: { id: string }[] }).likes?.length ?? 0) > 0
+        : false,
       author: trace.author
         ? {
             id: trace.author.id,

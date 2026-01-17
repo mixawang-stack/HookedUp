@@ -4,6 +4,7 @@ import {
   Injectable
 } from "@nestjs/common";
 import { AuditService } from "../audit.service";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma.service";
 import { CreateTraceDto } from "./dto/create-trace.dto";
 import { UpdateTraceDto } from "./dto/update-trace.dto";
@@ -257,7 +258,7 @@ export class TracesService {
       await this.prisma.traceLike.create({
         data: { traceId, userId }
       });
-    } catch (error) {
+    } catch (error: unknown) {
       if (
         !(
           error instanceof Prisma.PrismaClientKnownRequestError &&
