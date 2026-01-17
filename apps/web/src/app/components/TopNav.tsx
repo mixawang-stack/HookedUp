@@ -13,6 +13,21 @@ const NAV_ITEMS = [
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+const DEFAULT_AVATAR =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="0 0 72 72">
+      <defs>
+        <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#94a3b8"/>
+          <stop offset="100%" stop-color="#64748b"/>
+        </linearGradient>
+      </defs>
+      <rect width="72" height="72" rx="36" fill="url(#g)"/>
+      <circle cx="36" cy="30" r="12" fill="#0f172a"/>
+      <path d="M18 60c4-10 12-16 18-16s14 6 18 16" fill="#0f172a"/>
+    </svg>`
+  );
 
 export default function TopNav() {
   const pathname = usePathname() ?? "";
@@ -39,8 +54,8 @@ export default function TopNav() {
       (me?.maskName && me.maskName.trim().length > 0 && me?.maskAvatarUrl)
   );
   const dismissalKey = me?.id
-    ? `profile_onboarding_dismissed_${me.id}`
-    : "profile_onboarding_dismissed";
+    ? `profile_onboarding_seen_${me.id}`
+    : "profile_onboarding_seen";
 
   const hideNav =
     pathname.startsWith("/login") || pathname.startsWith("/register");
@@ -105,24 +120,22 @@ export default function TopNav() {
     if (typeof window === "undefined") {
       return;
     }
-    setDismissed(sessionStorage.getItem(dismissalKey) === "1");
+    setDismissed(localStorage.getItem(dismissalKey) === "1");
   }, [dismissalKey]);
 
   useEffect(() => {
     if (!me || isProfileComplete || dismissed) {
       return;
     }
+    if (typeof window !== "undefined") {
+      localStorage.setItem(dismissalKey, "1");
+    }
     setShowOnboarding(true);
-  }, [me, dismissed, isProfileComplete]);
-
-  const handleLogout = () => {
-    localStorage.removeItem("accessToken");
-    router.push("/login");
-  };
+  }, [me, dismissed, isProfileComplete, dismissalKey]);
 
   const handleDismissOnboarding = () => {
     if (typeof window !== "undefined") {
-      sessionStorage.setItem(dismissalKey, "1");
+      localStorage.setItem(dismissalKey, "1");
     }
     setDismissed(true);
     setShowOnboarding(false);
@@ -133,9 +146,10 @@ export default function TopNav() {
   }
 
   return (
-    <nav className="sticky top-0 z-50 bg-slate-900/90 border-b border-white/10 backdrop-blur-lg">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3">
-        <div className="flex items-center gap-3">
+    <nav className="sticky top-0 z-50 border-b border-white/10 bg-slate-900/90 backdrop-blur-lg">
+      <div className="mx-auto grid w-full max-w-6xl grid-cols-[1fr_auto_1fr] items-center px-4 py-3">
+        <div />
+        <div className="flex items-center justify-center gap-3">
           {NAV_ITEMS.map((item) => {
             const isActive =
               pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -164,57 +178,45 @@ export default function TopNav() {
           })}
         </div>
         {me && (
-          <div className="flex items-center gap-3">
-            {!isProfileComplete && (
-              <button
-                type="button"
-                className="rounded-full border border-amber-300/60 bg-amber-400/10 px-3 py-1 text-[11px] font-semibold text-amber-100"
-                onClick={() => setShowOnboarding(true)}
-              >
-                Complete profile
-              </button>
-            )}
+          <div className="flex items-center justify-end gap-3">
             <div className="relative">
               <button
                 type="button"
-                className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-white/5"
+                className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-white/5 transition-transform duration-150 hover:scale-105 active:scale-95"
                 onClick={() => setMenuOpen((prev) => !prev)}
                 aria-label="Open profile menu"
               >
-                {me.maskAvatarUrl ? (
-                  <img
-                    src={me.maskAvatarUrl}
-                    alt={me.maskName ?? "Profile"}
-                    className="h-9 w-9 rounded-full object-cover"
-                  />
-                ) : (
-                  <span className="text-xs font-semibold text-slate-200">
-                    {(me.maskName ?? "U").slice(0, 1).toUpperCase()}
-                  </span>
-                )}
+                <img
+                  src={me.maskAvatarUrl ?? DEFAULT_AVATAR}
+                  alt={me.maskName ?? "User avatar"}
+                  className="h-9 w-9 rounded-full object-cover"
+                />
               </button>
               {menuOpen && (
-                <div className="absolute right-0 mt-2 w-44 rounded-xl border border-white/10 bg-slate-900/95 p-2 text-xs text-slate-200 shadow-[0_20px_50px_rgba(2,6,23,0.7)] backdrop-blur">
-                  <button
-                    type="button"
-                    className="block w-full rounded-lg px-3 py-2 text-left hover:bg-white/10"
-                    onClick={() => router.push("/me")}
-                  >
+                <div className="absolute right-0 mt-2 w-52 rounded-xl border border-white/10 bg-slate-800/95 p-3 text-xs text-slate-200 shadow-[0_20px_50px_rgba(2,6,23,0.7)] backdrop-blur">
+                  <p className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-400">
                     My profile
+                  </p>
+                  <button
+                    type="button"
+                    className="block w-full rounded-lg px-3 py-2 text-left transition hover:bg-slate-700/50"
+                    onClick={() => router.push("/me/posts")}
+                  >
+                    Posts management
                   </button>
                   <button
                     type="button"
-                    className="block w-full rounded-lg px-3 py-2 text-left hover:bg-white/10"
+                    className="block w-full rounded-lg px-3 py-2 text-left transition hover:bg-slate-700/50"
                     onClick={() => router.push("/me")}
                   >
-                    Edit profile
+                    Personal profile
                   </button>
                   <button
                     type="button"
-                    className="block w-full rounded-lg px-3 py-2 text-left text-rose-200 hover:bg-rose-500/20"
-                    onClick={handleLogout}
+                    className="block w-full rounded-lg px-3 py-2 text-left transition hover:bg-slate-700/50"
+                    onClick={() => router.push("/me/account")}
                   >
-                    Sign out
+                    Account settings
                   </button>
                 </div>
               )}

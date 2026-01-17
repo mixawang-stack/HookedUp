@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -11,6 +12,7 @@ import {
 } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { CreateTraceDto } from "./dto/create-trace.dto";
+import { UpdateTraceDto } from "./dto/update-trace.dto";
 import { TracesService } from "./traces.service";
 
 @Controller("traces")
@@ -58,6 +60,16 @@ export class TracesController {
     @Param("id") traceId: string
   ) {
     return this.tracesService.deleteTrace(req.user.sub, req.user.role, traceId);
+  }
+
+  @Patch(":id")
+  @UseGuards(JwtAuthGuard)
+  async updateTrace(
+    @Req() req: { user: { sub: string; role: string } },
+    @Param("id") traceId: string,
+    @Body() dto: UpdateTraceDto
+  ) {
+    return this.tracesService.updateTrace(req.user.sub, req.user.role, traceId, dto);
   }
 
   @Get(":id")

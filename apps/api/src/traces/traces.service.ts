@@ -6,6 +6,7 @@ import {
 import { AuditService } from "../audit.service";
 import { PrismaService } from "../prisma.service";
 import { CreateTraceDto } from "./dto/create-trace.dto";
+import { UpdateTraceDto } from "./dto/update-trace.dto";
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
@@ -205,6 +206,41 @@ export class TracesService {
     ]);
 
     return { ok: true };
+  }
+
+  async updateTrace(userId: string, role: string, traceId: string, dto: UpdateTraceDto) {
+    const trace = await this.prisma.trace.findUnique({
+      where: { id: traceId },
+      select: { id: true, authorId: true }
+    });
+
+    if (!trace) {
+      throw new BadRequestException("TRACE_NOT_FOUND");
+    }
+
+    if (trace.authorId !== userId && !["ADMIN", "OFFICIAL"].includes(role)) {
+      throw new ForbiddenException("TRACE_UPDATE_FORBIDDEN");
+    }
+
+    const content = this.normalizeContent(dto.content);
+    const updated = await this.prisma.trace.update({
+      where: { id: traceId },
+      data: { content }
+    });
+
+    if (role === "OFFICIAL" || role === "ADMIN") {
+      await this.audit.log({
+        actorId: userId,
+        action: "TRACE_UPDATED",
+        targetType: "Trace",
+        targetId: updated.id,
+        metaJson: {
+          length: content.length
+        }
+      });
+    }
+
+    return { id: updated.id, content: updated.content };
   }
 
   private normalizeContent(raw: string) {

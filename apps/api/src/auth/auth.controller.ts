@@ -19,9 +19,11 @@ import {
   JWT_REFRESH_TTL_SECONDS
 } from "./auth.constants";
 import { AuthService } from "./auth.service";
+import { JwtAuthGuard, AuthenticatedRequest } from "./jwt-auth.guard";
 import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
 import { VerifyCodeDto } from "./dto/verify-code.dto";
+import { ChangePasswordDto } from "./dto/change-password.dto";
 
 const baseCookieOptions = {
   httpOnly: true,
@@ -133,6 +135,16 @@ export class AuthController {
     const refreshToken = req.cookies?.[AUTH_REFRESH_COOKIE_NAME];
     await this.authService.logout(refreshToken);
     res.clearCookie(AUTH_REFRESH_COOKIE_NAME, baseCookieOptions);
+    return { ok: true };
+  }
+
+  @Post("change-password")
+  @UseGuards(JwtAuthGuard)
+  async changePassword(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: ChangePasswordDto
+  ) {
+    await this.authService.changePassword(req.user.sub, dto);
     return { ok: true };
   }
 

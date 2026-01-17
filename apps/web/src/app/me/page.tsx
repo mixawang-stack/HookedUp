@@ -25,14 +25,6 @@ type MeResponse = {
   } | null;
 };
 
-type MyTraceItem = {
-  id: string;
-  content: string;
-  createdAt: string;
-  imageUrl?: string | null;
-  replyCount: number;
-};
-
 const parseTags = (value: string) =>
   value
     .split(",")
@@ -54,11 +46,6 @@ export default function MePage() {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [traces, setTraces] = useState<MyTraceItem[]>([]);
-  const [traceCursor, setTraceCursor] = useState<string | null>(null);
-  const [loadingTraces, setLoadingTraces] = useState(false);
-  const [traceStatus, setTraceStatus] = useState<string | null>(null);
-  const [deletingTraceId, setDeletingTraceId] = useState<string | null>(null);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
 
   const authHeader = useMemo(() => {
@@ -99,46 +86,6 @@ export default function MePage() {
       setAvatarPreview(data.maskAvatarUrl ?? null);
     };
     fetchMe().catch(() => setStatus("Failed to load profile."));
-  }, [authHeader]);
-
-  const loadMyTraces = async (nextCursor?: string | null) => {
-    if (!authHeader) {
-      return;
-    }
-    setLoadingTraces(true);
-    setTraceStatus(null);
-    try {
-      const params = new URLSearchParams();
-      if (nextCursor) {
-        params.set("cursor", nextCursor);
-      }
-      const res = await fetch(`${API_BASE}/traces/me?${params.toString()}`, {
-        headers: { ...authHeader }
-      });
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-      const data = (await res.json()) as {
-        items: MyTraceItem[];
-        nextCursor: string | null;
-      };
-      setTraces((prev) => (nextCursor ? [...prev, ...data.items] : data.items));
-      setTraceCursor(data.nextCursor);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to load posts.";
-      setTraceStatus(message);
-    } finally {
-      setLoadingTraces(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!authHeader) {
-      return;
-    }
-    loadMyTraces(null).catch(() => undefined);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authHeader]);
 
   useEffect(() => {
@@ -228,47 +175,24 @@ export default function MePage() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("accessToken");
-    router.push("/login");
-  };
-
-  const handleDeleteTrace = async (traceId: string) => {
-    if (!authHeader) {
-      setTraceStatus("Please sign in again.");
-      return;
-    }
-    const confirmed = window.confirm("Delete this trace? This cannot be undone.");
-    if (!confirmed) {
-      return;
-    }
-    setDeletingTraceId(traceId);
-    setTraceStatus(null);
-    try {
-      const res = await fetch(`${API_BASE}/traces/${traceId}`, {
-        method: "DELETE",
-        headers: { ...authHeader }
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message ?? `HTTP ${res.status}`);
-      }
-      setTraces((prev) => prev.filter((item) => item.id !== traceId));
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to delete trace.";
-      setTraceStatus(message);
-    } finally {
-      setDeletingTraceId(null);
-    }
-  };
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10 text-slate-100">
-      <h1 className="text-2xl font-semibold">My profile</h1>
-      <p className="mt-2 text-sm text-slate-400">
-        Update your profile card and preferences.
-      </p>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          className="rounded-full border border-white/20 px-3 py-1 text-xs text-slate-200"
+          onClick={() => router.back()}
+        >
+          Back
+        </button>
+        <div>
+          <h1 className="text-2xl font-semibold">My profile</h1>
+          <p className="mt-1 text-sm text-slate-400">
+            Update your profile details and preferences.
+          </p>
+        </div>
+      </div>
 
       <div className="mt-6 space-y-6 rounded-2xl border border-white/10 bg-slate-950/80 p-6">
         <div className="flex items-center gap-4">
@@ -381,14 +305,7 @@ export default function MePage() {
 
         {status && <p className="text-xs text-slate-300">{status}</p>}
 
-        <div className="flex items-center justify-between">
-          <button
-            type="button"
-            className="rounded-full border border-rose-400 px-4 py-2 text-xs text-rose-200"
-            onClick={handleLogout}
-          >
-            Sign out
-          </button>
+        <div className="flex items-center justify-end">
           <button
             type="button"
             className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-slate-900"
@@ -398,82 +315,6 @@ export default function MePage() {
             {saving ? "Saving..." : "Save changes"}
           </button>
         </div>
-      </div>
-
-      <div className="mt-8 space-y-4 rounded-2xl border border-white/10 bg-slate-950/80 p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">My traces</h2>
-            <p className="text-xs text-slate-400">
-              Your recent posts in the Hall.
-            </p>
-          </div>
-          <button
-            type="button"
-            className="rounded-full border border-white/20 px-3 py-1 text-xs text-slate-200"
-            onClick={() => loadMyTraces(null)}
-            disabled={loadingTraces}
-          >
-            {loadingTraces ? "Refreshing..." : "Refresh"}
-          </button>
-        </div>
-
-        {traceStatus && <p className="text-xs text-rose-300">{traceStatus}</p>}
-
-        {traces.length === 0 && !loadingTraces ? (
-          <p className="text-sm text-slate-400">
-            You have not posted in the Hall yet.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {traces.map((trace) => (
-              <div
-                key={trace.id}
-                className="rounded-xl border border-white/10 bg-slate-950/60 p-4"
-              >
-                <div className="flex items-center justify-between text-xs text-slate-400">
-                  <span>{new Date(trace.createdAt).toLocaleString()}</span>
-                  <span>{trace.replyCount} replies</span>
-                </div>
-                {trace.imageUrl && (
-                  <div className="mt-3 overflow-hidden rounded-xl bg-slate-900">
-                    <img
-                      src={
-                        trace.imageUrl.startsWith("http")
-                          ? trace.imageUrl
-                          : `${API_BASE}${trace.imageUrl}`
-                      }
-                      alt={trace.content.slice(0, 40)}
-                      className="h-40 w-full object-cover"
-                    />
-                  </div>
-                )}
-                <p className="mt-3 text-sm text-slate-100">{trace.content}</p>
-                <div className="mt-3 flex items-center justify-end">
-                  <button
-                    type="button"
-                    className="rounded-full border border-rose-400/60 px-3 py-1 text-xs text-rose-200"
-                    onClick={() => handleDeleteTrace(trace.id)}
-                    disabled={deletingTraceId === trace.id}
-                  >
-                    {deletingTraceId === trace.id ? "Deleting..." : "Delete"}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {traceCursor && (
-          <button
-            type="button"
-            className="rounded-full border border-white/20 px-4 py-2 text-xs text-slate-200"
-            onClick={() => loadMyTraces(traceCursor)}
-            disabled={loadingTraces}
-          >
-            {loadingTraces ? "Loading..." : "Load more"}
-          </button>
-        )}
       </div>
     </div>
   );

@@ -29,6 +29,7 @@ import {
 import { generateToken, hashToken } from "./auth.utils";
 import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
+import { ChangePasswordDto } from "./dto/change-password.dto";
 
 export type RegisterResult = {
   ok: true;
@@ -219,6 +220,30 @@ export class AuthService {
     ]);
 
     return { ok: true };
+  }
+
+  async changePassword(userId: string, dto: ChangePasswordDto): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, passwordHash: true, status: true }
+    });
+    if (!user) {
+      throw new UnauthorizedException("USER_NOT_FOUND");
+    }
+    if (user.status === "BANNED" || user.status === "DELETED") {
+      throw new ForbiddenException("USER_NOT_ACTIVE");
+    }
+
+    const passwordOk = await argon2.verify(user.passwordHash, dto.currentPassword);
+    if (!passwordOk) {
+      throw new UnauthorizedException("INVALID_CREDENTIALS");
+    }
+
+    const passwordHash = await argon2.hash(dto.newPassword);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash }
+    });
   }
 
   async verifyEmailCode(email: string, code: string): Promise<{ ok: true }> {
