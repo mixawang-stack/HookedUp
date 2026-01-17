@@ -139,7 +139,7 @@ export default function ProfileOnboardingModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+    <div className="fixed inset-0 z-50 flex min-h-[100svh] items-center justify-center overflow-y-auto px-4 py-10">
       <div className="absolute inset-0 bg-slate-950/70 backdrop-blur" onClick={onClose} />
       <div className="relative w-full max-w-lg rounded-2xl border border-white/10 bg-slate-900/95 p-6 text-slate-100 shadow-[0_30px_80px_rgba(2,6,23,0.8)]">
         <div className="flex items-start justify-between">
