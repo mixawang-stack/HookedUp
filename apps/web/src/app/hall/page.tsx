@@ -915,32 +915,59 @@ export default function HallPage() {
                     </span>
                   )}
                 </div>
-                <button
-                  type="button"
-                  className="group relative flex h-7 w-7 items-center justify-center rounded-full border border-transparent transition hover:scale-110"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    toggleLike(trace.id);
-                  }}
-                  aria-label="Toggle like"
-                >
-                  <svg
-                    className="h-5 w-5 transition-colors"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
+                <div className="flex items-center gap-2 group relative">
+                  <button
+                    type="button"
+                    className="group relative flex h-7 w-7 items-center justify-center rounded-full border border-transparent transition hover:scale-110"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      toggleLike(trace.id);
+                    }}
+                    aria-label="Toggle like"
                   >
-                    <path
-                      d="M12 20.5c-5.05-3.62-8.5-6.7-8.5-10.6 0-2.3 1.74-4.1 4.06-4.1 1.62 0 3.18.9 4.44 2.38 1.26-1.48 2.82-2.38 4.44-2.38 2.32 0 4.06 1.8 4.06 4.1 0 3.9-3.45 6.98-8.5 10.6z"
-                      fill={trace.likedByMe ? "#EF4444" : "none"}
-                      stroke={trace.likedByMe ? "#EF4444" : "#94a3b8"}
-                      strokeWidth="1.6"
-                    />
-                  </svg>
-                </button>
-                <span className="text-xs text-slate-500">
-                  {trace.likeCount ?? 0}
-                </span>
+                    <svg
+                      className="h-5 w-5 transition-colors"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M12 20.5c-5.05-3.62-8.5-6.7-8.5-10.6 0-2.3 1.74-4.1 4.06-4.1 1.62 0 3.18.9 4.44 2.38 1.26-1.48 2.82-2.38 4.44-2.38 2.32 0 4.06 1.8 4.06 4.1 0 3.9-3.45 6.98-8.5 10.6z"
+                        fill={trace.likedByMe ? "#EF4444" : "none"}
+                        stroke={trace.likedByMe ? "#EF4444" : "#94a3b8"}
+                        strokeWidth="1.6"
+                      />
+                    </svg>
+                    {(trace.likeCount ?? 0) > 0 && (
+                      <div className="absolute -top-1 -right-1">
+                        <svg
+                          className="w-5 h-5"
+                          viewBox="0 0 20 20"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <circle cx="10" cy="10" r="9" fill="#EF4444" />
+                          <text
+                            x="10"
+                            y="13.5"
+                            textAnchor="middle"
+                            fill="white"
+                            fontSize="10"
+                            fontWeight="bold"
+                            fontFamily="system-ui, -apple-system, sans-serif"
+                          >
+                            {(trace.likeCount ?? 0) > 9 ? "9+" : trace.likeCount}
+                          </text>
+                        </svg>
+                      </div>
+                    )}
+                  </button>
+                  {(trace.likeCount ?? 0) > 0 && (
+                    <span className="text-xs text-slate-500 group-hover:text-slate-700 transition-colors font-medium">
+                      {trace.likeCount}
+                    </span>
+                  )}
+                </div>
               </div>
               {currentUserId &&
                 trace.author?.id &&
