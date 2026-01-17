@@ -185,7 +185,7 @@ function PrivateListPageInner() {
     };
 
     const openConversation = (item: ConversationItem) => {
-        setActiveConversation(item);
+        setActiveConversation((prev) => (prev?.id === item.id ? null : item));
     };
 
     const closeConversation = () => {
@@ -217,6 +217,15 @@ function PrivateListPageInner() {
                                 ? "border-sky-400/30 bg-slate-900/60 shadow-[0_0_30px_rgba(56,189,248,0.15)]"
                                 : "border-white/10 bg-white/5"
                             }`}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => openConversation(item)}
+                        onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                openConversation(item);
+                            }
+                        }}
                     >
                         <div>
                             <div className="flex items-center gap-2">
@@ -242,9 +251,12 @@ function PrivateListPageInner() {
                             <button
                                 type="button"
                                 className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white"
-                                onClick={() => openConversation(item)}
+                                onClick={(event) => {
+                                    event.stopPropagation();
+                                    openConversation(item);
+                                }}
                             >
-                                Open
+                                {activeConversation?.id === item.id ? "Close" : "Open"}
                             </button>
 
                             <button
@@ -443,8 +455,8 @@ function PrivateConversationDrawer({
                 if (String(errorMessage).includes("PRIVATE_REPLY_REQUIRED")) {
                     throw new Error(
                         isRequestOnly
-                            ? "对方关闭陌生人私聊，你只能发送 1 条请求，等待对方回复。"
-                            : "你最多发送 3 条消息，等待对方回复后可继续。"
+                            ? "This user only accepts a single request until they reply."
+                            : "You can send up to 3 messages until they reply."
                     );
                 }
                 if (String(errorMessage).includes("USER_BLOCKED")) {
@@ -532,8 +544,8 @@ function PrivateConversationDrawer({
             if (normalized.includes("private_reply_required")) {
                 setStatus(
                     isRequestOnly
-                        ? "对方关闭陌生人私聊，你只能发送 1 条请求，等待对方回复。"
-                        : "你最多发送 3 条消息，等待对方回复后可继续。"
+                        ? "This user only accepts a single request until they reply."
+                        : "You can send up to 3 messages until they reply."
                 );
                 setLastFailedMessage(null);
                 return;
@@ -608,7 +620,7 @@ function PrivateConversationDrawer({
                             </p>
                             {isRequestOnly && (
                                 <p className="mt-1 text-[10px] text-amber-300">
-                                    对方关闭陌生人私聊
+                                    This user has closed stranger DMs
                                 </p>
                             )}
                         </div>
@@ -635,7 +647,7 @@ function PrivateConversationDrawer({
                         <div className="mx-auto flex max-w-[640px] flex-col gap-4">
                             {requestPending && (
                                 <div className="rounded-2xl border border-sky-400/30 bg-sky-500/10 p-3 text-xs text-sky-100">
-                                    请求已发送，等待对方回复。
+                                    Request sent. Waiting for their reply.
                                 </div>
                             )}
 
