@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 
 import { emitHostStatus } from "../lib/hostStatus";
 
@@ -55,7 +55,7 @@ type MessagesResponse = {
     isMuted?: boolean;
 };
 
-export default function PrivateListPage() {
+function PrivateListPageInner() {
     const [token, setToken] = useState<string | null>(null);
     const [conversations, setConversations] = useState<ConversationItem[]>([]);
     const [cursor, setCursor] = useState<string | null>(null);
@@ -331,6 +331,14 @@ export default function PrivateListPage() {
                 />
             )}
         </>
+    );
+}
+
+export default function PrivateListPage() {
+    return (
+        <Suspense fallback={null}>
+            <PrivateListPageInner />
+        </Suspense>
     );
 }
 
