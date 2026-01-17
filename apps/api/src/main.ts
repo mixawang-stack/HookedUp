@@ -26,20 +26,26 @@ async function bootstrap() {
     .filter(Boolean);
   const allowAllOrigins =
     corsOrigins.length === 0 || corsOrigins.includes("*");
-  app.enableCors({
-    origin: (origin, callback) => {
-      if (allowAllOrigins || !origin) {
-        callback(null, true);
-        return;
-      }
-      if (corsOrigins.includes(origin)) {
-        callback(null, true);
-        return;
-      }
-      callback(new Error("Not allowed by CORS"), false);
-    },
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    credentials: true
+  app.use((req, res, next) => {
+    const origin = req.headers.origin as string | undefined;
+    if (origin && (allowAllOrigins || corsOrigins.includes(origin))) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Vary", "Origin");
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+      res.setHeader(
+        "Access-Control-Allow-Methods",
+        "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+      );
+      res.setHeader(
+        "Access-Control-Allow-Headers",
+        "Authorization,Content-Type,Accept,Origin,X-Requested-With"
+      );
+    }
+    if (req.method === "OPTIONS") {
+      res.status(204).end();
+      return;
+    }
+    next();
   });
 
   const port = Number(process.env.PORT ?? 3001);
