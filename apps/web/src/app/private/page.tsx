@@ -227,18 +227,35 @@ function PrivateListPageInner() {
                             }
                         }}
                     >
-                        <div>
-                            <div className="flex items-center gap-2">
-                                {item.unreadCount > 0 && (
-                                    <span className="h-2 w-2 rounded-full bg-sky-400 shadow-[0_0_10px_rgba(56,189,248,0.8)]" />
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-white/5 text-xs font-semibold text-slate-200">
+                                {item.otherUser?.maskAvatarUrl ? (
+                                    <img
+                                        src={item.otherUser.maskAvatarUrl}
+                                        alt={item.otherUser?.maskName ?? "Avatar"}
+                                        className="h-10 w-10 rounded-full object-cover"
+                                    />
+                                ) : (
+                                    <span>
+                                        {(item.otherUser?.maskName ?? "A")
+                                            .slice(0, 1)
+                                            .toUpperCase()}
+                                    </span>
                                 )}
-                                <p className="font-semibold text-white">
-                                    {item.otherUser?.maskName ?? "Anonymous"}
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    {item.unreadCount > 0 && (
+                                        <span className="h-2 w-2 rounded-full bg-sky-400 shadow-[0_0_10px_rgba(56,189,248,0.8)]" />
+                                    )}
+                                    <p className="font-semibold text-white">
+                                        {item.otherUser?.maskName ?? "Anonymous"}
+                                    </p>
+                                </div>
+                                <p className="mt-1 text-xs text-slate-300">
+                                    Private room {item.isMuted ? "· Muted" : ""}
                                 </p>
                             </div>
-                            <p className="mt-1 text-xs text-slate-300">
-                                Private room {item.isMuted ? "· Muted" : ""}
-                            </p>
                         </div>
 
                         <div className="flex items-center gap-2">
