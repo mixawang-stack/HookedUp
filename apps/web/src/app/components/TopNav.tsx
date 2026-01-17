@@ -35,9 +35,8 @@ export default function TopNav() {
   const [dismissed, setDismissed] = useState(false);
   const [unreadTotal, setUnreadTotal] = useState(0);
 
-  if (pathname.startsWith("/login") || pathname.startsWith("/register")) {
-    return null;
-  }
+  const hideNav =
+    pathname.startsWith("/login") || pathname.startsWith("/register");
 
   useEffect(() => {
     setToken(localStorage.getItem("accessToken"));
@@ -121,6 +120,10 @@ export default function TopNav() {
     setDismissed(true);
     setShowOnboarding(false);
   };
+
+  if (hideNav) {
+    return null;
+  }
 
   return (
     <nav className="sticky top-0 z-50 bg-slate-900/90 border-b border-white/10 backdrop-blur-lg">
