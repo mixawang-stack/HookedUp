@@ -138,6 +138,7 @@ export default function HallPage() {
   const [traceDetail, setTraceDetail] = useState<TraceDetailResponse | null>(
     null
   );
+  const [likedTraceIds, setLikedTraceIds] = useState<string[]>([]);
   const [replyInput, setReplyInput] = useState("");
   const [postingReply, setPostingReply] = useState(false);
   const [loadingReplies, setLoadingReplies] = useState(false);
@@ -236,7 +237,8 @@ export default function HallPage() {
     }
     setProfileLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/users/${userId}`, {
+      const isSelf = currentUserId && userId === currentUserId;
+      const res = await fetch(isSelf ? `${API_BASE}/me` : `${API_BASE}/users/${userId}`, {
         headers: { ...authHeader }
       });
       if (!res.ok) {
@@ -244,7 +246,13 @@ export default function HallPage() {
         throw new Error(body?.message ?? `HTTP ${res.status}`);
       }
       const data = (await res.json()) as PublicProfile;
-      setProfileCard(data);
+      setProfileCard({
+        id: data.id,
+        maskName: data.maskName ?? (isSelf ? "You" : null),
+        maskAvatarUrl: data.maskAvatarUrl ?? null,
+        bio: data.bio ?? null,
+        preference: data.preference ?? null
+      });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to load profile.";
@@ -278,6 +286,12 @@ export default function HallPage() {
         error instanceof Error ? error.message : "Failed to block user.";
       setStatus(message);
     }
+  };
+
+  const toggleLike = (traceId: string) => {
+    setLikedTraceIds((prev) =>
+      prev.includes(traceId) ? prev.filter((id) => id !== traceId) : [...prev, traceId]
+    );
   };
 
   const reportUser = async (userId: string) => {
@@ -823,51 +837,29 @@ export default function HallPage() {
                     </span>
                   )}
                 </div>
-                {/* View icon - Finger heart gesture */}
-                <div className="group cursor-pointer relative">
+                <button
+                  type="button"
+                  className="group relative flex h-7 w-7 items-center justify-center rounded-full border border-transparent transition hover:scale-110"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    toggleLike(trace.id);
+                  }}
+                  aria-label="Toggle like"
+                >
                   <svg
-                    className="w-6 h-6 transition-all duration-200 group-hover:scale-110"
+                    className="h-5 w-5 transition-colors"
                     viewBox="0 0 24 24"
                     fill="none"
                     xmlns="http://www.w3.org/2000/svg"
                   >
-                    <defs>
-                      <linearGradient id={`handGradient-${trace.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#FBCFE8" />
-                        <stop offset="50%" stopColor="#F9A8D4" />
-                        <stop offset="100%" stopColor="#F472B6" />
-                      </linearGradient>
-                    </defs>
-                    {/* Hand/arm base */}
-                    <ellipse
-                      cx="12"
-                      cy="18"
-                      rx="3"
-                      ry="2.5"
-                      fill={`url(#handGradient-${trace.id})`}
-                      className="group-hover:opacity-90 transition-opacity"
-                    />
-                    {/* Thumb - forming heart shape */}
                     <path
-                      d="M8 10 Q7 8 6 9 Q5 10 6 11 Q7 12 8 11 Q9 12 10 11 Q11 10 10 9 Q9 8 8 10 Z"
-                      fill={`url(#handGradient-${trace.id})`}
-                      className="group-hover:opacity-90 transition-opacity group-hover:animate-pulse"
-                    />
-                    {/* Index finger - forming heart shape */}
-                    <path
-                      d="M16 10 Q17 8 18 9 Q19 10 18 11 Q17 12 16 11 Q15 12 14 11 Q13 10 14 9 Q15 8 16 10 Z"
-                      fill={`url(#handGradient-${trace.id})`}
-                      className="group-hover:opacity-90 transition-opacity group-hover:animate-pulse"
-                    />
-                    {/* Heart shape in the middle */}
-                    <path
-                      d="M12 8 Q10 6 8 8 Q8 10 10 12 Q12 14 14 12 Q16 10 16 8 Q14 6 12 8 Z"
-                      fill="#EF4444"
-                      className="group-hover:fill-rose-500 transition-colors group-hover:animate-pulse"
-                      opacity="0.9"
+                      d="M12 20.5c-5.05-3.62-8.5-6.7-8.5-10.6 0-2.3 1.74-4.1 4.06-4.1 1.62 0 3.18.9 4.44 2.38 1.26-1.48 2.82-2.38 4.44-2.38 2.32 0 4.06 1.8 4.06 4.1 0 3.9-3.45 6.98-8.5 10.6z"
+                      fill={likedTraceIds.includes(trace.id) ? "#EF4444" : "none"}
+                      stroke={likedTraceIds.includes(trace.id) ? "#EF4444" : "#94a3b8"}
+                      strokeWidth="1.6"
                     />
                   </svg>
-                </div>
+                </button>
               </div>
               {currentUserId &&
                 trace.author?.id &&

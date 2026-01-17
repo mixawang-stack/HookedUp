@@ -110,7 +110,8 @@ export default function RoomPage() {
     }
     setProfileLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/users/${targetUserId}`, {
+      const isSelf = userId && targetUserId === userId;
+      const res = await fetch(isSelf ? `${API_BASE}/me` : `${API_BASE}/users/${targetUserId}`, {
         headers: { ...authHeader }
       });
       if (!res.ok) {
@@ -123,7 +124,13 @@ export default function RoomPage() {
         throw new Error(errorMessage);
       }
       const data = await res.json();
-      setProfileCard(data);
+      setProfileCard({
+        id: data.id,
+        maskName: data.maskName ?? (isSelf ? "You" : null),
+        maskAvatarUrl: data.maskAvatarUrl ?? null,
+        bio: data.bio ?? null,
+        preference: data.preference ?? null
+      });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to load profile.";

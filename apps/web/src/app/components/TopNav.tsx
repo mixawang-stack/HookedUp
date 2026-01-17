@@ -173,7 +173,7 @@ export default function TopNav() {
 
   return (
     <nav className="sticky top-0 z-50 border-b border-white/10 bg-slate-900/90 backdrop-blur-lg">
-      <div className="mx-auto grid w-full max-w-6xl grid-cols-[1fr_auto_1fr] items-center px-4 py-3">
+      <div className="mx-auto grid w-full max-w-7xl grid-cols-[1fr_auto_1fr] items-center px-6 py-3">
         <div />
         <div className="flex items-center justify-center gap-3">
           {NAV_ITEMS.map((item) => {
@@ -204,7 +204,7 @@ export default function TopNav() {
           })}
         </div>
         {me && (
-          <div className="flex items-center justify-end gap-3">
+          <div className="flex items-center justify-end gap-3 pr-1">
             <div className="relative" ref={menuRef}>
               <button
                 type="button"

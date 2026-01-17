@@ -26,6 +26,7 @@ export default function MyPostsPage() {
   const [deletingTraceId, setDeletingTraceId] = useState<string | null>(null);
   const [editingTraceId, setEditingTraceId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState("");
+  const [savingTraceId, setSavingTraceId] = useState<string | null>(null);
 
   const authHeader = useMemo(() => {
     if (!token) return null;
@@ -127,6 +128,7 @@ export default function MyPostsPage() {
       return;
     }
     setTraceStatus(null);
+    setSavingTraceId(traceId);
     try {
       const res = await fetch(`${API_BASE}/traces/${traceId}`, {
         method: "PATCH",
@@ -153,6 +155,8 @@ export default function MyPostsPage() {
       const message =
         error instanceof Error ? error.message : "Failed to update post.";
       setTraceStatus(message);
+    } finally {
+      setSavingTraceId(null);
     }
   };
 
@@ -243,8 +247,9 @@ export default function MyPostsPage() {
                         type="button"
                         className="rounded-full bg-white px-4 py-1 text-xs font-semibold text-slate-900"
                         onClick={() => handleUpdateTrace(trace.id)}
+                        disabled={savingTraceId === trace.id}
                       >
-                        Save
+                        {savingTraceId === trace.id ? "Saving..." : "Save"}
                       </button>
                     </div>
                   </div>
@@ -252,23 +257,25 @@ export default function MyPostsPage() {
                   <p className="mt-3 text-sm text-slate-100">{trace.content}</p>
                 )}
 
-                <div className="mt-3 flex items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    className="rounded-full border border-white/20 px-3 py-1 text-xs text-slate-200"
-                    onClick={() => startEdit(trace)}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-full border border-rose-400/60 px-3 py-1 text-xs text-rose-200"
-                    onClick={() => handleDeleteTrace(trace.id)}
-                    disabled={deletingTraceId === trace.id}
-                  >
-                    {deletingTraceId === trace.id ? "Deleting..." : "Delete"}
-                  </button>
-                </div>
+                {editingTraceId !== trace.id && (
+                  <div className="mt-3 flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      className="rounded-full border border-white/20 px-3 py-1 text-xs text-slate-200"
+                      onClick={() => startEdit(trace)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-full border border-rose-400/60 px-3 py-1 text-xs text-rose-200"
+                      onClick={() => handleDeleteTrace(trace.id)}
+                      disabled={deletingTraceId === trace.id}
+                    >
+                      {deletingTraceId === trace.id ? "Deleting..." : "Delete"}
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
