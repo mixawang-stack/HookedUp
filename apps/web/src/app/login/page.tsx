@@ -87,7 +87,7 @@ function LoginFormContent() {
 
   return (
     <main className="flex min-h-[100svh] w-full items-center justify-center px-4 py-12">
-      <div className="grid w-full max-w-[min(1100px,92vw)] gap-10 md:grid-cols-[minmax(0,420px)_minmax(0,480px)]">
+      <div className="mx-auto grid w-full max-w-5xl gap-10 md:grid-cols-2">
         <section className="flex flex-col gap-6 rounded-3xl border border-white/15 bg-black/40 p-8 shadow-[0_25px_60px_rgba(2,6,23,0.65)] backdrop-blur-sm">
           <h1 className="text-2xl font-semibold text-white">Login</h1>
           <p className="mt-2 text-sm text-slate-300">
