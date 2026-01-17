@@ -27,6 +27,7 @@ export default function TopNav() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const [unreadTotal, setUnreadTotal] = useState(0);
 
   if (pathname.startsWith("/login") || pathname.startsWith("/register")) {
     return null;
@@ -49,15 +50,44 @@ export default function TopNav() {
     []
   );
 
+  const fetchUnreadTotal = useCallback(async (accessToken: string) => {
+    const res = await fetch(`${API_BASE}/private/unread-total`, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (!res.ok) {
+      return;
+    }
+    const data = (await res.json()) as { total?: number };
+    setUnreadTotal(Number.isFinite(data.total) ? data.total! : 0);
+  }, []);
+
   useEffect(() => {
     if (!token) {
       setMe(null);
+      setUnreadTotal(0);
       return;
     }
     fetchMe(token)
       .then((data) => setMe(data))
       .catch(() => setMe(null));
   }, [token, fetchMe]);
+
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+    fetchUnreadTotal(token).catch(() => undefined);
+  }, [token, fetchUnreadTotal, pathname]);
+
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+    const interval = window.setInterval(() => {
+      fetchUnreadTotal(token).catch(() => undefined);
+    }, 20000);
+    return () => window.clearInterval(interval);
+  }, [token, fetchUnreadTotal]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -93,6 +123,8 @@ export default function TopNav() {
           {NAV_ITEMS.map((item) => {
             const isActive =
               pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const isPrivate = item.href === "/private";
+            const showUnread = isPrivate && unreadTotal > 0;
             return (
               <Link
                 key={item.href}
@@ -103,7 +135,14 @@ export default function TopNav() {
                     : "text-slate-300 hover:text-white"
                 }`}
               >
-                {item.label}
+                <span className="inline-flex items-center gap-2">
+                  {item.label}
+                  {showUnread && (
+                    <span className="rounded-full bg-sky-400/90 px-2 py-0.5 text-[10px] font-semibold text-slate-900">
+                      {unreadTotal > 99 ? "99+" : unreadTotal}
+                    </span>
+                  )}
+                </span>
               </Link>
             );
           })}

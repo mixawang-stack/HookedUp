@@ -22,6 +22,7 @@ type ConversationItem = {
         id: string;
         maskName: string | null;
         maskAvatarUrl: string | null;
+        allowStrangerPrivate?: boolean | null;
     };
     isMuted: boolean;
     mutedAt: string | null;
@@ -351,8 +352,25 @@ function PrivateConversationDrawer({
     const [status, setStatus] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [sending, setSending] = useState(false);
+    const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(
+        null
+    );
     const [me, setMe] = useState<SenderProfile | null>(null);
     const [isMuted, setIsMuted] = useState(false);
+    const otherUserId = conversation.otherUser?.id ?? null;
+    const isRequestOnly = conversation.otherUser?.allowStrangerPrivate === false;
+
+    const otherReplied = useMemo(() => {
+        if (!otherUserId) return false;
+        return messages.some((message) => message.senderId === otherUserId);
+    }, [messages, otherUserId]);
+
+    const hasSentRequest = useMemo(() => {
+        if (!me?.id) return false;
+        return messages.some((message) => message.senderId === me.id);
+    }, [messages, me?.id]);
+
+    const requestPending = isRequestOnly && hasSentRequest && !otherReplied;
 
     const authHeader = useMemo(() => {
         if (!token) return null;
@@ -416,7 +434,9 @@ function PrivateConversationDrawer({
                 }
                 if (String(errorMessage).includes("PRIVATE_REPLY_REQUIRED")) {
                     throw new Error(
-                        "You can send up to 3 messages until they reply."
+                        isRequestOnly
+                            ? "对方关闭陌生人私聊，你只能发送 1 条请求，等待对方回复。"
+                            : "你最多发送 3 条消息，等待对方回复后可继续。"
                     );
                 }
                 if (String(errorMessage).includes("USER_BLOCKED")) {
@@ -455,12 +475,13 @@ function PrivateConversationDrawer({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [authHeader, conversation.id]);
 
-    const sendMessage = async () => {
+    const sendMessage = async (overrideContent?: string) => {
         if (!authHeader) {
             setStatus("Please sign in to send messages.");
             return;
         }
-        if (!input.trim()) return;
+        const content = (overrideContent ?? input).trim();
+        if (!content) return;
 
         setSending(true);
         setStatus(null);
@@ -474,7 +495,7 @@ function PrivateConversationDrawer({
                         "Content-Type": "application/json",
                         ...authHeader
                     },
-                    body: JSON.stringify({ content: input })
+                    body: JSON.stringify({ content })
                 }
             );
 
@@ -493,10 +514,32 @@ function PrivateConversationDrawer({
 
             const message = (await res.json()) as MessageItem;
             setMessages((prev) => [...prev, message]);
-            setInput("");
+            if (!overrideContent || content === input.trim()) {
+                setInput("");
+            }
+            setLastFailedMessage(null);
         } catch (error) {
-            const message = error instanceof Error ? error.message : "Failed to send.";
-            setStatus(message);
+            const rawMessage = error instanceof Error ? error.message : "Failed to send.";
+            const normalized = rawMessage.toLowerCase();
+            if (normalized.includes("private_reply_required")) {
+                setStatus(
+                    isRequestOnly
+                        ? "对方关闭陌生人私聊，你只能发送 1 条请求，等待对方回复。"
+                        : "你最多发送 3 条消息，等待对方回复后可继续。"
+                );
+                setLastFailedMessage(null);
+                return;
+            }
+            const isNetwork =
+                error instanceof TypeError ||
+                normalized.includes("network") ||
+                normalized.includes("fetch");
+            setStatus(
+                isNetwork
+                    ? "Network issue. Check your connection and retry."
+                    : rawMessage
+            );
+            setLastFailedMessage(content);
         } finally {
             setSending(false);
         }
@@ -555,6 +598,11 @@ function PrivateConversationDrawer({
                             <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
                                 Private chat
                             </p>
+                            {isRequestOnly && (
+                                <p className="mt-1 text-[10px] text-amber-300">
+                                    对方关闭陌生人私聊
+                                </p>
+                            )}
                         </div>
                     </div>
 
@@ -577,9 +625,27 @@ function PrivateConversationDrawer({
                 <div className="flex flex-1 flex-col overflow-hidden">
                     <div className="flex-1 overflow-y-auto px-4 py-6">
                         <div className="mx-auto flex max-w-[640px] flex-col gap-4">
+                            {requestPending && (
+                                <div className="rounded-2xl border border-sky-400/30 bg-sky-500/10 p-3 text-xs text-sky-100">
+                                    请求已发送，等待对方回复。
+                                </div>
+                            )}
+
                             {status && (
                                 <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-100">
-                                    {status}
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <span>{status}</span>
+                                        {lastFailedMessage && (
+                                            <button
+                                                type="button"
+                                                className="rounded-full border border-rose-200/40 px-3 py-1 text-[11px] text-rose-100"
+                                                onClick={() => sendMessage(lastFailedMessage)}
+                                                disabled={sending}
+                                            >
+                                                Retry send
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             )}
 

@@ -11,6 +11,7 @@ type ProfileCardProps = {
     preference?: {
       vibeTags?: string[] | null;
       interests?: string[] | null;
+      allowStrangerPrivate?: boolean | null;
     } | null;
   };
   mutedHint?: string | null;
@@ -31,6 +32,7 @@ export default function ProfileCard({
   const [starting, setStarting] = useState(false);
   const vibeTags = profile.preference?.vibeTags ?? [];
   const interests = profile.preference?.interests ?? [];
+  const allowStrangerPrivate = profile.preference?.allowStrangerPrivate ?? true;
 
   const handleStart = async () => {
     if (starting) {
@@ -115,6 +117,13 @@ export default function ProfileCard({
           </div>
         )}
 
+        {!allowStrangerPrivate && (
+          <p className="mt-4 rounded-xl border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+            This user accepts private chats after they reply. You can send a
+            one-time request.
+          </p>
+        )}
+
         {mutedHint && (
           <p className="mt-4 rounded-xl border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
             {mutedHint}
@@ -128,7 +137,11 @@ export default function ProfileCard({
             onClick={handleStart}
             disabled={starting}
           >
-            {starting ? "Starting..." : "Start private chat"}
+            {starting
+              ? "Starting..."
+              : allowStrangerPrivate
+                ? "Start private chat"
+                : "Request private chat"}
           </button>
           <div className="flex items-center justify-between gap-2 text-xs">
             {onReport && (

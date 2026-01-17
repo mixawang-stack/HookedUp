@@ -69,6 +69,7 @@ export default function RoomPage() {
   const [loading, setLoading] = useState(true);
   const [messageInput, setMessageInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(null);
 
   const [showInvite, setShowInvite] = useState(false);
   const [inviteCandidates, setInviteCandidates] = useState<InviteCandidate[]>([]);
@@ -88,6 +89,7 @@ export default function RoomPage() {
     preference?: {
       vibeTags?: string[] | null;
       interests?: string[] | null;
+      allowStrangerPrivate?: boolean | null;
     } | null;
   } | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
@@ -113,7 +115,12 @@ export default function RoomPage() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message ?? `HTTP ${res.status}`);
+        const errorMessage = body?.message ?? `HTTP ${res.status}`;
+        if (errorMessage === "PRIVATE_NOT_ALLOWED") {
+          setStatus("This user only accepts private chats after they reply.");
+          return;
+        }
+        throw new Error(errorMessage);
       }
       const data = await res.json();
       setProfileCard(data);
@@ -394,11 +401,11 @@ export default function RoomPage() {
     }
   };
 
-  const handleSendMessage = async () => {
+  const handleSendMessage = async (overrideContent?: string) => {
     if (!roomId) {
       return;
     }
-    const content = messageInput.trim();
+    const content = (overrideContent ?? messageInput).trim();
     if (!content) {
       return;
     }
@@ -416,9 +423,12 @@ export default function RoomPage() {
           createdAt: new Date().toISOString()
         };
         setMessages((prev) => [...prev, tempMessage]);
-        setMessageInput("");
+        if (!overrideContent || content === messageInput.trim()) {
+          setMessageInput("");
+        }
         // Send via socket - the server will broadcast back the real message
         socketRef.current.emit("room:message:send", { roomId, content });
+        setLastFailedMessage(null);
         setSending(false);
         return;
       }
@@ -440,10 +450,23 @@ export default function RoomPage() {
       }
       const message = (await res.json()) as RoomMessage;
       setMessages((prev) => [...prev, message]);
-      setMessageInput("");
+      if (!overrideContent || content === messageInput.trim()) {
+        setMessageInput("");
+      }
+      setLastFailedMessage(null);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to send.";
-      setStatus(message);
+      const rawMessage = error instanceof Error ? error.message : "Failed to send.";
+      const normalized = rawMessage.toLowerCase();
+      const isNetwork =
+        error instanceof TypeError ||
+        normalized.includes("network") ||
+        normalized.includes("fetch");
+      setStatus(
+        isNetwork
+          ? "Network issue. Check your connection and retry."
+          : rawMessage
+      );
+      setLastFailedMessage(content);
     } finally {
       setSending(false);
     }
@@ -689,7 +712,21 @@ export default function RoomPage() {
           )}
         </div>
 
-        {status && <p className="mt-3 text-sm text-rose-400">{status}</p>}
+        {status && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-rose-400">
+            <span>{status}</span>
+            {lastFailedMessage && (
+              <button
+                type="button"
+                className="rounded-full border border-rose-300/60 px-3 py-1 text-xs text-rose-200"
+                onClick={() => handleSendMessage(lastFailedMessage)}
+                disabled={sending}
+              >
+                Retry send
+              </button>
+            )}
+          </div>
+        )}
       </section>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
@@ -758,6 +795,20 @@ export default function RoomPage() {
 
         <aside className="sticky top-6">
           <div className="rounded-2xl border border-white/10 bg-slate-950/80 p-5 shadow-[0_25px_70px_rgba(2,6,23,0.7)] space-y-6">
+            <div className="space-y-3 rounded-2xl border border-white/10 bg-slate-900/60 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
+                Welcome
+              </p>
+              <p className="text-xs text-slate-300">
+                Keep it warm, be respectful, and keep the room flowing.
+              </p>
+              <ul className="space-y-1 text-xs text-slate-400">
+                <li>Share the space. Let others speak.</li>
+                <li>No harassment, no spamming.</li>
+                <li>Stay on topic: {room.title}.</li>
+              </ul>
+            </div>
+
             <div className="space-y-3">
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
                 Say something

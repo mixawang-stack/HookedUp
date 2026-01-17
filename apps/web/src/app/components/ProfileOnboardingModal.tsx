@@ -13,6 +13,7 @@ type MeProfile = {
   preference?: {
     vibeTags?: string[] | null;
     interests?: string[] | null;
+    allowStrangerPrivate?: boolean | null;
   } | null;
 };
 
@@ -42,6 +43,9 @@ export default function ProfileOnboardingModal({
   );
   const [interests, setInterests] = useState(
     (me.preference?.interests ?? []).join(", ")
+  );
+  const [allowStrangerPrivate, setAllowStrangerPrivate] = useState(
+    me.preference?.allowStrangerPrivate ?? true
   );
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(
@@ -111,7 +115,8 @@ export default function ProfileOnboardingModal({
         },
         body: JSON.stringify({
           vibeTagsJson: parseTags(vibeTags),
-          interestsJson: parseTags(interests)
+          interestsJson: parseTags(interests),
+          allowStrangerPrivate
         })
       });
       if (!prefRes.ok) {
@@ -225,6 +230,16 @@ export default function ProfileOnboardingModal({
               onChange={(event) => setInterests(event.target.value)}
               placeholder="Art, travel, late-night chats"
             />
+          </label>
+
+          <label className="flex items-center gap-2 text-xs text-slate-300">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-white/20 bg-slate-900/60"
+              checked={allowStrangerPrivate}
+              onChange={(event) => setAllowStrangerPrivate(event.target.checked)}
+            />
+            <span>Allow strangers to request private chats</span>
           </label>
         </div>
 

@@ -94,6 +94,7 @@ type PublicProfile = {
   preference?: {
     vibeTags?: string[] | null;
     interests?: string[] | null;
+    allowStrangerPrivate?: boolean | null;
   } | null;
 };
 
@@ -193,7 +194,12 @@ export default function HallPage() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message ?? `HTTP ${res.status}`);
+        const errorMessage = body?.message ?? `HTTP ${res.status}`;
+        if (errorMessage === "PRIVATE_NOT_ALLOWED") {
+          setStatus("This user only accepts private chats after they reply.");
+          return;
+        }
+        throw new Error(errorMessage);
       }
       const data = (await res.json()) as { conversationId: string };
       router.push(`/private?conversationId=${data.conversationId}`);
