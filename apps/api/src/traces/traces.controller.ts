@@ -72,6 +72,24 @@ export class TracesController {
     return this.tracesService.updateTrace(req.user.sub, req.user.role, traceId, dto);
   }
 
+  @Post(":id/like")
+  @UseGuards(JwtAuthGuard)
+  async likeTrace(
+    @Req() req: { user: { sub: string } },
+    @Param("id") traceId: string
+  ) {
+    return this.tracesService.likeTrace(req.user.sub, traceId);
+  }
+
+  @Delete(":id/like")
+  @UseGuards(JwtAuthGuard)
+  async unlikeTrace(
+    @Req() req: { user: { sub: string } },
+    @Param("id") traceId: string
+  ) {
+    return this.tracesService.unlikeTrace(req.user.sub, traceId);
+  }
+
   @Get(":id")
   async getTrace(
     @Param("id") traceId: string,

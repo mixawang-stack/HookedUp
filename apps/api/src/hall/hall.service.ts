@@ -5,7 +5,7 @@ import { PrismaService } from "../prisma.service";
 export class HallService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getHall() {
+  async getHall(userId?: string) {
     const rooms = await this.prisma.room.findMany({
       where: { isOfficial: true },
       select: {
@@ -46,7 +46,15 @@ export class HallService {
             }
           }
         },
-        _count: { select: { replies: true } }
+        _count: { select: { replies: true, likes: true } },
+        ...(userId
+          ? {
+              likes: {
+                where: { userId },
+                select: { id: true }
+              }
+            }
+          : {})
       }
     });
 
@@ -58,6 +66,8 @@ export class HallService {
       imageHeight: trace.imageHeight,
       createdAt: trace.createdAt,
       replyCount: trace._count.replies,
+      likeCount: trace._count.likes,
+      likedByMe: userId ? (trace as { likes?: { id: string }[] }).likes?.length > 0 : false,
       author: trace.author
         ? {
             id: trace.author.id,

@@ -138,6 +138,7 @@ model User {
   decidedJoinRequests      RoomJoinRequest[]         @relation("RoomJoinRequestDecider")
   traces                   Trace[]                   @relation("TraceAuthor")
   traceReplies             TraceReply[]              @relation("TraceReplyAuthor")
+  traceLikes               TraceLike[]
   roomMessagesSent         RoomMessage[]             @relation("RoomMessagesSent")
   conversationParticipants ConversationParticipant[]
   intentRequests           IntentOffline[]           @relation("IntentRequester")
@@ -464,6 +465,7 @@ model Trace {
 
   author  User?        @relation("TraceAuthor", fields: [authorId], references: [id])
   replies TraceReply[]
+  likes   TraceLike[]
 }
 
 model TraceReply {
@@ -475,6 +477,20 @@ model TraceReply {
 
   trace  Trace @relation(fields: [traceId], references: [id])
   author User  @relation("TraceReplyAuthor", fields: [authorId], references: [id])
+}
+
+model TraceLike {
+  id        String   @id @default(uuid())
+  traceId   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  trace Trace @relation(fields: [traceId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@unique([traceId, userId])
+  @@index([traceId])
+  @@index([userId])
 }
 
 model Conversation {

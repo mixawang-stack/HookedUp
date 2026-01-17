@@ -109,7 +109,7 @@ export class TracesService {
             role: true
           }
         },
-        _count: { select: { replies: true } }
+        _count: { select: { replies: true, likes: true } }
       }
     });
 
@@ -146,6 +146,7 @@ export class TracesService {
         imageWidth: trace.imageWidth,
         imageHeight: trace.imageHeight,
         replyCount: trace._count.replies,
+        likeCount: trace._count.likes,
         author: trace.author
       },
       replies: replies.map((reply) => ({
@@ -241,6 +242,46 @@ export class TracesService {
     }
 
     return { id: updated.id, content: updated.content };
+  }
+
+  async likeTrace(userId: string, traceId: string) {
+    const trace = await this.prisma.trace.findUnique({
+      where: { id: traceId },
+      select: { id: true }
+    });
+    if (!trace) {
+      throw new BadRequestException("TRACE_NOT_FOUND");
+    }
+
+    try {
+      await this.prisma.traceLike.create({
+        data: { traceId, userId }
+      });
+    } catch (error) {
+      if (
+        !(
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2002"
+        )
+      ) {
+        throw error;
+      }
+    }
+
+    const likeCount = await this.prisma.traceLike.count({
+      where: { traceId }
+    });
+    return { traceId, likeCount, likedByMe: true };
+  }
+
+  async unlikeTrace(userId: string, traceId: string) {
+    await this.prisma.traceLike.deleteMany({
+      where: { traceId, userId }
+    });
+    const likeCount = await this.prisma.traceLike.count({
+      where: { traceId }
+    });
+    return { traceId, likeCount, likedByMe: false };
   }
 
   private normalizeContent(raw: string) {

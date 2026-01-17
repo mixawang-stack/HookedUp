@@ -78,6 +78,8 @@ type TraceItem = {
   content: string;
   createdAt: string;
   replyCount: number;
+  likeCount?: number;
+  likedByMe?: boolean;
   author: TraceAuthor;
   imageUrl?: string | null;
   imageWidth?: number | null;
@@ -138,7 +140,6 @@ export default function HallPage() {
   const [traceDetail, setTraceDetail] = useState<TraceDetailResponse | null>(
     null
   );
-  const [likedTraceIds, setLikedTraceIds] = useState<string[]>([]);
   const [replyInput, setReplyInput] = useState("");
   const [postingReply, setPostingReply] = useState(false);
   const [loadingReplies, setLoadingReplies] = useState(false);
@@ -186,7 +187,9 @@ export default function HallPage() {
   }, [authHeader]);
 
   const fetchHall = async () => {
-    const res = await fetch(`${API_BASE}/hall`);
+    const res = await fetch(`${API_BASE}/hall`, {
+      headers: authHeader ? { ...authHeader } : undefined
+    });
     if (!res.ok) {
       setStatus("Failed to load the Hall.");
       return;
@@ -288,10 +291,85 @@ export default function HallPage() {
     }
   };
 
-  const toggleLike = (traceId: string) => {
-    setLikedTraceIds((prev) =>
-      prev.includes(traceId) ? prev.filter((id) => id !== traceId) : [...prev, traceId]
+  const toggleLike = async (traceId: string) => {
+    if (!authHeader) {
+      setStatus("Please sign in to like a post.");
+      return;
+    }
+    const trace = hall?.traces.find((item) => item.id === traceId);
+    const liked = Boolean(trace?.likedByMe);
+    const nextLiked = !liked;
+    setHall((prev) =>
+      prev
+        ? {
+            ...prev,
+            traces: prev.traces.map((item) =>
+              item.id === traceId
+                ? {
+                    ...item,
+                    likedByMe: nextLiked,
+                    likeCount: Math.max(
+                      0,
+                      (item.likeCount ?? 0) + (nextLiked ? 1 : -1)
+                    )
+                  }
+                : item
+            )
+          }
+        : prev
     );
+
+    try {
+      const res = await fetch(`${API_BASE}/traces/${traceId}/like`, {
+        method: nextLiked ? "POST" : "DELETE",
+        headers: { ...authHeader }
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.message ?? `HTTP ${res.status}`);
+      }
+      const data = (await res.json()) as {
+        traceId: string;
+        likeCount: number;
+        likedByMe: boolean;
+      };
+      setHall((prev) =>
+        prev
+          ? {
+              ...prev,
+              traces: prev.traces.map((item) =>
+                item.id === data.traceId
+                  ? {
+                      ...item,
+                      likedByMe: data.likedByMe,
+                      likeCount: data.likeCount
+                    }
+                  : item
+              )
+            }
+          : prev
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to update like.";
+      setStatus(message);
+      setHall((prev) =>
+        prev
+          ? {
+              ...prev,
+              traces: prev.traces.map((item) =>
+                item.id === traceId
+                  ? {
+                      ...item,
+                      likedByMe: liked,
+                      likeCount: item.likeCount ?? 0
+                    }
+                  : item
+              )
+            }
+          : prev
+      );
+    }
   };
 
   const reportUser = async (userId: string) => {
@@ -854,12 +932,15 @@ export default function HallPage() {
                   >
                     <path
                       d="M12 20.5c-5.05-3.62-8.5-6.7-8.5-10.6 0-2.3 1.74-4.1 4.06-4.1 1.62 0 3.18.9 4.44 2.38 1.26-1.48 2.82-2.38 4.44-2.38 2.32 0 4.06 1.8 4.06 4.1 0 3.9-3.45 6.98-8.5 10.6z"
-                      fill={likedTraceIds.includes(trace.id) ? "#EF4444" : "none"}
-                      stroke={likedTraceIds.includes(trace.id) ? "#EF4444" : "#94a3b8"}
+                      fill={trace.likedByMe ? "#EF4444" : "none"}
+                      stroke={trace.likedByMe ? "#EF4444" : "#94a3b8"}
                       strokeWidth="1.6"
                     />
                   </svg>
                 </button>
+                <span className="text-xs text-slate-500">
+                  {trace.likeCount ?? 0}
+                </span>
               </div>
               {currentUserId &&
                 trace.author?.id &&
