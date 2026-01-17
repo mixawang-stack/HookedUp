@@ -1079,7 +1079,16 @@ export class RoomsService {
       where: { roomId },
       orderBy: { createdAt: "desc" },
       take,
-      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {})
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      include: {
+        sender: {
+          select: {
+            id: true,
+            maskName: true,
+            maskAvatarUrl: true
+          }
+        }
+      }
     });
 
     const nextCursor = messages.length === take ? messages[messages.length - 1].id : null;
@@ -1096,6 +1105,15 @@ export class RoomsService {
         roomId,
         senderId: userId,
         content: content.trim()
+      },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            maskName: true,
+            maskAvatarUrl: true
+          }
+        }
       }
     });
   }

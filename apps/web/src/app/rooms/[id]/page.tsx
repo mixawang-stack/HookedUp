@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { io, Socket } from "socket.io-client";
 
 import { emitHostStatus } from "../../lib/hostStatus";
+import ProfileCard from "../../components/ProfileCard";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
@@ -36,6 +37,11 @@ type RoomMessage = {
   senderId: string;
   content: string;
   createdAt: string;
+  sender?: {
+    id: string;
+    maskName: string | null;
+    maskAvatarUrl: string | null;
+  } | null;
 };
 
 type MessagesResponse = {
@@ -74,6 +80,18 @@ export default function RoomPage() {
   const [shareStatus, setShareStatus] = useState<string | null>(null);
   const [shareLoading, setShareLoading] = useState(false);
 
+  const [profileCard, setProfileCard] = useState<{
+    id: string;
+    maskName: string | null;
+    maskAvatarUrl: string | null;
+    bio: string | null;
+    preference?: {
+      vibeTags?: string[] | null;
+      interests?: string[] | null;
+    } | null;
+  } | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+
   const socketRef = useRef<Socket | null>(null);
 
   const authHeader = useMemo(() => {
@@ -82,6 +100,55 @@ export default function RoomPage() {
     }
     return { Authorization: `Bearer ${token}` };
   }, [token]);
+
+  const openProfileCard = async (targetUserId: string) => {
+    if (!authHeader) {
+      setStatus("Please sign in to view profiles.");
+      return;
+    }
+    setProfileLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/users/${targetUserId}`, {
+        headers: { ...authHeader }
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.message ?? `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      setProfileCard(data);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to load profile.";
+      setStatus(message);
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  const startConversation = async (targetUserId: string) => {
+    if (!authHeader) {
+      setStatus("Please sign in to start a private conversation.");
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/private/conversations/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeader },
+        body: JSON.stringify({ userId: targetUserId })
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.message ?? `HTTP ${res.status}`);
+      }
+      const data = (await res.json()) as { conversationId: string };
+      router.push(`/private?conversationId=${data.conversationId}`);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to start conversation.";
+      setStatus(message);
+    }
+  };
 
   useEffect(() => {
     setToken(localStorage.getItem("accessToken"));
@@ -498,7 +565,8 @@ export default function RoomPage() {
   const isOwner = room.currentUserRole === "OWNER";
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-6 px-4 py-6 lg:px-6 lg:py-8">
+    <>
+      <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-6 px-4 py-6 lg:px-6 lg:py-8">
       <section className="rounded-2xl border border-white/10 bg-slate-950/80 px-6 py-5 shadow-[0_30px_60px_rgba(2,6,23,0.6)]">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -564,8 +632,38 @@ export default function RoomPage() {
           >
             {messages.map((message) => {
               const isSelf = message.senderId === userId;
+              const senderName = message.sender?.maskName ?? "Member";
               return (
-                <div key={message.id} className={`flex ${isSelf ? "justify-end" : "justify-start"}`}>
+                <div
+                  key={message.id}
+                  className={`flex items-end gap-3 ${
+                    isSelf ? "justify-end" : "justify-start"
+                  }`}
+                >
+                  {!isSelf && (
+                    <button
+                      type="button"
+                      className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-white/10"
+                      onClick={() => {
+                        if (message.sender?.id) {
+                          openProfileCard(message.sender.id);
+                        }
+                      }}
+                      aria-label="Open profile"
+                    >
+                      {message.sender?.maskAvatarUrl ? (
+                        <img
+                          src={message.sender.maskAvatarUrl}
+                          alt={senderName}
+                          className="h-8 w-8 rounded-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-xs text-slate-300">
+                          {senderName.slice(0, 1).toUpperCase()}
+                        </span>
+                      )}
+                    </button>
+                  )}
                   <div
                     className={`w-fit max-w-[min(640px,85%)] rounded-2xl border px-3 py-2 text-sm ${
                       isSelf
@@ -574,7 +672,7 @@ export default function RoomPage() {
                     }`}
                   >
                     <div className="flex items-center justify-between text-[10px] uppercase tracking-wide opacity-70">
-                      <span>{isSelf ? "You" : "Member"}</span>
+                      <span>{isSelf ? "You" : senderName}</span>
                       <span>{new Date(message.createdAt).toLocaleTimeString()}</span>
                     </div>
                     <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">
@@ -751,6 +849,22 @@ export default function RoomPage() {
           </section>
         </div>
       )}
-    </main>
+      </main>
+      {profileCard && (
+        <ProfileCard
+          profile={profileCard}
+          onClose={() => setProfileCard(null)}
+          onStartPrivate={async (userId) => {
+            await startConversation(userId);
+            setProfileCard(null);
+          }}
+        />
+      )}
+      {profileLoading && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center text-xs text-slate-200">
+          Loading profile...
+        </div>
+      )}
+    </>
   );
 }

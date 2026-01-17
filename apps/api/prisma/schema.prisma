@@ -101,6 +101,9 @@ model User {
   agreedTermsAt            DateTime?
   maskName                 String?
   maskAvatarUrl            String?
+  bio                      String?    @db.VarChar(280)
+  language                 String?    @db.VarChar(32)
+  city                     String?    @db.VarChar(64)
   dob                      DateTime?
   country                  String?
   createdAt                DateTime   @default(now())
@@ -197,6 +200,8 @@ model Preference {
   lookingForGender String?
   smPreference     String?
   tagsJson         Json?
+  vibeTagsJson     Json?
+  interestsJson    Json?
 
   user User @relation(fields: [userId], references: [id])
 }

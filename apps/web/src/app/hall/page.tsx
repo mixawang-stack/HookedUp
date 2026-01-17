@@ -4,6 +4,7 @@ import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import PageShell from "../components/PageShell";
+import ProfileCard from "../components/ProfileCard";
 import { emitHostStatus } from "../lib/hostStatus";
 
 export const dynamic = "force-dynamic";
@@ -85,6 +86,17 @@ type TraceDetailResponse = {
   nextCursor: string | null;
 };
 
+type PublicProfile = {
+  id: string;
+  maskName: string | null;
+  maskAvatarUrl: string | null;
+  bio: string | null;
+  preference?: {
+    vibeTags?: string[] | null;
+    interests?: string[] | null;
+  } | null;
+};
+
 export default function HallPage() {
   const router = useRouter();
   const [token, setToken] = useState<string | null>(null);
@@ -110,6 +122,8 @@ export default function HallPage() {
   const [postingReply, setPostingReply] = useState(false);
   const [loadingReplies, setLoadingReplies] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
+  const [profileCard, setProfileCard] = useState<PublicProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const authHeader = useMemo(() => {
@@ -182,11 +196,36 @@ export default function HallPage() {
         throw new Error(body?.message ?? `HTTP ${res.status}`);
       }
       const data = (await res.json()) as { conversationId: string };
-      router.push(`/private/${data.conversationId}`);
+      router.push(`/private?conversationId=${data.conversationId}`);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to start conversation.";
       setStatus(message);
+    }
+  };
+
+  const openProfileCard = async (userId: string) => {
+    if (!authHeader) {
+      setStatus("Please sign in to view profiles.");
+      return;
+    }
+    setProfileLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/users/${userId}`, {
+        headers: { ...authHeader }
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.message ?? `HTTP ${res.status}`);
+      }
+      const data = (await res.json()) as PublicProfile;
+      setProfileCard(data);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to load profile.";
+      setStatus(message);
+    } finally {
+      setProfileLoading(false);
     }
   };
 
@@ -570,15 +609,27 @@ export default function HallPage() {
             >
               <div className="flex items-center justify-between gap-3 text-[11px] uppercase tracking-[0.2em] text-slate-600">
                 <div className="flex items-center gap-2">
-                  {trace.author?.maskAvatarUrl ? (
-                    <img
-                      src={trace.author.maskAvatarUrl}
-                      alt={renderTraceAuthor(trace.author)}
-                      className="h-8 w-8 rounded-full object-cover"
-                    />
-                  ) : (
-                    <span className="h-8 w-8 rounded-full bg-slate-200" />
-                  )}
+                  <button
+                    type="button"
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 overflow-hidden"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (trace.author?.id) {
+                        openProfileCard(trace.author.id);
+                      }
+                    }}
+                    aria-label="Open profile"
+                  >
+                    {trace.author?.maskAvatarUrl ? (
+                      <img
+                        src={trace.author.maskAvatarUrl}
+                        alt={renderTraceAuthor(trace.author)}
+                        className="h-8 w-8 rounded-full object-cover"
+                      />
+                    ) : (
+                      <span className="h-8 w-8 rounded-full bg-slate-200" />
+                    )}
+                  </button>
                   <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-700">
                     {renderTraceAuthor(trace.author)}
                   </span>
@@ -760,15 +811,26 @@ export default function HallPage() {
               <div>
                 <h3 className="text-lg font-semibold text-slate-900">Trace details</h3>
                 <div className="mt-2 flex items-center gap-2 text-sm text-slate-600">
-                  {traceDetail.trace.author?.maskAvatarUrl ? (
-                    <img
-                      src={traceDetail.trace.author.maskAvatarUrl}
-                      alt={renderTraceAuthor(traceDetail.trace.author)}
-                      className="h-6 w-6 rounded-full object-cover"
-                    />
-                  ) : (
-                    <span className="h-6 w-6 rounded-full bg-slate-200" />
-                  )}
+                  <button
+                    type="button"
+                    className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-200 overflow-hidden"
+                    onClick={() => {
+                      if (traceDetail.trace.author?.id) {
+                        openProfileCard(traceDetail.trace.author.id);
+                      }
+                    }}
+                    aria-label="Open profile"
+                  >
+                    {traceDetail.trace.author?.maskAvatarUrl ? (
+                      <img
+                        src={traceDetail.trace.author.maskAvatarUrl}
+                        alt={renderTraceAuthor(traceDetail.trace.author)}
+                        className="h-6 w-6 rounded-full object-cover"
+                      />
+                    ) : (
+                      <span className="h-6 w-6 rounded-full bg-slate-200" />
+                    )}
+                  </button>
                   <span>
                     {renderTraceAuthor(traceDetail.trace.author)} ·{" "}
                     {new Date(traceDetail.trace.createdAt).toLocaleString()}
@@ -976,6 +1038,23 @@ export default function HallPage() {
   );
 
   return (
-    <PageShell title="The Grand Hall" stage={stageContent} panel={panelContent} />
+    <>
+      <PageShell title="The Grand Hall" stage={stageContent} panel={panelContent} />
+      {profileCard && (
+        <ProfileCard
+          profile={profileCard}
+          onClose={() => setProfileCard(null)}
+          onStartPrivate={async (userId) => {
+            await startConversation(userId);
+            setProfileCard(null);
+          }}
+        />
+      )}
+      {profileLoading && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center text-xs text-slate-200">
+          Loading profile...
+        </div>
+      )}
+    </>
   );
 }

@@ -13,6 +13,21 @@ export class UpdateProfileDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(280)
+  bio?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  language?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  city?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(32)
   gender?: string;
 }

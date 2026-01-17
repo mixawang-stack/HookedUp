@@ -20,4 +20,14 @@ export class UpdatePreferencesDto {
   @IsArray()
   @IsString({ each: true })
   tagsJson?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  vibeTagsJson?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  interestsJson?: string[];
 }

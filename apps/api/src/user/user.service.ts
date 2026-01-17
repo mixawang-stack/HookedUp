@@ -29,10 +29,23 @@ export class UserService {
         emailVerifiedAt: true,
         maskName: true,
         maskAvatarUrl: true,
+        bio: true,
+        language: true,
+        city: true,
         gender: true,
         dob: true,
         country: true,
-        createdAt: true
+        createdAt: true,
+        preference: {
+          select: {
+            gender: true,
+            lookingForGender: true,
+            smPreference: true,
+            tagsJson: true,
+            vibeTagsJson: true,
+            interestsJson: true
+          }
+        }
       }
     });
 
@@ -40,7 +53,26 @@ export class UserService {
       throw new BadRequestException("USER_NOT_FOUND");
     }
 
-    return user;
+    const vibeTags =
+      this.normalizeTags(user.preference?.vibeTagsJson) ??
+      this.normalizeTags(user.preference?.tagsJson);
+    const interests = this.normalizeTags(user.preference?.interestsJson);
+    const profileCompleted =
+      Boolean(user.maskName?.trim()) &&
+      Boolean(user.bio?.trim()) &&
+      (vibeTags?.length ?? 0) > 0;
+
+    return {
+      ...user,
+      preference: user.preference
+        ? {
+            ...user.preference,
+            vibeTags,
+            interests
+          }
+        : null,
+      profileCompleted
+    };
   }
 
   async updateProfile(userId: string, dto: UpdateProfileDto) {
@@ -56,6 +88,9 @@ export class UserService {
     const data: {
       maskName?: string;
       maskAvatarUrl?: string | null;
+      bio?: string | null;
+      language?: string | null;
+      city?: string | null;
       gender?: string | null;
     } = {};
 
@@ -69,6 +104,21 @@ export class UserService {
     if (dto.maskAvatarUrl !== undefined) {
       const trimmed = dto.maskAvatarUrl.trim();
       data.maskAvatarUrl = trimmed.length > 0 ? trimmed : null;
+    }
+
+    if (dto.bio !== undefined) {
+      const trimmed = dto.bio.trim();
+      data.bio = trimmed.length > 0 ? trimmed : null;
+    }
+
+    if (dto.language !== undefined) {
+      const trimmed = dto.language.trim();
+      data.language = trimmed.length > 0 ? trimmed : null;
+    }
+
+    if (dto.city !== undefined) {
+      const trimmed = dto.city.trim();
+      data.city = trimmed.length > 0 ? trimmed : null;
     }
 
     if (dto.gender !== undefined) {
@@ -91,10 +141,23 @@ export class UserService {
         emailVerifiedAt: true,
         maskName: true,
         maskAvatarUrl: true,
+        bio: true,
+        language: true,
+        city: true,
         gender: true,
         dob: true,
         country: true,
-        createdAt: true
+        createdAt: true,
+        preference: {
+          select: {
+            gender: true,
+            lookingForGender: true,
+            smPreference: true,
+            tagsJson: true,
+            vibeTagsJson: true,
+            interestsJson: true
+          }
+        }
       }
     });
   }
@@ -106,11 +169,14 @@ export class UserService {
   }
 
   async upsertPreferences(userId: string, dto: UpdatePreferencesDto) {
+    const vibeTags = dto.vibeTagsJson ?? dto.tagsJson ?? [];
     const payload = {
       gender: dto.gender ?? null,
       lookingForGender: dto.lookingForGender ?? null,
       smPreference: dto.smPreference ?? null,
-      tagsJson: dto.tagsJson ?? []
+      tagsJson: vibeTags,
+      vibeTagsJson: vibeTags,
+      interestsJson: dto.interestsJson ?? []
     };
 
     return this.prisma.preference.upsert({
@@ -121,6 +187,63 @@ export class UserService {
       },
       update: payload
     });
+  }
+
+  async getPublicProfile(userId: string, targetUserId: string) {
+    if (userId === targetUserId) {
+      return this.getMe(userId);
+    }
+    const profile = await this.prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: {
+        id: true,
+        role: true,
+        status: true,
+        maskName: true,
+        maskAvatarUrl: true,
+        bio: true,
+        language: true,
+        city: true,
+        gender: true,
+        preference: {
+          select: {
+            tagsJson: true,
+            vibeTagsJson: true,
+            interestsJson: true
+          }
+        }
+      }
+    });
+
+    if (!profile) {
+      throw new BadRequestException("USER_NOT_FOUND");
+    }
+
+    const vibeTags =
+      this.normalizeTags(profile.preference?.vibeTagsJson) ??
+      this.normalizeTags(profile.preference?.tagsJson);
+    const interests = this.normalizeTags(profile.preference?.interestsJson);
+
+    return {
+      ...profile,
+      preference: profile.preference
+        ? {
+            ...profile.preference,
+            vibeTags,
+            interests
+          }
+        : null
+    };
+  }
+
+  private normalizeTags(payload: unknown): string[] | null {
+    if (!Array.isArray(payload)) {
+      return null;
+    }
+    const filtered = payload.filter(
+      (tag) => typeof tag === "string" && tag.trim().length > 0
+    ) as string[];
+    return filtered.length > 0 ? filtered : null;
   }
 
   async exportData(userId: string) {

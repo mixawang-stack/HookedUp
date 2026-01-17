@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 // BUILD_MARKER_PRIVATE_PAGE_TSX__2026_01_16
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import React, { useEffect, useMemo, useState } from "react";
 
 import { emitHostStatus } from "../lib/hostStatus";
@@ -63,6 +63,8 @@ export default function PrivateListPage() {
     const [authReady, setAuthReady] = useState(false);
     const [activeConversation, setActiveConversation] =
         useState<ConversationItem | null>(null);
+    const searchParams = useSearchParams();
+    const requestedConversationId = searchParams?.get("conversationId");
 
     const authHeader = useMemo(() => {
         if (!token) return null;
@@ -118,6 +120,18 @@ export default function PrivateListPage() {
         loadConversations(null).catch(() => setStatus("Failed to load."));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [authHeader, authReady]);
+
+    useEffect(() => {
+        if (!requestedConversationId || activeConversation) {
+            return;
+        }
+        const match = conversations.find(
+            (item) => item.id === requestedConversationId
+        );
+        if (match) {
+            setActiveConversation(match);
+        }
+    }, [requestedConversationId, conversations, activeConversation]);
 
     useEffect(() => {
         emitHostStatus({ page: "private", cold: conversations.length === 0 });
