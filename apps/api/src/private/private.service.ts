@@ -80,6 +80,41 @@ export class PrivateService {
     return { items, nextCursor };
   }
 
+  async getUnreadTotal(userId: string) {
+    const conversations = await this.prisma.conversation.findMany({
+      where: {
+        participants: {
+          some: { userId }
+        }
+      },
+      select: {
+        matchId: true,
+        participants: {
+          where: { userId },
+          select: { lastSeenAt: true }
+        }
+      }
+    });
+
+    const counts = await Promise.all(
+      conversations.map(async (conversation) => {
+        if (!conversation.matchId) {
+          return 0;
+        }
+        const lastSeenAt = conversation.participants[0]?.lastSeenAt ?? null;
+        return this.prisma.message.count({
+          where: {
+            matchId: conversation.matchId,
+            senderId: { not: userId },
+            ...(lastSeenAt ? { createdAt: { gt: lastSeenAt } } : {})
+          }
+        });
+      })
+    );
+
+    return { total: counts.reduce((sum, value) => sum + value, 0) };
+  }
+
   async listMessages(userId: string, conversationId: string, cursor?: string, limit?: number) {
     const conversation = await this.getConversationForUser(userId, conversationId);
 
@@ -113,7 +148,7 @@ export class PrivateService {
 
     const otherUserId = await this.getOtherUserId(userId, conversation.matchId);
     await this.ensureNotBlockedPair(userId, otherUserId);
-    await this.ensureReplyGate(userId, conversation.matchId);
+    await this.ensureReplyGate(userId, conversation.matchId, otherUserId);
 
     const message = await this.chatService.createMessage(
       userId,
@@ -148,7 +183,10 @@ export class PrivateService {
     await this.ensureNotBlockedPair(userId, targetUserId);
 
     const [user1Id, user2Id] = this.normalizePair(userId, targetUserId);
-    let matchId: string | null = null;
+    const existing = await this.prisma.match.findUnique({
+      where: { user1Id_user2Id: { user1Id, user2Id } }
+    });
+    let matchId: string | null = existing?.id ?? null;
 
     try {
       const match = await this.prisma.match.create({
@@ -170,10 +208,10 @@ export class PrivateService {
     }
 
     if (!matchId) {
-      const existing = await this.prisma.match.findUnique({
+      const fallback = await this.prisma.match.findUnique({
         where: { user1Id_user2Id: { user1Id, user2Id } }
       });
-      matchId = existing?.id ?? null;
+      matchId = fallback?.id ?? null;
     }
 
     if (!matchId) {
@@ -328,18 +366,11 @@ export class PrivateService {
     }
   }
 
-  private async ensureReplyGate(userId: string, matchId: string) {
-    const match = await this.prisma.match.findUnique({
-      where: { id: matchId },
-      select: { user1Id: true, user2Id: true }
-    });
-
-    if (!match) {
-      throw new BadRequestException("MATCH_NOT_FOUND");
-    }
-
-    const otherUserId = match.user1Id === userId ? match.user2Id : match.user1Id;
-
+  private async ensureReplyGate(
+    senderId: string,
+    matchId: string,
+    otherUserId: string
+  ) {
     const otherReplied = await this.prisma.message.findFirst({
       where: {
         matchId,
@@ -353,15 +384,21 @@ export class PrivateService {
       return;
     }
 
+    const preference = await this.prisma.preference.findUnique({
+      where: { userId: otherUserId },
+      select: { allowStrangerPrivate: true }
+    });
+    const maxWithoutReply = preference?.allowStrangerPrivate === false ? 1 : 3;
+
     const sentCount = await this.prisma.message.count({
       where: {
         matchId,
-        senderId: userId,
+        senderId,
         deletedAt: null
       }
     });
 
-    if (sentCount >= 3) {
+    if (sentCount >= maxWithoutReply) {
       throw new ForbiddenException("PRIVATE_REPLY_REQUIRED");
     }
   }
@@ -377,13 +414,24 @@ export class PrivateService {
     },
     userId: string
   ) {
-    if (conversation.match) {
-      return conversation.match.user1Id === userId
-        ? conversation.match.user2
-        : conversation.match.user1;
+    if (!conversation.match) {
+      return null;
     }
 
-    return null;
+    const base =
+      conversation.match.user1Id === userId
+        ? conversation.match.user2
+        : conversation.match.user1;
+
+    const preference = await this.prisma.preference.findUnique({
+      where: { userId: base.id },
+      select: { allowStrangerPrivate: true }
+    });
+
+    return {
+      ...base,
+      allowStrangerPrivate: preference?.allowStrangerPrivate ?? true
+    };
   }
 
   private safeDecrypt(payload: string) {

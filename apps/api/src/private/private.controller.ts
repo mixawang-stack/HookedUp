@@ -22,6 +22,11 @@ export class PrivateController {
     );
   }
 
+  @Get("unread-total")
+  async getUnreadTotal(@Req() req: AuthenticatedRequest) {
+    return this.privateService.getUnreadTotal(req.user.sub);
+  }
+
   @Get("conversations/:id/messages")
   async listMessages(
     @Req() req: AuthenticatedRequest,

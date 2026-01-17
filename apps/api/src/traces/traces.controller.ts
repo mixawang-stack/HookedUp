@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Query,
+  Req,
+  UseGuards
+} from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { CreateTraceDto } from "./dto/create-trace.dto";
 import { TracesService } from "./traces.service";
@@ -24,6 +34,30 @@ export class TracesController {
     @Body() dto: CreateTraceDto
   ) {
     return this.tracesService.createReply(traceId, req.user.sub, req.user.role, dto);
+  }
+
+  @Get("me")
+  @UseGuards(JwtAuthGuard)
+  async listMyTraces(
+    @Req() req: { user: { sub: string } },
+    @Query("cursor") cursor?: string,
+    @Query("limit") limit?: string
+  ) {
+    const parsedLimit = limit ? Number(limit) : undefined;
+    return this.tracesService.listMyTraces(
+      req.user.sub,
+      cursor,
+      Number.isFinite(parsedLimit) ? parsedLimit : undefined
+    );
+  }
+
+  @Delete(":id")
+  @UseGuards(JwtAuthGuard)
+  async deleteTrace(
+    @Req() req: { user: { sub: string; role: string } },
+    @Param("id") traceId: string
+  ) {
+    return this.tracesService.deleteTrace(req.user.sub, req.user.role, traceId);
   }
 
   @Get(":id")

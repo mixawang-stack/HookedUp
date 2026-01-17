@@ -157,6 +157,56 @@ export class TracesService {
     };
   }
 
+  async listMyTraces(userId: string, cursor?: string, limit?: number) {
+    const take = Math.min(limit ?? DEFAULT_LIMIT, MAX_LIMIT);
+    const traces = await this.prisma.trace.findMany({
+      where: { authorId: userId },
+      include: {
+        _count: { select: { replies: true } }
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {})
+    });
+
+    const nextCursor = traces.length === take ? traces[traces.length - 1].id : null;
+
+    return {
+      items: traces.map((trace) => ({
+        id: trace.id,
+        content: trace.content,
+        createdAt: trace.createdAt,
+        imageUrl: trace.imageUrl,
+        imageWidth: trace.imageWidth,
+        imageHeight: trace.imageHeight,
+        replyCount: trace._count.replies
+      })),
+      nextCursor
+    };
+  }
+
+  async deleteTrace(userId: string, role: string, traceId: string) {
+    const trace = await this.prisma.trace.findUnique({
+      where: { id: traceId },
+      select: { id: true, authorId: true }
+    });
+
+    if (!trace) {
+      throw new BadRequestException("TRACE_NOT_FOUND");
+    }
+
+    if (trace.authorId !== userId && !["ADMIN", "OFFICIAL"].includes(role)) {
+      throw new ForbiddenException("TRACE_DELETE_FORBIDDEN");
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.traceReply.deleteMany({ where: { traceId } }),
+      this.prisma.trace.delete({ where: { id: traceId } })
+    ]);
+
+    return { ok: true };
+  }
+
   private normalizeContent(raw: string) {
     const content = (raw ?? "").trim();
     if (content.length === 0) {

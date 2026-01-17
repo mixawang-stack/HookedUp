@@ -204,6 +204,7 @@ model Preference {
   tagsJson         Json?
   vibeTagsJson     Json?
   interestsJson    Json?
+  allowStrangerPrivate Boolean @default(true)
 
   user User @relation(fields: [userId], references: [id])
 }

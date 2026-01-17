@@ -44,7 +44,8 @@ export class UserService {
             smPreference: true,
             tagsJson: true,
             vibeTagsJson: true,
-            interestsJson: true
+            interestsJson: true,
+            allowStrangerPrivate: true
           }
         }
       }
@@ -156,7 +157,8 @@ export class UserService {
             smPreference: true,
             tagsJson: true,
             vibeTagsJson: true,
-            interestsJson: true
+            interestsJson: true,
+            allowStrangerPrivate: true
           }
         }
       }
@@ -184,9 +186,17 @@ export class UserService {
       where: { userId },
       create: {
         userId,
-        ...payload
+        ...payload,
+        ...(dto.allowStrangerPrivate !== undefined
+          ? { allowStrangerPrivate: dto.allowStrangerPrivate }
+          : {})
       },
-      update: payload
+      update: {
+        ...payload,
+        ...(dto.allowStrangerPrivate !== undefined
+          ? { allowStrangerPrivate: dto.allowStrangerPrivate }
+          : {})
+      }
     });
   }
 
@@ -210,7 +220,8 @@ export class UserService {
           select: {
             tagsJson: true,
             vibeTagsJson: true,
-            interestsJson: true
+            interestsJson: true,
+            allowStrangerPrivate: true
           }
         }
       }

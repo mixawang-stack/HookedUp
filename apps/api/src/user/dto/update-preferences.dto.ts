@@ -1,4 +1,4 @@
-﻿import { IsArray, IsOptional, IsString, MaxLength } from "class-validator";
+﻿import { IsArray, IsBoolean, IsOptional, IsString, MaxLength } from "class-validator";
 
 export class UpdatePreferencesDto {
   @IsOptional()
@@ -30,4 +30,8 @@ export class UpdatePreferencesDto {
   @IsArray()
   @IsString({ each: true })
   interestsJson?: string[];
+
+  @IsOptional()
+  @IsBoolean()
+  allowStrangerPrivate?: boolean;
 }
