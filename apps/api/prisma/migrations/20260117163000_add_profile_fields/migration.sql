@@ -1,0 +1,10 @@
+-- Add profile fields to User and Preference
+ALTER TABLE "User"
+  ADD COLUMN IF NOT EXISTS "bio" VARCHAR(280),
+  ADD COLUMN IF NOT EXISTS "language" VARCHAR(32),
+  ADD COLUMN IF NOT EXISTS "city" VARCHAR(64);
+
+ALTER TABLE "Preference"
+  ADD COLUMN IF NOT EXISTS "vibeTagsJson" JSONB,
+  ADD COLUMN IF NOT EXISTS "interestsJson" JSONB,
+  ADD COLUMN IF NOT EXISTS "allowStrangerPrivate" BOOLEAN NOT NULL DEFAULT true;
