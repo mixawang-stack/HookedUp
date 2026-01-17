@@ -419,6 +419,9 @@ function PrivateConversationDrawer({
                         "You can send up to 3 messages until they reply."
                     );
                 }
+                if (String(errorMessage).includes("USER_BLOCKED")) {
+                    throw new Error("You can't message this user.");
+                }
                 throw new Error(errorMessage);
             }
 

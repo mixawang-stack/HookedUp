@@ -15,6 +15,8 @@ type ProfileCardProps = {
   };
   mutedHint?: string | null;
   onStartPrivate: (userId: string) => Promise<void> | void;
+  onBlock?: (userId: string) => Promise<void> | void;
+  onReport?: (userId: string) => Promise<void> | void;
   onClose: () => void;
 };
 
@@ -22,6 +24,8 @@ export default function ProfileCard({
   profile,
   mutedHint,
   onStartPrivate,
+  onBlock,
+  onReport,
   onClose
 }: ProfileCardProps) {
   const [starting, setStarting] = useState(false);
@@ -117,7 +121,7 @@ export default function ProfileCard({
           </p>
         )}
 
-        <div className="mt-5">
+        <div className="mt-5 space-y-2">
           <button
             type="button"
             className="w-full rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-900"
@@ -126,6 +130,26 @@ export default function ProfileCard({
           >
             {starting ? "Starting..." : "Start private chat"}
           </button>
+          <div className="flex items-center justify-between gap-2 text-xs">
+            {onReport && (
+              <button
+                type="button"
+                className="flex-1 rounded-full border border-rose-300/60 px-3 py-2 text-rose-200 hover:bg-rose-500/10"
+                onClick={() => onReport(profile.id)}
+              >
+                Report
+              </button>
+            )}
+            {onBlock && (
+              <button
+                type="button"
+                className="flex-1 rounded-full border border-slate-400/60 px-3 py-2 text-slate-200 hover:bg-white/5"
+                onClick={() => onBlock(profile.id)}
+              >
+                Block
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

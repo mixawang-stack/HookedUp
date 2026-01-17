@@ -1,5 +1,6 @@
-﻿import { Body, Controller, Delete, Get, Param, Patch, Put, Req, UseGuards } from "@nestjs/common";
+﻿import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Req, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard, AuthenticatedRequest } from "../auth/jwt-auth.guard";
+import { ReportUserDto } from "./dto/report-user.dto";
 import { UpdatePreferencesDto } from "./dto/update-preferences.dto";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
 import { UserService } from "./user.service";
@@ -20,6 +21,31 @@ export class UserController {
     @Param("id") targetUserId: string
   ) {
     return this.userService.getPublicProfile(req.user.sub, targetUserId);
+  }
+
+  @Post("users/:id/block")
+  async blockUser(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") targetUserId: string
+  ) {
+    return this.userService.blockUser(req.user.sub, targetUserId);
+  }
+
+  @Delete("users/:id/block")
+  async unblockUser(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") targetUserId: string
+  ) {
+    return this.userService.unblockUser(req.user.sub, targetUserId);
+  }
+
+  @Post("users/:id/report")
+  async reportUser(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") targetUserId: string,
+    @Body() dto: ReportUserDto
+  ) {
+    return this.userService.reportUser(req.user.sub, targetUserId, dto);
   }
 
   @Patch("me")

@@ -229,6 +229,74 @@ export default function HallPage() {
     }
   };
 
+  const blockUser = async (userId: string) => {
+    if (!authHeader) {
+      setStatus("Please sign in to manage blocks.");
+      return;
+    }
+    if (!confirm("Block this user? You won't be able to message each other.")) {
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/users/${userId}/block`, {
+        method: "POST",
+        headers: { ...authHeader }
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.message ?? `HTTP ${res.status}`);
+      }
+      setStatus("User blocked.");
+      setProfileCard(null);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to block user.";
+      setStatus(message);
+    }
+  };
+
+  const reportUser = async (userId: string) => {
+    if (!authHeader) {
+      setStatus("Please sign in to report.");
+      return;
+    }
+    const reasonRaw = window.prompt(
+      "Report reason (SPAM / ABUSE / HARASSMENT / OTHER):",
+      "OTHER"
+    );
+    if (!reasonRaw) {
+      return;
+    }
+    const normalized = reasonRaw.trim().toUpperCase();
+    const reasonType = ["SPAM", "ABUSE", "HARASSMENT", "OTHER"].includes(normalized)
+      ? normalized
+      : "OTHER";
+    const detail = window.prompt("Optional details:", "") ?? "";
+    try {
+      const res = await fetch(`${API_BASE}/users/${userId}/report`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader
+        },
+        body: JSON.stringify({
+          reasonType,
+          detail: detail.trim() || undefined
+        })
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.message ?? `HTTP ${res.status}`);
+      }
+      setStatus("Report submitted.");
+      setProfileCard(null);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to report user.";
+      setStatus(message);
+    }
+  };
+
   const fetchTraceDetail = async (traceId: string) => {
     const res = await fetch(`${API_BASE}/traces/${traceId}`);
     if (!res.ok) {
@@ -1048,6 +1116,8 @@ export default function HallPage() {
             await startConversation(userId);
             setProfileCard(null);
           }}
+          onBlock={blockUser}
+          onReport={reportUser}
         />
       )}
       {profileLoading && (

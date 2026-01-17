@@ -123,6 +123,8 @@ model User {
   consentAsB               ConsentRecord[]           @relation("ConsentB")
   reportsMade              Report[]                  @relation("ReportsMade")
   reportsHandled           Report[]                  @relation("ReportsHandled")
+  blocksMade               UserBlock[]               @relation("BlocksMade")
+  blocksReceived           UserBlock[]               @relation("BlocksReceived")
   auditLogs                AuditLog[]
   exposuresAsViewer        RecommendationExposure[]  @relation("ExposureViewer")
   exposuresAsTarget        RecommendationExposure[]  @relation("ExposureTarget")
@@ -278,6 +280,19 @@ model Report {
 
   reporter User  @relation("ReportsMade", fields: [reporterId], references: [id])
   handler  User? @relation("ReportsHandled", fields: [handledBy], references: [id])
+}
+
+model UserBlock {
+  id        String   @id @default(uuid())
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+
+  blocker User @relation("BlocksMade", fields: [blockerId], references: [id])
+  blocked User @relation("BlocksReceived", fields: [blockedId], references: [id])
+
+  @@unique([blockerId, blockedId])
+  @@index([blockedId])
 }
 
 model AuditLog {

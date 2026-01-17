@@ -111,6 +111,8 @@ export class PrivateService {
   async sendMessage(userId: string, conversationId: string, content: string) {
     const conversation = await this.getConversationForUser(userId, conversationId);
 
+    const otherUserId = await this.getOtherUserId(userId, conversation.matchId);
+    await this.ensureNotBlockedPair(userId, otherUserId);
     await this.ensureReplyGate(userId, conversation.matchId);
 
     const message = await this.chatService.createMessage(
@@ -142,6 +144,8 @@ export class PrivateService {
     if (target.role === Role.OFFICIAL) {
       throw new ForbiddenException("OFFICIAL_NO_PRIVATE");
     }
+
+    await this.ensureNotBlockedPair(userId, targetUserId);
 
     const [user1Id, user2Id] = this.normalizePair(userId, targetUserId);
     let matchId: string | null = null;
@@ -296,6 +300,32 @@ export class PrivateService {
     });
 
     return conversation;
+  }
+
+  private async getOtherUserId(userId: string, matchId: string) {
+    const match = await this.prisma.match.findUnique({
+      where: { id: matchId },
+      select: { user1Id: true, user2Id: true }
+    });
+    if (!match) {
+      throw new BadRequestException("MATCH_NOT_FOUND");
+    }
+    return match.user1Id === userId ? match.user2Id : match.user1Id;
+  }
+
+  private async ensureNotBlockedPair(userId: string, targetUserId: string) {
+    const blocked = await this.prisma.userBlock.findFirst({
+      where: {
+        OR: [
+          { blockerId: userId, blockedId: targetUserId },
+          { blockerId: targetUserId, blockedId: userId }
+        ]
+      },
+      select: { id: true }
+    });
+    if (blocked) {
+      throw new ForbiddenException("USER_BLOCKED");
+    }
   }
 
   private async ensureReplyGate(userId: string, matchId: string) {

@@ -6,6 +6,7 @@ import { AuditService } from "../audit.service";
 import { CryptoService } from "../crypto.service";
 import { PrismaService } from "../prisma.service";
 import { STORAGE_DIR } from "../uploads/uploads.constants";
+import { ReportUserDto } from "./dto/report-user.dto";
 import { UpdatePreferencesDto } from "./dto/update-preferences.dto";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
 import { generateMaskName } from "./user.utils";
@@ -234,6 +235,52 @@ export class UserService {
           }
         : null
     };
+  }
+
+  async blockUser(userId: string, targetUserId: string) {
+    if (userId === targetUserId) {
+      throw new BadRequestException("CANNOT_BLOCK_SELF");
+    }
+    await this.prisma.userBlock.upsert({
+      where: {
+        blockerId_blockedId: {
+          blockerId: userId,
+          blockedId: targetUserId
+        }
+      },
+      create: {
+        blockerId: userId,
+        blockedId: targetUserId
+      },
+      update: {}
+    });
+    return { ok: true };
+  }
+
+  async unblockUser(userId: string, targetUserId: string) {
+    await this.prisma.userBlock.deleteMany({
+      where: {
+        blockerId: userId,
+        blockedId: targetUserId
+      }
+    });
+    return { ok: true };
+  }
+
+  async reportUser(userId: string, targetUserId: string, dto: ReportUserDto) {
+    if (userId === targetUserId) {
+      throw new BadRequestException("CANNOT_REPORT_SELF");
+    }
+    await this.prisma.report.create({
+      data: {
+        reporterId: userId,
+        targetType: "USER",
+        targetId: targetUserId,
+        reasonType: dto.reasonType,
+        detail: dto.detail ?? null
+      }
+    });
+    return { ok: true };
   }
 
   private normalizeTags(payload: unknown): string[] | null {
