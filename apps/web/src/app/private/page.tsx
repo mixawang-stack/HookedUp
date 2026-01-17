@@ -714,7 +714,7 @@ function PrivateConversationDrawer({
                                     <button
                                         type="button"
                                         className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
-                                        onClick={sendMessage}
+                                        onClick={() => sendMessage()}
                                         disabled={sending}
                                     >
                                         {sending ? "Sending..." : "Send"}
