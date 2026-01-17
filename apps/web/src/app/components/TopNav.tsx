@@ -34,6 +34,13 @@ export default function TopNav() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [unreadTotal, setUnreadTotal] = useState(0);
+  const isProfileComplete = Boolean(
+    me?.profileCompleted ??
+      (me?.maskName && me.maskName.trim().length > 0 && me?.maskAvatarUrl)
+  );
+  const dismissalKey = me?.id
+    ? `profile_onboarding_dismissed_${me.id}`
+    : "profile_onboarding_dismissed";
 
   const hideNav =
     pathname.startsWith("/login") || pathname.startsWith("/register");
@@ -98,15 +105,15 @@ export default function TopNav() {
     if (typeof window === "undefined") {
       return;
     }
-    setDismissed(sessionStorage.getItem("profile_onboarding_dismissed") === "1");
-  }, []);
+    setDismissed(sessionStorage.getItem(dismissalKey) === "1");
+  }, [dismissalKey]);
 
   useEffect(() => {
-    if (!me || me.profileCompleted || dismissed) {
+    if (!me || isProfileComplete || dismissed) {
       return;
     }
     setShowOnboarding(true);
-  }, [me, dismissed]);
+  }, [me, dismissed, isProfileComplete]);
 
   const handleLogout = () => {
     localStorage.removeItem("accessToken");
@@ -115,7 +122,7 @@ export default function TopNav() {
 
   const handleDismissOnboarding = () => {
     if (typeof window !== "undefined") {
-      sessionStorage.setItem("profile_onboarding_dismissed", "1");
+      sessionStorage.setItem(dismissalKey, "1");
     }
     setDismissed(true);
     setShowOnboarding(false);
@@ -158,7 +165,7 @@ export default function TopNav() {
         </div>
         {me && (
           <div className="flex items-center gap-3">
-            {!me.profileCompleted && (
+            {!isProfileComplete && (
               <button
                 type="button"
                 className="rounded-full border border-amber-300/60 bg-amber-400/10 px-3 py-1 text-[11px] font-semibold text-amber-100"
