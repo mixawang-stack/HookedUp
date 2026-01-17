@@ -591,7 +591,7 @@ export default function HallPage() {
                 <>
                   <div className="mt-4 overflow-hidden rounded-xl bg-slate-100">
                     <img
-                      src={trace.imageUrl}
+                      src={trace.imageUrl.startsWith("http") ? trace.imageUrl : `${API_BASE}${trace.imageUrl}`}
                       alt={trace.content.slice(0, 40)}
                       className="aspect-[4/5] w-full object-cover"
                     />
@@ -788,7 +788,7 @@ export default function HallPage() {
               {traceDetail.trace.imageUrl && (
                 <div className="overflow-hidden rounded-2xl bg-slate-100">
                   <img
-                    src={traceDetail.trace.imageUrl}
+                    src={traceDetail.trace.imageUrl.startsWith("http") ? traceDetail.trace.imageUrl : `${API_BASE}${traceDetail.trace.imageUrl}`}
                     alt={traceDetail.trace.content.slice(0, 40)}
                     className="w-full object-cover"
                   />
@@ -893,7 +893,7 @@ export default function HallPage() {
                 <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-3">
                   <div className="overflow-hidden rounded-2xl bg-slate-950 relative">
                     <img
-                      src={imagePreview}
+                      src={imagePreview?.startsWith("http") ? imagePreview : `${API_BASE}${imagePreview}`}
                       alt={selectedImageFile.name}
                       className="h-32 w-full object-cover"
                     />
