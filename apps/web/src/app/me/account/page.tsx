@@ -11,6 +11,9 @@ const API_BASE =
 export default function AccountSettingsPage() {
   const router = useRouter();
   const [token, setToken] = useState<string | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
+  const [dob, setDob] = useState<string | null>(null);
+  const [showEdit, setShowEdit] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -30,6 +33,22 @@ export default function AccountSettingsPage() {
     }
     setToken(stored);
   }, [router]);
+
+  useEffect(() => {
+    if (!authHeader) {
+      return;
+    }
+    const loadMe = async () => {
+      const res = await fetch(`${API_BASE}/me`, { headers: { ...authHeader } });
+      if (!res.ok) {
+        return;
+      }
+      const data = (await res.json()) as { email?: string; dob?: string | null };
+      setEmail(data.email ?? null);
+      setDob(data.dob ?? null);
+    };
+    loadMe().catch(() => undefined);
+  }, [authHeader]);
 
   const handleChangePassword = async () => {
     if (!authHeader) {
@@ -101,6 +120,33 @@ export default function AccountSettingsPage() {
       <div className="mt-6 space-y-4 rounded-2xl border border-white/10 bg-slate-950/80 p-6">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
+            Account overview
+          </p>
+          <div className="mt-3 space-y-2 text-sm text-slate-200">
+            <p>
+              <span className="text-slate-400">Email:</span> {email ?? "—"}
+            </p>
+            <p>
+              <span className="text-slate-400">Birthday:</span>{" "}
+              {dob ? new Date(dob).toLocaleDateString() : "—"}
+            </p>
+            <p>
+              <span className="text-slate-400">Password:</span> ••••••••
+            </p>
+          </div>
+          <button
+            type="button"
+            className="mt-4 rounded-full border border-white/20 px-3 py-1 text-xs text-slate-200"
+            onClick={() => setShowEdit((prev) => !prev)}
+          >
+            {showEdit ? "Hide edit" : "Edit"}
+          </button>
+        </div>
+
+        {showEdit && (
+          <>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
             Change password
           </p>
         </div>
@@ -154,6 +200,8 @@ export default function AccountSettingsPage() {
             {saving ? "Saving..." : "Save changes"}
           </button>
         </div>
+          </>
+        )}
       </div>
     </div>
   );

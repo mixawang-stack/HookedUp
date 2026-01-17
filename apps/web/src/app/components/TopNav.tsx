@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import ProfileOnboardingModal from "./ProfileOnboardingModal";
 
 const NAV_ITEMS = [
@@ -49,13 +49,13 @@ export default function TopNav() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [unreadTotal, setUnreadTotal] = useState(0);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const isProfileComplete = Boolean(
     me?.profileCompleted ??
       (me?.maskName && me.maskName.trim().length > 0 && me?.maskAvatarUrl)
   );
-  const dismissalKey = me?.id
-    ? `profile_onboarding_seen_${me.id}`
-    : "profile_onboarding_seen";
+  const dismissalKey = me?.id ? `profile_onboarding_seen_${me.id}` : null;
+  const globalDismissalKey = "profile_onboarding_seen";
 
   const hideNav =
     pathname.startsWith("/login") || pathname.startsWith("/register");
@@ -120,26 +120,52 @@ export default function TopNav() {
     if (typeof window === "undefined") {
       return;
     }
-    setDismissed(localStorage.getItem(dismissalKey) === "1");
-  }, [dismissalKey]);
+    const hasSeen =
+      localStorage.getItem(globalDismissalKey) === "1" ||
+      (dismissalKey ? localStorage.getItem(dismissalKey) === "1" : false);
+    setDismissed(hasSeen);
+  }, [dismissalKey, globalDismissalKey]);
 
   useEffect(() => {
     if (!me || isProfileComplete || dismissed) {
       return;
     }
     if (typeof window !== "undefined") {
-      localStorage.setItem(dismissalKey, "1");
+      localStorage.setItem(globalDismissalKey, "1");
+      if (dismissalKey) {
+        localStorage.setItem(dismissalKey, "1");
+      }
     }
     setShowOnboarding(true);
-  }, [me, dismissed, isProfileComplete, dismissalKey]);
+    setDismissed(true);
+  }, [me, dismissed, isProfileComplete, dismissalKey, globalDismissalKey]);
 
   const handleDismissOnboarding = () => {
     if (typeof window !== "undefined") {
-      localStorage.setItem(dismissalKey, "1");
+      localStorage.setItem(globalDismissalKey, "1");
+      if (dismissalKey) {
+        localStorage.setItem(dismissalKey, "1");
+      }
     }
     setDismissed(true);
     setShowOnboarding(false);
   };
+
+  useEffect(() => {
+    if (!menuOpen) {
+      return;
+    }
+    const handleClickAway = (event: MouseEvent) => {
+      if (!menuRef.current) {
+        return;
+      }
+      if (!menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickAway);
+    return () => document.removeEventListener("mousedown", handleClickAway);
+  }, [menuOpen]);
 
   if (hideNav) {
     return null;
@@ -179,7 +205,7 @@ export default function TopNav() {
         </div>
         {me && (
           <div className="flex items-center justify-end gap-3">
-            <div className="relative">
+            <div className="relative" ref={menuRef}>
               <button
                 type="button"
                 className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-white/5 transition-transform duration-150 hover:scale-105 active:scale-95"
