@@ -22,7 +22,13 @@ export default function TopNav() {
     id: string;
     maskName: string | null;
     maskAvatarUrl: string | null;
+    bio: string | null;
     profileCompleted?: boolean;
+    preference?: {
+      vibeTags?: string[] | null;
+      interests?: string[] | null;
+      allowStrangerPrivate?: boolean | null;
+    } | null;
   } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
