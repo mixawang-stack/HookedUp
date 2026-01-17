@@ -823,7 +823,7 @@ export default function RoomPage() {
                 <button
                   type="button"
                   className="flex-1 rounded-full bg-amber-400 px-4 py-2 text-xs font-semibold text-slate-900 shadow-sm transition hover:bg-amber-300"
-                  onClick={handleSendMessage}
+                  onClick={() => handleSendMessage()}
                   disabled={sending}
                 >
                   {sending ? "Sending..." : "Send"}
