@@ -202,7 +202,7 @@ export class AdminService implements OnModuleInit {
     }
 
     const reportsCount = await this.prisma.report.count({
-      where: { reportedUserId: userId }
+      where: { targetType: "USER", targetId: userId }
     });
 
     return {

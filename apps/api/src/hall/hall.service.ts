@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { Prisma } from "@prisma/client";
+import { Prisma, RoomStatus } from "@prisma/client";
 import { PrismaService } from "../prisma.service";
 
 @Injectable()
@@ -7,7 +7,21 @@ export class HallService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getHall(userId?: string) {
-    let rooms: Awaited<ReturnType<typeof this.prisma.room.findMany>> = [];
+    type HallRoom = {
+      id: string;
+      title: string;
+      description: string | null;
+      tagsJson: Prisma.JsonValue;
+      status: RoomStatus;
+      startsAt: Date | null;
+      endsAt: Date | null;
+      isOfficial: boolean;
+      allowSpectators: boolean;
+      capacity: number;
+      createdAt: Date;
+    };
+
+    let rooms: HallRoom[] = [];
     try {
       rooms = await this.prisma.room.findMany({
         where: { isOfficial: true },
@@ -31,9 +45,35 @@ export class HallService {
       rooms = [];
     }
 
-    let tracesRaw: Awaited<ReturnType<typeof this.prisma.trace.findMany>> = [];
+    type HallTrace = {
+      id: string;
+      content: string;
+      imageUrl: string | null;
+      imageWidth: number | null;
+      imageHeight: number | null;
+      createdAt: Date;
+      authorId: string | null;
+      author: {
+        id: string;
+        maskName: string | null;
+        maskAvatarUrl: string | null;
+        role: string;
+        gender: string | null;
+        dob: Date | null;
+        preference: {
+          gender: string | null;
+          lookingForGender: string | null;
+          smPreference: string | null;
+          tagsJson: string[] | null;
+        } | null;
+      } | null;
+      _count: { replies: number; likes: number };
+      likes?: { id: string }[];
+    };
+
+    let tracesRaw: HallTrace[] = [];
     try {
-      tracesRaw = await this.prisma.trace.findMany({
+      tracesRaw = (await this.prisma.trace.findMany({
         orderBy: { createdAt: "desc" },
         take: 20,
         include: {
@@ -65,7 +105,7 @@ export class HallService {
               }
             : {})
         }
-      });
+      })) as HallTrace[];
     } catch (error) {
       console.warn("[hall] traces query failed, fallback to empty list", error);
       tracesRaw = [];
@@ -96,7 +136,7 @@ export class HallService {
         : null
     }));
 
-    let novels = [];
+    let novels: Prisma.Novel[] = [];
     try {
       novels = await this.prisma.novel.findMany({
         where: { status: "PUBLISHED" },
