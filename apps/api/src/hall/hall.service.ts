@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { Prisma, RoomStatus } from "@prisma/client";
+import { Prisma, RoomStatus, Novel } from "@prisma/client";
 import { PrismaService } from "../prisma.service";
 
 @Injectable()
@@ -136,7 +136,7 @@ export class HallService {
         : null
     }));
 
-    let novels: Prisma.Novel[] = [];
+    let novels: Novel[] = [];
     try {
       novels = await this.prisma.novel.findMany({
         where: { status: "PUBLISHED" },
