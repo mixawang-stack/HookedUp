@@ -373,6 +373,7 @@ model Room {
   gameState   RoomGameState?
   joinRequests RoomJoinRequest[] @relation("RoomJoinRequestRoom")
   messages    RoomMessage[]
+  novel       Novel?
 }
 
 model RoomMembership {
@@ -484,6 +485,7 @@ model Trace {
   author  User?        @relation("TraceAuthor", fields: [authorId], references: [id])
   replies TraceReply[]
   likes   TraceLike[]
+  novel   Novel?
 }
 
 model TraceReply {
