@@ -1,7 +1,7 @@
 {
   "name": "hookedup-mvp",
   "private": true,
-  "packageManager": "pnpm@9.12.0",
+  "packageManager": "pnpm@10.x",
   "scripts": {
     "dev": "pnpm dev:web",
     "dev:web": "pnpm -C apps/web dev",
