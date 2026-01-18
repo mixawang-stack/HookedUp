@@ -256,7 +256,8 @@ export class NovelsService {
   async importPdfChapters(
     role: string,
     novelId: string,
-    file?: Express.Multer.File
+    file?: Express.Multer.File,
+    freeCountInput?: number
   ) {
     this.ensureAdmin(role);
     if (!file) {
@@ -283,7 +284,7 @@ export class NovelsService {
       throw new BadRequestException("PDF_PARSE_FAILED");
     }
 
-    const freeCount = 2;
+    const freeCount = this.normalizeFreeCount(freeCountInput, chapters.length);
     await this.prisma.$transaction(async (tx) => {
       await tx.novelChapter.deleteMany({ where: { novelId } });
       await tx.novelChapter.createMany({
@@ -302,7 +303,15 @@ export class NovelsService {
       });
     });
 
-    return { chapterCount: chapters.length };
+    return {
+      chapterCount: chapters.length,
+      freeCount,
+      chapters: chapters.map((chapter, index) => ({
+        orderIndex: index + 1,
+        title: chapter.title,
+        isFree: index < freeCount
+      }))
+    };
   }
 
   private splitPdfIntoChapters(text: string) {
@@ -343,6 +352,17 @@ export class NovelsService {
     }
 
     return chapters;
+  }
+
+  private normalizeFreeCount(value: number | undefined, total: number) {
+    const fallback = Math.min(2, total);
+    if (value === undefined || Number.isNaN(value)) {
+      return fallback;
+    }
+    const parsed = Math.floor(value);
+    if (parsed < 0) return 0;
+    if (parsed > total) return total;
+    return parsed;
   }
 
   async listNovels(limit?: number, featured?: boolean) {

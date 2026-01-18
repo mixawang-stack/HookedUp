@@ -57,6 +57,7 @@ export default function AdminNovelsPage() {
   const [coverUploading, setCoverUploading] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [pdfUploading, setPdfUploading] = useState(false);
+  const [freeCount, setFreeCount] = useState("2");
 
   const authHeader = useMemo(() => {
     if (!token) return null;
@@ -107,6 +108,7 @@ export default function AdminNovelsPage() {
     setAutoPostHall(true);
     setCoverFile(null);
     setPdfFile(null);
+    setFreeCount("2");
   };
 
   const handleUploadCover = async () => {
@@ -145,6 +147,7 @@ export default function AdminNovelsPage() {
     setStatus(null);
     const form = new FormData();
     form.append("file", pdfFile);
+    form.append("freeCount", freeCount.trim() || "2");
     try {
       const res = await fetch(`${API_BASE}/admin/novels/${selectedNovel.id}/pdf`, {
         method: "POST",
@@ -156,7 +159,9 @@ export default function AdminNovelsPage() {
         setStatus(data?.message ?? "Failed to import PDF.");
         return;
       }
-      setStatus(`Imported ${data?.chapterCount ?? 0} chapters from PDF.`);
+      setStatus(
+        `Imported ${data?.chapterCount ?? 0} chapters from PDF.`
+      );
       setPdfFile(null);
       await loadChapters(selectedNovel.id);
     } finally {
@@ -480,6 +485,16 @@ export default function AdminNovelsPage() {
                       }
                     />
                   </label>
+                  <label className="mt-3 block text-xs text-slate-300">
+                    Free chapters count
+                    <input
+                      type="number"
+                      min={0}
+                      className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-white"
+                      value={freeCount}
+                      onChange={(event) => setFreeCount(event.target.value)}
+                    />
+                  </label>
                   <div className="mt-3 flex items-center gap-3">
                     <button
                       type="button"
@@ -495,6 +510,34 @@ export default function AdminNovelsPage() {
                   </div>
                 </div>
               </section>
+
+              {selectedNovel && chapters.length > 0 && (
+                <section className="space-y-4">
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.3em] text-slate-500">
+                    Chapter Preview
+                  </h3>
+                  <div className="max-h-72 overflow-y-auto rounded-2xl border border-white/10 bg-slate-950/60">
+                    {chapters.map((chapter) => (
+                      <div
+                        key={chapter.id}
+                        className="border-b border-white/5 px-4 py-3"
+                      >
+                        <div className="flex items-center justify-between text-xs text-slate-200">
+                          <span>
+                            {chapter.orderIndex}. {chapter.title}
+                          </span>
+                          <span className="text-[10px] text-slate-500">
+                            {chapter.isFree ? "Free" : "Locked"}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-[11px] text-slate-400 line-clamp-3">
+                          {chapter.content}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
 
               {/* Visibility & Compliance */}
               <section className="space-y-4">

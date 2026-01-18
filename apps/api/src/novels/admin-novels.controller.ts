@@ -92,8 +92,15 @@ export class AdminNovelsController {
   @UseInterceptors(pdfUploadInterceptor)
   async uploadPdf(
     @Req() req: AuthenticatedRequest,
-    @Param("id") id: string
+    @Param("id") id: string,
+    @Body("freeCount") freeCount?: string
   ) {
-    return this.novelsService.importPdfChapters(req.user.role, id, req.file);
+    const parsedFree = freeCount ? Number(freeCount) : undefined;
+    return this.novelsService.importPdfChapters(
+      req.user.role,
+      id,
+      req.file,
+      Number.isFinite(parsedFree) ? parsedFree : undefined
+    );
   }
 }
