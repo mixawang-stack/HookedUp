@@ -171,9 +171,9 @@ export class NovelsService {
       select: { vibeTagsJson: true, tagsJson: true, interestsJson: true }
     });
     const tags = [
-      ...(pref?.vibeTagsJson ?? []),
-      ...(pref?.tagsJson ?? []),
-      ...(pref?.interestsJson ?? [])
+      ...((pref?.vibeTagsJson as string[]) ?? []),
+      ...((pref?.tagsJson as string[]) ?? []),
+      ...((pref?.interestsJson as string[]) ?? [])
     ].filter(Boolean) as string[];
     if (tags.length === 0) {
       return this.listNovels(6);
