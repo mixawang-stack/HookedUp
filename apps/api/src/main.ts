@@ -21,32 +21,23 @@ async function bootstrap() {
     })
   );
 
-  const corsOrigins = (process.env.CORS_ORIGIN ?? "")
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
-  const allowAllOrigins =
-    corsOrigins.length === 0 || corsOrigins.includes("*");
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    const origin = req.headers.origin as string | undefined;
-    if (origin && (allowAllOrigins || corsOrigins.includes(origin))) {
-      res.setHeader("Access-Control-Allow-Origin", origin);
-      res.setHeader("Vary", "Origin");
-      res.setHeader("Access-Control-Allow-Credentials", "true");
-      res.setHeader(
-        "Access-Control-Allow-Methods",
-        "GET,POST,PUT,PATCH,DELETE,OPTIONS"
-      );
-      res.setHeader(
-        "Access-Control-Allow-Headers",
-        "Authorization,Content-Type,Accept,Origin,X-Requested-With"
-      );
-    }
-    if (req.method === "OPTIONS") {
-      res.status(204).end();
-      return;
-    }
-    next();
+  app.enableCors({
+    origin: (origin, callback) => {
+      const allowedOrigins = (process.env.CORS_ORIGIN ?? "*")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      if (!origin || allowedOrigins.includes("*") || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
+    exposedHeaders: ["Authorization"]
   });
 
   const port = Number(process.env.PORT ?? 3001);

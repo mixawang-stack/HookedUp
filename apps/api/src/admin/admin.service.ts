@@ -24,21 +24,18 @@ export class AdminService {
 
   async adminLogin(dto: LoginDto) {
     const email = dto.email.trim().toLowerCase();
-    const user = await this.prisma.user.findUnique({
+    const admin = await this.prisma.adminUser.findUnique({
       where: { email }
     });
-    if (!user) {
+    if (!admin) {
       throw new UnauthorizedException("INVALID_CREDENTIALS");
     }
-    if (user.role !== "ADMIN") {
-      throw new ForbiddenException("ADMIN_ONLY");
-    }
-    const passwordOk = await argon2.verify(user.passwordHash, dto.password);
+    const passwordOk = await argon2.verify(admin.passwordHash, dto.password);
     if (!passwordOk) {
       throw new UnauthorizedException("INVALID_CREDENTIALS");
     }
     const accessToken = await this.jwt.signAsync(
-      { sub: user.id, role: user.role },
+      { sub: admin.id, role: "ADMIN" },
       { secret: JWT_ACCESS_SECRET, expiresIn: JWT_ACCESS_TTL_SECONDS }
     );
     return { accessToken };
