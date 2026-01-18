@@ -13,9 +13,13 @@ type NovelItem = {
   coverImageUrl: string | null;
   description: string | null;
   tagsJson?: string[] | null;
-  status: "DRAFT" | "PUBLISHED";
+  status: "DRAFT" | "PUBLISHED" | "ARCHIVED" | "SCHEDULED";
+  audience: "ALL" | "MATURE";
   isFeatured: boolean;
+  authorName: string | null;
+  language: string | null;
   _count?: { chapters: number };
+  room?: { id: string; _count: { memberships: number } } | null;
 };
 
 type ChapterItem = {
@@ -39,18 +43,19 @@ export default function AdminNovelsPage() {
   const [selectedNovel, setSelectedNovel] = useState<NovelItem | null>(null);
   const [chapters, setChapters] = useState<ChapterItem[]>([]);
   const [status, setStatus] = useState<string | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
+  // Form states
   const [title, setTitle] = useState("");
   const [coverImageUrl, setCoverImageUrl] = useState("");
   const [description, setDescription] = useState("");
   const [tags, setTags] = useState("");
-  const [novelStatus, setNovelStatus] = useState<"DRAFT" | "PUBLISHED">("DRAFT");
+  const [novelStatus, setNovelStatus] = useState<NovelItem["status"]>("DRAFT");
+  const [audience, setAudience] = useState<NovelItem["audience"]>("ALL");
   const [isFeatured, setIsFeatured] = useState(false);
-
-  const [chapterTitle, setChapterTitle] = useState("");
-  const [chapterContent, setChapterContent] = useState("");
-  const [chapterOrder, setChapterOrder] = useState(1);
-  const [chapterFree, setChapterFree] = useState(false);
+  const [authorName, setAuthorName] = useState("Uncle's Tavern");
+  const [language, setLanguage] = useState("EN");
+  const [autoPostHall, setAutoPostHall] = useState(true);
 
   const authHeader = useMemo(() => {
     if (!token) return null;
@@ -81,10 +86,7 @@ export default function AdminNovelsPage() {
     const res = await fetch(`${API_BASE}/admin/novels/${novelId}/chapters`, {
       headers: { ...authHeader }
     });
-    if (!res.ok) {
-      setStatus("Failed to load chapters.");
-      return;
-    }
+    if (!res.ok) return;
     const data = (await res.json()) as ChapterItem[];
     setChapters(data);
   };
@@ -100,7 +102,11 @@ export default function AdminNovelsPage() {
     setDescription("");
     setTags("");
     setNovelStatus("DRAFT");
+    setAudience("ALL");
     setIsFeatured(false);
+    setAuthorName("Uncle's Tavern");
+    setLanguage("EN");
+    setAutoPostHall(true);
   };
 
   const handleSaveNovel = async () => {
@@ -112,7 +118,11 @@ export default function AdminNovelsPage() {
       description,
       tagsJson: parseTags(tags),
       status: novelStatus,
-      isFeatured
+      audience,
+      isFeatured,
+      authorName,
+      language,
+      autoPostHall
     };
     const res = await fetch(
       `${API_BASE}/admin/novels${selectedNovel ? `/${selectedNovel.id}` : ""}`,
@@ -130,9 +140,16 @@ export default function AdminNovelsPage() {
       setStatus(body?.message ?? "Failed to save novel.");
       return;
     }
+    setDrawerOpen(false);
     resetForm();
     setSelectedNovel(null);
     await loadNovels();
+  };
+
+  const handleOpenCreate = () => {
+    setSelectedNovel(null);
+    resetForm();
+    setDrawerOpen(true);
   };
 
   const handleEditNovel = (novel: NovelItem) => {
@@ -142,7 +159,11 @@ export default function AdminNovelsPage() {
     setDescription(novel.description ?? "");
     setTags((novel.tagsJson ?? []).join(", "));
     setNovelStatus(novel.status);
+    setAudience(novel.audience);
     setIsFeatured(novel.isFeatured);
+    setAuthorName(novel.authorName ?? "Uncle's Tavern");
+    setLanguage(novel.language ?? "EN");
+    setDrawerOpen(true);
     loadChapters(novel.id).catch(() => undefined);
   };
 
@@ -157,242 +178,286 @@ export default function AdminNovelsPage() {
       setStatus("Failed to delete novel.");
       return;
     }
-    setSelectedNovel(null);
-    setChapters([]);
     await loadNovels();
-  };
-
-  const handleAddChapter = async () => {
-    if (!authHeader || !selectedNovel) return;
-    const res = await fetch(
-      `${API_BASE}/admin/novels/${selectedNovel.id}/chapters`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader
-        },
-        body: JSON.stringify({
-          title: chapterTitle,
-          content: chapterContent,
-          orderIndex: chapterOrder,
-          isFree: chapterFree
-        })
-      }
-    );
-    if (!res.ok) {
-      setStatus("Failed to add chapter.");
-      return;
-    }
-    setChapterTitle("");
-    setChapterContent("");
-    setChapterOrder((prev) => prev + 1);
-    setChapterFree(false);
-    await loadChapters(selectedNovel.id);
   };
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-10 text-slate-100">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Novel management</h1>
+          <h1 className="text-2xl font-semibold">Novel library</h1>
           <p className="mt-1 text-sm text-slate-400">
-            Create, publish, and update novels for the Hall.
+            Manage operational status, visibility, and hall promotion.
           </p>
         </div>
-        <button
-          type="button"
-          className="rounded-full border border-white/20 px-3 py-1 text-xs text-slate-200"
-          onClick={() => loadNovels()}
-        >
-          Refresh
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            className="rounded-full border border-white/20 px-3 py-1 text-xs text-slate-200"
+            onClick={() => loadNovels()}
+          >
+            Refresh
+          </button>
+          <button
+            type="button"
+            className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-slate-900 shadow-[0_0_20px_rgba(255,255,255,0.3)]"
+            onClick={handleOpenCreate}
+          >
+            + Create Novel
+          </button>
+        </div>
       </div>
 
       {status && <p className="mt-3 text-sm text-rose-400">{status}</p>}
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">
-        <div className="space-y-4">
-          {novels.length === 0 && (
-            <p className="text-sm text-slate-400">No novels yet.</p>
-          )}
+      <div className="mt-8 grid gap-4">
+        {novels.length === 0 && (
+          <div className="rounded-2xl border border-dashed border-white/10 p-12 text-center text-sm text-slate-500">
+            No novels in the library yet. Start by creating one.
+          </div>
+        )}
+        <div className="grid gap-4 md:grid-cols-2">
           {novels.map((novel) => (
             <div
               key={novel.id}
-              className="rounded-2xl border border-white/10 bg-slate-950/70 p-4"
+              className="group relative flex gap-4 rounded-2xl border border-white/10 bg-slate-950/60 p-4 transition hover:bg-slate-900/60"
             >
-              <div className="flex items-center justify-between">
+              <div className="h-32 w-24 flex-shrink-0 overflow-hidden rounded-lg border border-white/5 bg-slate-900">
+                {novel.coverImageUrl ? (
+                  <img
+                    src={novel.coverImageUrl}
+                    alt={novel.title}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-[10px] text-slate-600 uppercase">
+                    No Cover
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-1 flex-col justify-between py-1">
                 <div>
-                  <p className="text-sm font-semibold">{novel.title}</p>
-                  <p className="text-xs text-slate-400">
-                    {novel.status} · Chapters {novel._count?.chapters ?? 0}
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="font-semibold text-slate-100 line-clamp-1">{novel.title}</h3>
+                      <div className="mt-1 flex flex-wrap gap-2">
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                          novel.status === "PUBLISHED" ? "bg-emerald-500/20 text-emerald-400" :
+                          novel.status === "DRAFT" ? "bg-slate-500/20 text-slate-400" :
+                          novel.status === "ARCHIVED" ? "bg-rose-500/20 text-rose-400" :
+                          "bg-amber-500/20 text-amber-400"
+                        }`}>
+                          {novel.status}
+                        </span>
+                        <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-slate-400">
+                          {novel.audience}
+                        </span>
+                        {novel.isFeatured && (
+                          <span className="rounded-full bg-amber-400/20 px-2 py-0.5 text-[10px] text-amber-300">
+                            Featured
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-xs text-slate-400 line-clamp-2">
+                    {novel.description || "No description provided."}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    className="rounded-full border border-white/20 px-3 py-1 text-xs text-slate-200"
-                    onClick={() => handleEditNovel(novel)}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-full border border-rose-400/60 px-3 py-1 text-xs text-rose-200"
-                    onClick={() => handleDeleteNovel(novel.id)}
-                  >
-                    Delete
-                  </button>
+                <div className="mt-3 flex items-center justify-between">
+                  <div className="flex items-center gap-3 text-[10px] text-slate-500">
+                    <span>{novel._count?.chapters ?? 0} Chapters</span>
+                    <span>•</span>
+                    <span>{novel.room?._count?.memberships ?? 0} Room Members</span>
+                  </div>
+                  <div className="flex items-center gap-2 opacity-0 transition group-hover:opacity-100">
+                    <button
+                      type="button"
+                      className="rounded-full border border-white/20 px-3 py-1 text-[10px] text-slate-200 hover:bg-white/10"
+                      onClick={() => handleEditNovel(novel)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-full border border-rose-500/30 px-3 py-1 text-[10px] text-rose-300 hover:bg-rose-500/10"
+                      onClick={() => handleDeleteNovel(novel.id)}
+                    >
+                      Archive
+                    </button>
+                  </div>
                 </div>
               </div>
-              {novel.description && (
-                <p className="mt-2 text-xs text-slate-400">{novel.description}</p>
-              )}
             </div>
           ))}
         </div>
+      </div>
 
-        <div className="space-y-4 rounded-2xl border border-white/10 bg-slate-950/80 p-5">
-          <h2 className="text-sm font-semibold">
-            {selectedNovel ? "Edit novel" : "Create novel"}
-          </h2>
-          <label className="text-xs text-slate-300">
-            Title
-            <input
-              className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-            />
-          </label>
-          <label className="text-xs text-slate-300">
-            Cover image URL
-            <input
-              className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
-              value={coverImageUrl}
-              onChange={(event) => setCoverImageUrl(event.target.value)}
-            />
-          </label>
-          <label className="text-xs text-slate-300">
-            Description
-            <textarea
-              className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
-              rows={3}
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-            />
-          </label>
-          <label className="text-xs text-slate-300">
-            Tags (comma separated)
-            <input
-              className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
-              value={tags}
-              onChange={(event) => setTags(event.target.value)}
-            />
-          </label>
-          <div className="flex items-center gap-3 text-xs text-slate-300">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={isFeatured}
-                onChange={(event) => setIsFeatured(event.target.checked)}
-              />
-              Featured
-            </label>
-            <select
-              className="rounded-full border border-white/15 bg-slate-950/60 px-3 py-1 text-xs text-white"
-              value={novelStatus}
-              onChange={(event) => setNovelStatus(event.target.value as "DRAFT" | "PUBLISHED")}
-            >
-              <option value="DRAFT">Draft</option>
-              <option value="PUBLISHED">Published</option>
-            </select>
-          </div>
-          <div className="flex items-center justify-end gap-2">
-            {selectedNovel && (
+      {/* Drawer */}
+      {drawerOpen && (
+        <div className="fixed inset-0 z-[100] flex justify-end bg-slate-950/60 backdrop-blur-sm">
+          <div className="absolute inset-0" onClick={() => setDrawerOpen(false)} />
+          <div className="relative h-full w-full max-w-xl overflow-y-auto border-l border-white/10 bg-slate-950 p-8 shadow-[0_0_100px_rgba(0,0,0,0.8)]">
+            <div className="flex items-center justify-between border-b border-white/10 pb-6">
+              <h2 className="text-xl font-semibold">
+                {selectedNovel ? "Novel Operations" : "New Novel Entry"}
+              </h2>
               <button
                 type="button"
-                className="rounded-full border border-white/20 px-3 py-1 text-xs text-slate-200"
-                onClick={() => {
-                  setSelectedNovel(null);
-                  resetForm();
-                  setChapters([]);
-                }}
+                className="rounded-full border border-white/20 px-4 py-1.5 text-xs text-slate-300 hover:text-white"
+                onClick={() => setDrawerOpen(false)}
               >
-                Cancel
+                Close
               </button>
-            )}
-            <button
-              type="button"
-              className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-slate-900"
-              onClick={handleSaveNovel}
-            >
-              Save
-            </button>
-          </div>
+            </div>
 
-          {selectedNovel && (
-            <div className="mt-6 space-y-3 border-t border-white/10 pt-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
-                Chapters
-              </p>
-              {chapters.map((chapter) => (
-                <div
-                  key={chapter.id}
-                  className="rounded-xl border border-white/10 bg-slate-900/40 p-3 text-xs text-slate-300"
-                >
-                  <div className="flex items-center justify-between">
-                    <span>
-                      #{chapter.orderIndex} · {chapter.title}
-                    </span>
-                    <span>{chapter.isFree ? "Free" : "Paid"}</span>
-                  </div>
-                </div>
-              ))}
-
-              <div className="space-y-2 rounded-xl border border-white/10 bg-slate-900/40 p-3">
-                <p className="text-xs font-semibold text-slate-300">Add chapter</p>
-                <input
-                  className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-white"
-                  placeholder="Chapter title"
-                  value={chapterTitle}
-                  onChange={(event) => setChapterTitle(event.target.value)}
-                />
-                <textarea
-                  className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-white"
-                  rows={3}
-                  placeholder="Chapter content"
-                  value={chapterContent}
-                  onChange={(event) => setChapterContent(event.target.value)}
-                />
-                <div className="flex items-center gap-3 text-xs text-slate-300">
-                  <input
-                    type="number"
-                    min={1}
-                    className="w-20 rounded-lg border border-white/10 bg-slate-950/60 px-2 py-1 text-xs text-white"
-                    value={chapterOrder}
-                    onChange={(event) => setChapterOrder(Number(event.target.value))}
-                  />
-                  <label className="flex items-center gap-2">
+            <div className="mt-8 space-y-8">
+              {/* Basic Info */}
+              <section className="space-y-4">
+                <h3 className="text-[11px] font-bold uppercase tracking-[0.3em] text-slate-500">
+                  Basic Information
+                </h3>
+                <div className="grid gap-4">
+                  <label className="text-xs text-slate-300">
+                    Title
                     <input
-                      type="checkbox"
-                      checked={chapterFree}
-                      onChange={(event) => setChapterFree(event.target.checked)}
+                      className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-white focus:border-amber-400"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
                     />
-                    Free
+                  </label>
+                  <label className="text-xs text-slate-300">
+                    Cover Image URL
+                    <input
+                      className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-white"
+                      value={coverImageUrl}
+                      onChange={(e) => setCoverImageUrl(e.target.value)}
+                    />
+                  </label>
+                  <label className="text-xs text-slate-300">
+                    Description
+                    <textarea
+                      className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-white"
+                      rows={4}
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                    />
+                  </label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <label className="text-xs text-slate-300">
+                      Author Name
+                      <input
+                        className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-white"
+                        value={authorName}
+                        onChange={(e) => setAuthorName(e.target.value)}
+                      />
+                    </label>
+                    <label className="text-xs text-slate-300">
+                      Language
+                      <input
+                        className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-white"
+                        value={language}
+                        onChange={(e) => setLanguage(e.target.value)}
+                      />
+                    </label>
+                  </div>
+                  <label className="text-xs text-slate-300">
+                    Tags (comma separated)
+                    <input
+                      className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-white"
+                      value={tags}
+                      onChange={(e) => setTags(e.target.value)}
+                      placeholder="Romance, Fantasy, Mystery"
+                    />
                   </label>
                 </div>
+              </section>
+
+              {/* Visibility & Compliance */}
+              <section className="space-y-4">
+                <h3 className="text-[11px] font-bold uppercase tracking-[0.3em] text-slate-500">
+                  Visibility & Compliance
+                </h3>
+                <div className="flex flex-wrap gap-6 rounded-2xl border border-white/5 bg-white/5 p-4">
+                  <div className="flex flex-col gap-2">
+                    <span className="text-[10px] text-slate-500 uppercase">Status</span>
+                    <select
+                      className="rounded-full border border-white/10 bg-slate-900 px-3 py-1.5 text-xs text-white"
+                      value={novelStatus}
+                      onChange={(e) => setNovelStatus(e.target.value as any)}
+                    >
+                      <option value="DRAFT">Draft</option>
+                      <option value="PUBLISHED">Published</option>
+                      <option value="SCHEDULED">Scheduled</option>
+                      <option value="ARCHIVED">Archived</option>
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <span className="text-[10px] text-slate-500 uppercase">Audience</span>
+                    <select
+                      className="rounded-full border border-white/10 bg-slate-900 px-3 py-1.5 text-xs text-white"
+                      value={audience}
+                      onChange={(e) => setAudience(e.target.value as any)}
+                    >
+                      <option value="ALL">All Audiences</option>
+                      <option value="MATURE">Mature (18+)</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-4 pt-4">
+                    <label className="flex items-center gap-2 text-xs text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={isFeatured}
+                        onChange={(e) => setIsFeatured(e.target.checked)}
+                        className="h-4 w-4 rounded bg-slate-900"
+                      />
+                      Featured
+                    </label>
+                  </div>
+                </div>
+              </section>
+
+              {/* Operational Settings */}
+              <section className="space-y-4">
+                <h3 className="text-[11px] font-bold uppercase tracking-[0.3em] text-slate-500">
+                  Operational Settings
+                </h3>
+                <div className="rounded-2xl border border-white/5 bg-white/5 p-4">
+                  <label className="flex items-center gap-2 text-xs text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={autoPostHall}
+                      onChange={(e) => setAutoPostHall(e.target.checked)}
+                      className="h-4 w-4 rounded bg-slate-900"
+                    />
+                    Auto-post to Hall upon publishing
+                  </label>
+                  <p className="mt-2 text-[10px] text-slate-500 leading-relaxed">
+                    When this novel status changes to Published, an official post will be created automatically in the Hall with the cover and description.
+                  </p>
+                </div>
+              </section>
+
+              <div className="flex items-center justify-end gap-3 pt-6">
                 <button
                   type="button"
-                  className="w-full rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-900"
-                  onClick={handleAddChapter}
+                  className="rounded-full border border-white/20 px-6 py-2.5 text-xs font-semibold text-white hover:bg-white/5"
+                  onClick={() => setDrawerOpen(false)}
                 >
-                  Add chapter
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="rounded-full bg-white px-8 py-2.5 text-xs font-bold text-slate-900 shadow-[0_10px_30px_rgba(255,255,255,0.2)]"
+                  onClick={handleSaveNovel}
+                >
+                  {selectedNovel ? "Save Changes" : "Create & Launch"}
                 </button>
               </div>
             </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

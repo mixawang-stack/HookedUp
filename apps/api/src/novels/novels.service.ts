@@ -1,5 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
-import { NovelStatus, Prisma } from "@prisma/client";
+import { NovelStatus, Prisma, Role } from "@prisma/client";
+import * as argon2 from "argon2";
+import { randomBytes } from "crypto";
 import { PrismaService } from "../prisma.service";
 import { AdminNovelDto } from "./dto/admin-novel.dto";
 import { AdminChapterDto } from "./dto/admin-chapter.dto";
@@ -22,37 +24,177 @@ export class NovelsService {
     return this.prisma.novel.findMany({
       orderBy: { createdAt: "desc" },
       include: {
-        _count: { select: { chapters: true } }
+        _count: { select: { chapters: true } },
+        room: {
+          select: {
+            id: true,
+            title: true,
+            _count: { select: { memberships: true } }
+          }
+        }
       }
     });
   }
 
   async createAdminNovel(role: string, dto: AdminNovelDto) {
     this.ensureAdmin(role);
+    const scheduledAt = dto.scheduledAt ? new Date(dto.scheduledAt) : null;
+    const shouldPublish = dto.status === "PUBLISHED";
+    const shouldSchedule = dto.status === "SCHEDULED";
+    const shouldArchive = dto.status === "ARCHIVED";
+    const autoHallPost = dto.autoHallPost ?? true;
+    const autoRoom = dto.autoRoom ?? true;
     const data: Prisma.NovelCreateInput = {
       title: dto.title.trim(),
       coverImageUrl: dto.coverImageUrl?.trim() || null,
       description: dto.description?.trim() || null,
+      authorName: dto.authorName?.trim() || null,
+      language: dto.language?.trim() || null,
       tagsJson: dto.tagsJson ?? [],
+      contentWarningsJson: dto.contentWarningsJson ?? [],
       status: (dto.status as NovelStatus | undefined) ?? "DRAFT",
-      isFeatured: dto.isFeatured ?? false
+      audience: dto.audience ?? "ALL",
+      sourceType: dto.sourceType ?? "TEXT",
+      isFeatured: dto.isFeatured ?? false,
+      autoHallPost,
+      autoRoom,
+      scheduledAt: shouldSchedule ? scheduledAt ?? new Date() : null,
+      publishedAt: shouldPublish ? new Date() : null,
+      archivedAt: shouldArchive ? new Date() : null
     };
-    return this.prisma.novel.create({ data });
+    return this.prisma.$transaction(async (tx) => {
+      let hallTraceId: string | null = null;
+      let roomId: string | null = null;
+
+      if (shouldPublish && autoHallPost) {
+        const officialUser = await this.ensureOfficialUser(tx);
+        const hallTrace = await tx.trace.create({
+          data: {
+            authorId: officialUser.id,
+            content: this.buildHallPostContent(
+              {
+                title: dto.title,
+                description: dto.description ?? null,
+                tagsJson: dto.tagsJson ?? []
+              },
+              dto
+            ),
+            imageUrl: dto.coverImageUrl?.trim() || null
+          }
+        });
+        hallTraceId = hallTrace.id;
+      }
+
+      if (shouldPublish && autoRoom) {
+        const room = await this.createNovelRoom(tx, dto);
+        roomId = room.id;
+      }
+
+      return tx.novel.create({
+        data: {
+          ...data,
+          hallTraceId,
+          roomId
+        }
+      });
+    });
   }
 
   async updateAdminNovel(role: string, id: string, dto: AdminNovelDto) {
     this.ensureAdmin(role);
+    const existing = await this.prisma.novel.findUnique({
+      where: { id }
+    });
+    if (!existing) {
+      throw new BadRequestException("NOVEL_NOT_FOUND");
+    }
+
+    const nextStatus = (dto.status as NovelStatus | undefined) ?? existing.status;
+    const nextAutoHallPost = dto.autoHallPost ?? existing.autoHallPost;
+    const nextAutoRoom = dto.autoRoom ?? existing.autoRoom;
+    const scheduledAt = dto.scheduledAt ? new Date(dto.scheduledAt) : undefined;
+    const shouldPublish = existing.status !== "PUBLISHED" && nextStatus === "PUBLISHED";
+    const isPublished = nextStatus === "PUBLISHED";
+    const shouldUnpublish = existing.status === "PUBLISHED" && nextStatus !== "PUBLISHED";
+    const shouldSchedule = nextStatus === "SCHEDULED";
+    const shouldArchive = nextStatus === "ARCHIVED";
+
     const data: Prisma.NovelUpdateInput = {
       title: dto.title?.trim(),
-      coverImageUrl: dto.coverImageUrl?.trim() || null,
-      description: dto.description?.trim() || null,
+      coverImageUrl:
+        dto.coverImageUrl !== undefined
+          ? dto.coverImageUrl.trim() || null
+          : undefined,
+      description:
+        dto.description !== undefined ? dto.description.trim() || null : undefined,
+      authorName:
+        dto.authorName !== undefined ? dto.authorName.trim() || null : undefined,
+      language: dto.language !== undefined ? dto.language.trim() || null : undefined,
       tagsJson: dto.tagsJson ?? undefined,
+      contentWarningsJson: dto.contentWarningsJson ?? undefined,
       status: dto.status as NovelStatus | undefined,
-      isFeatured: dto.isFeatured
+      audience: dto.audience ?? undefined,
+      sourceType: dto.sourceType ?? undefined,
+      isFeatured: dto.isFeatured,
+      autoHallPost: dto.autoHallPost,
+      autoRoom: dto.autoRoom,
+      scheduledAt: shouldSchedule ? scheduledAt ?? existing.scheduledAt ?? new Date() : undefined,
+      publishedAt: shouldPublish ? new Date() : undefined,
+      archivedAt: shouldArchive ? new Date() : undefined
     };
-    return this.prisma.novel.update({
-      where: { id },
-      data
+
+    return this.prisma.$transaction(async (tx) => {
+      let hallTraceId = existing.hallTraceId ?? null;
+      let roomId = existing.roomId ?? null;
+
+      if (shouldUnpublish && existing.hallTraceId) {
+        await tx.trace.delete({ where: { id: existing.hallTraceId } }).catch(() => undefined);
+        hallTraceId = null;
+      }
+
+      if (isPublished && nextAutoHallPost && hallTraceId) {
+        await tx.trace.update({
+          where: { id: hallTraceId },
+          data: {
+            content: this.buildHallPostContent(existing, dto),
+            imageUrl: dto.coverImageUrl?.trim() || existing.coverImageUrl || null
+          }
+        });
+      }
+
+      if (isPublished && !nextAutoHallPost && hallTraceId) {
+        await tx.trace.delete({ where: { id: hallTraceId } }).catch(() => undefined);
+        hallTraceId = null;
+      }
+
+      if (isPublished && nextAutoHallPost && !hallTraceId) {
+        const officialUser = await this.ensureOfficialUser(tx);
+        const hallTrace = await tx.trace.create({
+          data: {
+            authorId: officialUser.id,
+            content: this.buildHallPostContent(existing, dto),
+            imageUrl: dto.coverImageUrl?.trim() || existing.coverImageUrl || null
+          }
+        });
+        hallTraceId = hallTrace.id;
+      }
+
+      if (isPublished && nextAutoRoom && !roomId) {
+        const room = await this.createNovelRoom(tx, {
+          ...existing,
+          ...dto
+        });
+        roomId = room.id;
+      }
+
+      return tx.novel.update({
+        where: { id },
+        data: {
+          ...data,
+          hallTraceId,
+          roomId
+        }
+      });
     });
   }
 
@@ -187,6 +329,71 @@ export class NovelsService {
       },
       orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
       take: 6
+    });
+  }
+
+  private buildHallPostContent(
+    existing: { title: string; description: string | null; tagsJson: Prisma.JsonValue },
+    dto: AdminNovelDto
+  ) {
+    const title = dto.title?.trim() ?? existing.title;
+    const description = dto.description?.trim() ?? existing.description ?? "";
+    const tags = Array.isArray(dto.tagsJson)
+      ? dto.tagsJson
+      : Array.isArray(existing.tagsJson)
+        ? (existing.tagsJson as string[])
+        : [];
+    const tagLine = tags.length > 0 ? `Tags: ${tags.join(" / ")}` : "";
+    return [
+      "The Bartender's Pick",
+      title,
+      description,
+      tagLine
+    ]
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0)
+      .join("\n");
+  }
+
+  private async ensureOfficialUser(tx: Prisma.TransactionClient) {
+    const existing = await tx.user.findFirst({
+      where: { role: Role.OFFICIAL },
+      select: { id: true }
+    });
+    if (existing) {
+      return existing;
+    }
+    const passwordHash = await argon2.hash(randomBytes(24).toString("hex"));
+    return tx.user.create({
+      data: {
+        email: `official-${Date.now()}@hookedup.local`,
+        passwordHash,
+        role: Role.OFFICIAL,
+        maskName: "The Bartender"
+      },
+      select: { id: true }
+    });
+  }
+
+  private async createNovelRoom(
+    tx: Prisma.TransactionClient,
+    payload: {
+      title: string;
+      description?: string | null;
+      tagsJson?: Prisma.JsonValue;
+    }
+  ) {
+    const officialUser = await this.ensureOfficialUser(tx);
+    const tagsJson = Array.isArray(payload.tagsJson) ? payload.tagsJson : [];
+    return tx.room.create({
+      data: {
+        title: `Discussion: ${payload.title}`,
+        description: payload.description ?? null,
+        tagsJson,
+        isOfficial: true,
+        createdById: officialUser.id
+      },
+      select: { id: true }
     });
   }
 }

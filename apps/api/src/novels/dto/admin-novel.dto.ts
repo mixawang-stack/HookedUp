@@ -1,8 +1,9 @@
-import { IsArray, IsBoolean, IsOptional, IsString, MaxLength } from "class-validator";
+import { IsBoolean, IsEnum, IsOptional, IsString, MaxLength } from "class-validator";
+import { NovelAudience, NovelStatus } from "@prisma/client";
 
 export class AdminNovelDto {
   @IsString()
-  @MaxLength(200)
+  @MaxLength(255)
   title!: string;
 
   @IsOptional()
@@ -14,15 +15,30 @@ export class AdminNovelDto {
   description?: string;
 
   @IsOptional()
-  @IsArray()
   @IsString({ each: true })
-  tagsJson?: string[];
+  tags?: string[];
 
   @IsOptional()
-  @IsString()
-  status?: "DRAFT" | "PUBLISHED";
+  @IsEnum(NovelStatus)
+  status?: NovelStatus;
+
+  @IsOptional()
+  @IsEnum(NovelAudience)
+  audience?: NovelAudience;
 
   @IsOptional()
   @IsBoolean()
   isFeatured?: boolean;
+
+  @IsOptional()
+  @IsString()
+  authorName?: string;
+
+  @IsOptional()
+  @IsString()
+  language?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  autoPostHall?: boolean;
 }
