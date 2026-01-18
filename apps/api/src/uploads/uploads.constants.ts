@@ -1,4 +1,4 @@
-﻿import path from "path";
+import path from "path";
 
 const DEFAULT_STORAGE_DIR =
   process.env.NODE_ENV === "production"

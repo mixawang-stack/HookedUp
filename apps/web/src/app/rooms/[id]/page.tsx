@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -431,7 +431,7 @@ export default function RoomPage() {
         };
         setMessages((prev) => [...prev, tempMessage]);
         if (!overrideContent || content === messageInput.trim()) {
-          setMessageInput("");
+        setMessageInput("");
         }
         // Send via socket - the server will broadcast back the real message
         socketRef.current.emit("room:message:send", { roomId, content });
@@ -458,7 +458,7 @@ export default function RoomPage() {
       const message = (await res.json()) as RoomMessage;
       setMessages((prev) => [...prev, message]);
       if (!overrideContent || content === messageInput.trim()) {
-        setMessageInput("");
+      setMessageInput("");
       }
       setLastFailedMessage(null);
     } catch (error) {

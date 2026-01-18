@@ -34,16 +34,43 @@ export class AdminService implements OnModuleInit {
 
   async adminLogin(dto: LoginDto) {
     const email = dto.email.trim().toLowerCase();
-    const admin = await this.prisma.adminUser.findUnique({
+    const bootstrapEmail = process.env.ADMIN_BOOTSTRAP_EMAIL?.trim().toLowerCase();
+    const bootstrapPassword = process.env.ADMIN_BOOTSTRAP_PASSWORD;
+    const matchesBootstrap =
+      Boolean(bootstrapEmail && bootstrapPassword) &&
+      email === bootstrapEmail &&
+      dto.password === bootstrapPassword;
+
+    let admin = await this.prisma.adminUser.findUnique({
       where: { email }
     });
+
+    if (!admin && matchesBootstrap && bootstrapPassword) {
+      admin = await this.prisma.adminUser.create({
+        data: {
+          email,
+          passwordHash: await argon2.hash(bootstrapPassword),
+          name: "Admin"
+        }
+      });
+    }
+
     if (!admin) {
       throw new UnauthorizedException("INVALID_CREDENTIALS");
     }
-    const passwordOk = await argon2.verify(admin.passwordHash, dto.password);
-    if (!passwordOk) {
-      throw new UnauthorizedException("INVALID_CREDENTIALS");
+
+    if (matchesBootstrap && bootstrapPassword) {
+      await this.prisma.adminUser.update({
+        where: { email },
+        data: { passwordHash: await argon2.hash(bootstrapPassword) }
+      });
+    } else {
+      const passwordOk = await argon2.verify(admin.passwordHash, dto.password);
+      if (!passwordOk) {
+        throw new UnauthorizedException("INVALID_CREDENTIALS");
+      }
     }
+
     const accessToken = await this.jwt.signAsync(
       { sub: admin.id, role: "ADMIN" },
       { secret: JWT_ACCESS_SECRET, expiresIn: JWT_ACCESS_TTL_SECONDS }

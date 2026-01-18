@@ -1,4 +1,4 @@
-﻿import "dotenv/config";
+import "dotenv/config";
 import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
 import { ValidationPipe } from "@nestjs/common";

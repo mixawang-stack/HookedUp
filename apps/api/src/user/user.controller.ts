@@ -1,4 +1,4 @@
-﻿import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Req, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard, AuthenticatedRequest } from "../auth/jwt-auth.guard";
 import { ReportUserDto } from "./dto/report-user.dto";
 import { UpdatePreferencesDto } from "./dto/update-preferences.dto";

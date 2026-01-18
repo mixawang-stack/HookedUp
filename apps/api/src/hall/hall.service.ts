@@ -7,57 +7,69 @@ export class HallService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getHall(userId?: string) {
-    const rooms = await this.prisma.room.findMany({
-      where: { isOfficial: true },
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        tagsJson: true,
-        status: true,
-        startsAt: true,
-        endsAt: true,
-        isOfficial: true,
-        allowSpectators: true,
-        capacity: true,
-        createdAt: true
-      },
-      orderBy: [{ status: "asc" }, { startsAt: "asc" }, { createdAt: "desc" }]
-    });
-
-    const tracesRaw = await this.prisma.trace.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 20,
-      include: {
-        author: {
-          select: {
-            id: true,
-            maskName: true,
-            maskAvatarUrl: true,
-            role: true,
-            gender: true,
-            dob: true,
-            preference: {
-              select: {
-                gender: true,
-                lookingForGender: true,
-                smPreference: true,
-                tagsJson: true
-              }
-            }
-          }
+    let rooms: Awaited<ReturnType<typeof this.prisma.room.findMany>> = [];
+    try {
+      rooms = await this.prisma.room.findMany({
+        where: { isOfficial: true },
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          tagsJson: true,
+          status: true,
+          startsAt: true,
+          endsAt: true,
+          isOfficial: true,
+          allowSpectators: true,
+          capacity: true,
+          createdAt: true
         },
-        _count: { select: { replies: true, likes: true } },
-        ...(userId
-          ? {
-              likes: {
-                where: { userId },
-                select: { id: true }
+        orderBy: [{ status: "asc" }, { startsAt: "asc" }, { createdAt: "desc" }]
+      });
+    } catch (error) {
+      console.warn("[hall] rooms query failed, fallback to empty list", error);
+      rooms = [];
+    }
+
+    let tracesRaw: Awaited<ReturnType<typeof this.prisma.trace.findMany>> = [];
+    try {
+      tracesRaw = await this.prisma.trace.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        include: {
+          author: {
+            select: {
+              id: true,
+              maskName: true,
+              maskAvatarUrl: true,
+              role: true,
+              gender: true,
+              dob: true,
+              preference: {
+                select: {
+                  gender: true,
+                  lookingForGender: true,
+                  smPreference: true,
+                  tagsJson: true
+                }
               }
             }
-          : {})
-      }
-    });
+          },
+          _count: { select: { replies: true, likes: true } },
+          ...(userId
+            ? {
+                likes: {
+                  where: { userId },
+                  select: { id: true }
+                }
+              }
+            : {})
+        }
+      });
+    } catch (error) {
+      console.warn("[hall] traces query failed, fallback to empty list", error);
+      tracesRaw = [];
+    }
 
     const traces = tracesRaw.map((trace) => ({
       id: trace.id,
