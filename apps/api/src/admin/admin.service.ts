@@ -1,4 +1,10 @@
-﻿import { BadRequestException, ForbiddenException, Injectable, UnauthorizedException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  OnModuleInit,
+  UnauthorizedException
+} from "@nestjs/common";
 import {
   Prisma,
   ReportStatus,
@@ -14,13 +20,17 @@ import { JWT_ACCESS_SECRET, JWT_ACCESS_TTL_SECONDS } from "../auth/auth.constant
 import { LoginDto } from "../auth/dto/login.dto";
 
 @Injectable()
-export class AdminService {
+export class AdminService implements OnModuleInit {
   constructor(
     private readonly prisma: PrismaService,
     private readonly crypto: CryptoService,
     private readonly audit: AuditService,
     private readonly jwt: JwtService
   ) {}
+
+  async onModuleInit() {
+    await this.bootstrapAdminUser();
+  }
 
   async adminLogin(dto: LoginDto) {
     const email = dto.email.trim().toLowerCase();
@@ -60,6 +70,137 @@ export class AdminService {
       orderBy: { createdAt: "desc" },
       include: { user: { select: { id: true, email: true } } }
     });
+  }
+
+  async listUsers(
+    role: string,
+    filters: {
+      country?: string;
+      gender?: string;
+      status?: string;
+      search?: string;
+      activeWithinDays?: string;
+    }
+  ) {
+    this.ensureAdmin(role);
+
+    const where: Prisma.UserWhereInput = {};
+    if (filters.country && filters.country !== "ALL") {
+      where.country = filters.country;
+    }
+    if (filters.gender && filters.gender !== "ALL") {
+      where.gender = filters.gender;
+    }
+    if (filters.status && filters.status !== "ALL") {
+      where.status = filters.status as Prisma.UserWhereInput["status"];
+    }
+    if (filters.search) {
+      where.OR = [
+        { email: { contains: filters.search, mode: "insensitive" } },
+        { maskName: { contains: filters.search, mode: "insensitive" } }
+      ];
+    }
+    if (filters.activeWithinDays) {
+      const days = Number(filters.activeWithinDays);
+      if (!Number.isNaN(days) && days > 0) {
+        const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+        where.updatedAt = { gte: since };
+      }
+    }
+
+    const users = await this.prisma.user.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      select: {
+        id: true,
+        email: true,
+        maskName: true,
+        maskAvatarUrl: true,
+        country: true,
+        gender: true,
+        dob: true,
+        createdAt: true,
+        updatedAt: true,
+        status: true,
+        _count: {
+          select: {
+            traces: true,
+            createdRooms: true,
+            conversationParticipants: true
+          }
+        }
+      }
+    });
+
+    return users.map((user) => ({
+      ...user,
+      membershipStatus: "FREE",
+      postsCount: user._count.traces,
+      roomsCount: user._count.createdRooms,
+      privateChatsCount: user._count.conversationParticipants,
+      _count: undefined
+    }));
+  }
+
+  async getUserDetail(role: string, userId: string) {
+    this.ensureAdmin(role);
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        preference: true,
+        verifications: {
+          select: {
+            id: true,
+            type: true,
+            status: true,
+            createdAt: true,
+            reviewedAt: true
+          }
+        },
+        _count: {
+          select: {
+            traces: true,
+            createdRooms: true,
+            conversationParticipants: true,
+            messagesSent: true
+          }
+        }
+      }
+    });
+
+    if (!user) {
+      throw new BadRequestException("USER_NOT_FOUND");
+    }
+
+    const reportsCount = await this.prisma.report.count({
+      where: { reportedUserId: userId }
+    });
+
+    return {
+      id: user.id,
+      email: user.email,
+      maskName: user.maskName,
+      maskAvatarUrl: user.maskAvatarUrl,
+      bio: user.bio,
+      country: user.country,
+      gender: user.gender,
+      dob: user.dob,
+      language: user.language,
+      city: user.city,
+      status: user.status,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      membershipStatus: "FREE",
+      verifications: user.verifications,
+      preference: user.preference,
+      reportsCount,
+      postsCount: user._count.traces,
+      roomsCount: user._count.createdRooms,
+      privateChatsCount: user._count.conversationParticipants,
+      messagesSentCount: user._count.messagesSent
+    };
   }
 
   async approveVerification(role: string, reviewerId: string, id: string) {
@@ -253,6 +394,37 @@ export class AdminService {
   private ensureAdmin(role: string) {
     if (role !== "ADMIN") {
       throw new ForbiddenException("ADMIN_ONLY");
+    }
+  }
+
+  private async bootstrapAdminUser() {
+    const email = process.env.ADMIN_BOOTSTRAP_EMAIL?.trim().toLowerCase();
+    const password = process.env.ADMIN_BOOTSTRAP_PASSWORD;
+    const force =
+      process.env.ADMIN_BOOTSTRAP_FORCE === "true" ||
+      process.env.ADMIN_BOOTSTRAP_FORCE === "1";
+
+    if (!email || !password) {
+      return;
+    }
+
+    const existing = await this.prisma.adminUser.findUnique({
+      where: { email }
+    });
+    const passwordHash = await argon2.hash(password);
+
+    if (!existing) {
+      await this.prisma.adminUser.create({
+        data: { email, passwordHash, name: "Admin" }
+      });
+      return;
+    }
+
+    if (force) {
+      await this.prisma.adminUser.update({
+        where: { email },
+        data: { passwordHash }
+      });
     }
   }
 

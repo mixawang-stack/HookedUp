@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma.service";
 
 @Injectable()
@@ -83,17 +84,31 @@ export class HallService {
         : null
     }));
 
+    let novels = [];
+    try {
+      novels = await this.prisma.novel.findMany({
+        where: { status: "PUBLISHED" },
+        orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
+        take: 6
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2021"
+      ) {
+        novels = [];
+      } else {
+        throw error;
+      }
+    }
+
     return {
       rooms: {
         live: rooms.filter((room) => room.status === "LIVE"),
         scheduled: rooms.filter((room) => room.status === "SCHEDULED")
       },
       traces,
-      novels: await this.prisma.novel.findMany({
-        where: { status: "PUBLISHED" },
-        orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
-        take: 6
-      })
+      novels
     };
   }
 }
