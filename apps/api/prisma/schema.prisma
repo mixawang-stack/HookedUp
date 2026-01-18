@@ -517,8 +517,8 @@ model Novel {
   scheduledAt        DateTime?
   publishedAt        DateTime?
   archivedAt         DateTime?
-  hallTraceId        String?
-  roomId             String?
+  hallTraceId        String?         @unique
+  roomId             String?         @unique
   viewCount          Int             @default(0)
   favoriteCount      Int             @default(0)
   dislikeCount       Int             @default(0)
