@@ -1,4 +1,4 @@
-﻿import { IsOptional, IsString, MaxLength } from "class-validator";
+﻿import { IsDateString, IsOptional, IsString, MaxLength } from "class-validator";
 
 export class UpdateProfileDto {
   @IsOptional()
@@ -30,4 +30,8 @@ export class UpdateProfileDto {
   @IsString()
   @MaxLength(32)
   gender?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dob?: string;
 }

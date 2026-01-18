@@ -100,9 +100,15 @@ export class AuthController {
   @HttpCode(200)
   async login(
     @Body() dto: LoginDto,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response
   ) {
-    const { accessToken, refreshToken } = await this.authService.login(dto);
+    const ip = extractIp(req);
+    const country = getCountryFromIp(ip);
+    const { accessToken, refreshToken } = await this.authService.login(
+      dto,
+      country
+    );
     res.cookie(AUTH_REFRESH_COOKIE_NAME, refreshToken, {
       ...baseCookieOptions,
       maxAge: JWT_REFRESH_TTL_SECONDS * 1000

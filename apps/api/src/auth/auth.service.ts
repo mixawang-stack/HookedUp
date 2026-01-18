@@ -112,7 +112,7 @@ export class AuthService {
     };
   }
 
-  async login(dto: LoginDto): Promise<TokenResult> {
+  async login(dto: LoginDto, country?: string | null): Promise<TokenResult> {
     const email = dto.email.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({
       where: { email }
@@ -139,6 +139,13 @@ export class AuthService {
     const passwordOk = await argon2.verify(user.passwordHash, dto.password);
     if (!passwordOk) {
       throw new UnauthorizedException("INVALID_CREDENTIALS");
+    }
+
+    if (!user.country && country) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { country }
+      });
     }
 
     const accessToken = await this.issueAccessToken(user.id, user.role);

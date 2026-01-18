@@ -38,6 +38,11 @@ export default function TopNav() {
     maskName: string | null;
     maskAvatarUrl: string | null;
     bio: string | null;
+    gender?: string | null;
+    language?: string | null;
+    city?: string | null;
+    dob?: string | null;
+    country?: string | null;
     profileCompleted?: boolean;
     preference?: {
       vibeTags?: string[] | null;

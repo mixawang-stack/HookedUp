@@ -10,6 +10,11 @@ type MeProfile = {
   maskName: string | null;
   maskAvatarUrl: string | null;
   bio: string | null;
+  gender?: string | null;
+  language?: string | null;
+  city?: string | null;
+  dob?: string | null;
+  country?: string | null;
   preference?: {
     vibeTags?: string[] | null;
     interests?: string[] | null;
@@ -30,6 +35,17 @@ const parseTags = (value: string) =>
     .map((item) => item.trim())
     .filter((item) => item.length > 0);
 
+const toDateInput = (value?: string | null) => {
+  if (!value) {
+    return "";
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "";
+  }
+  return parsed.toISOString().slice(0, 10);
+};
+
 export default function ProfileOnboardingModal({
   token,
   me,
@@ -38,6 +54,10 @@ export default function ProfileOnboardingModal({
 }: ProfileOnboardingModalProps) {
   const [maskName, setMaskName] = useState(me.maskName ?? "");
   const [bio, setBio] = useState(me.bio ?? "");
+  const [gender, setGender] = useState(me.gender ?? "");
+  const [language, setLanguage] = useState(me.language ?? "");
+  const [city, setCity] = useState(me.city ?? "");
+  const [dob, setDob] = useState(toDateInput(me.dob));
   const [vibeTags, setVibeTags] = useState(
     (me.preference?.vibeTags ?? []).join(", ")
   );
@@ -99,6 +119,10 @@ export default function ProfileOnboardingModal({
         body: JSON.stringify({
           maskName: maskName.trim(),
           bio: bio.trim(),
+          gender: gender.trim(),
+          language: language.trim(),
+          city: city.trim(),
+          ...(dob.trim() ? { dob: dob.trim() } : {}),
           ...(avatarUrl ? { maskAvatarUrl: avatarUrl } : {})
         })
       });
@@ -211,6 +235,56 @@ export default function ProfileOnboardingModal({
               placeholder="A short intro"
             />
           </label>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="text-xs text-slate-300">
+              Gender
+              <input
+                className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
+                value={gender}
+                onChange={(event) => setGender(event.target.value)}
+                maxLength={32}
+                placeholder="Woman / Man / Other"
+              />
+            </label>
+            <label className="text-xs text-slate-300">
+              Date of birth
+              <input
+                type="date"
+                className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
+                value={dob}
+                onChange={(event) => setDob(event.target.value)}
+              />
+            </label>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="text-xs text-slate-300">
+              Language
+              <input
+                className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
+                value={language}
+                onChange={(event) => setLanguage(event.target.value)}
+                maxLength={32}
+                placeholder="English"
+              />
+            </label>
+            <label className="text-xs text-slate-300">
+              City
+              <input
+                className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
+                value={city}
+                onChange={(event) => setCity(event.target.value)}
+                maxLength={64}
+                placeholder="New York"
+              />
+            </label>
+          </div>
+
+          <div className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-xs text-slate-300">
+            <span className="text-slate-400">Country (auto): </span>
+            {me.country ?? "Detecting by IP"}
+          </div>
 
           <label className="text-xs text-slate-300">
             Vibe tags (comma separated)

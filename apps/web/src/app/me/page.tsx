@@ -17,6 +17,8 @@ type MeResponse = {
   language: string | null;
   city: string | null;
   gender: string | null;
+  dob: string | null;
+  country: string | null;
   profileCompleted?: boolean;
   preference?: {
     vibeTags?: string[] | null;
@@ -31,6 +33,17 @@ const parseTags = (value: string) =>
     .map((item) => item.trim())
     .filter((item) => item.length > 0);
 
+const toDateInput = (value?: string | null) => {
+  if (!value) {
+    return "";
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "";
+  }
+  return parsed.toISOString().slice(0, 10);
+};
+
 export default function MePage() {
   const router = useRouter();
   const [token, setToken] = useState<string | null>(null);
@@ -39,6 +52,8 @@ export default function MePage() {
   const [bio, setBio] = useState("");
   const [language, setLanguage] = useState("");
   const [city, setCity] = useState("");
+  const [gender, setGender] = useState("");
+  const [dob, setDob] = useState("");
   const [vibeTags, setVibeTags] = useState("");
   const [interests, setInterests] = useState("");
   const [allowStrangerPrivate, setAllowStrangerPrivate] = useState(true);
@@ -80,6 +95,8 @@ export default function MePage() {
       setBio(data.bio ?? "");
       setLanguage(data.language ?? "");
       setCity(data.city ?? "");
+      setGender(data.gender ?? "");
+      setDob(toDateInput(data.dob));
       setVibeTags((data.preference?.vibeTags ?? []).join(", "));
       setInterests((data.preference?.interests ?? []).join(", "));
       setAllowStrangerPrivate(data.preference?.allowStrangerPrivate ?? true);
@@ -133,6 +150,8 @@ export default function MePage() {
           bio: bio.trim(),
           language: language.trim(),
           city: city.trim(),
+          gender: gender.trim(),
+          ...(dob.trim() ? { dob: dob.trim() } : {}),
           ...(avatarUrl ? { maskAvatarUrl: avatarUrl } : {})
         })
       });
@@ -248,6 +267,27 @@ export default function MePage() {
 
         <div className="grid gap-4 md:grid-cols-2">
           <label className="text-xs text-slate-300">
+            Gender
+            <input
+              className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
+              value={gender}
+              onChange={(event) => setGender(event.target.value)}
+              maxLength={32}
+            />
+          </label>
+          <label className="text-xs text-slate-300">
+            Date of birth
+            <input
+              type="date"
+              className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
+              value={dob}
+              onChange={(event) => setDob(event.target.value)}
+            />
+          </label>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="text-xs text-slate-300">
             Language
             <input
               className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
@@ -265,6 +305,11 @@ export default function MePage() {
               maxLength={64}
             />
           </label>
+        </div>
+
+        <div className="rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-xs text-slate-300">
+          <span className="text-slate-400">Country (auto): </span>
+          {me?.country ?? "Detecting by IP"}
         </div>
 
         <label className="text-xs text-slate-300">

@@ -94,6 +94,7 @@ export class UserService {
       language?: string | null;
       city?: string | null;
       gender?: string | null;
+      dob?: Date | null;
     } = {};
 
     if (dto.maskName !== undefined) {
@@ -126,6 +127,19 @@ export class UserService {
     if (dto.gender !== undefined) {
       const trimmed = dto.gender.trim();
       data.gender = trimmed.length > 0 ? trimmed : null;
+    }
+
+    if (dto.dob !== undefined) {
+      const trimmed = dto.dob.trim();
+      if (!trimmed) {
+        data.dob = null;
+      } else {
+        const parsed = new Date(trimmed);
+        if (Number.isNaN(parsed.getTime())) {
+          throw new BadRequestException("INVALID_DOB");
+        }
+        data.dob = parsed;
+      }
     }
 
     if (Object.keys(data).length === 0) {
