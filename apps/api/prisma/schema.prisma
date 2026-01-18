@@ -89,7 +89,20 @@ enum IntentStatus {
 
 enum NovelStatus {
   DRAFT
+  SCHEDULED
   PUBLISHED
+  ARCHIVED
+}
+
+enum NovelAudience {
+  ALL
+  MATURE
+}
+
+enum NovelSourceType {
+  TEXT
+  MARKDOWN
+  PDF
 }
 
 model User {
@@ -485,17 +498,35 @@ model TraceReply {
 }
 
 model Novel {
-  id            String      @id @default(uuid())
-  title         String
-  coverImageUrl String?     @db.Text
-  description   String?     @db.Text
-  tagsJson      Json?
-  status        NovelStatus @default(DRAFT)
-  isFeatured    Boolean     @default(false)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  id                 String          @id @default(uuid())
+  title              String
+  coverImageUrl      String?         @db.Text
+  description        String?         @db.Text
+  authorName         String?         @db.VarChar(120)
+  language           String?         @db.VarChar(16)
+  tagsJson           Json?
+  contentWarningsJson Json?
+  status             NovelStatus     @default(DRAFT)
+  audience           NovelAudience   @default(ALL)
+  sourceType         NovelSourceType @default(TEXT)
+  isFeatured         Boolean         @default(false)
+  autoHallPost       Boolean         @default(true)
+  autoRoom           Boolean         @default(true)
+  scheduledAt        DateTime?
+  publishedAt        DateTime?
+  archivedAt         DateTime?
+  hallTraceId        String?
+  roomId             String?
+  viewCount          Int             @default(0)
+  favoriteCount      Int             @default(0)
+  dislikeCount       Int             @default(0)
+  shareCount         Int             @default(0)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
 
-  chapters NovelChapter[]
+  chapters  NovelChapter[]
+  hallTrace Trace?         @relation(fields: [hallTraceId], references: [id])
+  room      Room?          @relation(fields: [roomId], references: [id])
 }
 
 model NovelChapter {
