@@ -112,7 +112,10 @@ export class AuthService {
     };
   }
 
-  async login(dto: LoginDto, country?: string | null): Promise<TokenResult> {
+  async login(
+    dto: LoginDto,
+    geo?: { country: string; city: string } | null
+  ): Promise<TokenResult> {
     const email = dto.email.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({
       where: { email }
@@ -141,10 +144,14 @@ export class AuthService {
       throw new UnauthorizedException("INVALID_CREDENTIALS");
     }
 
-    if (!user.country && country) {
+    // Auto-fill missing location data
+    if (geo && (!user.country || !user.city)) {
       await this.prisma.user.update({
         where: { id: user.id },
-        data: { country }
+        data: {
+          country: user.country || geo.country,
+          city: user.city || geo.city
+        }
       });
     }
 

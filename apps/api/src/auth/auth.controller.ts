@@ -66,12 +66,17 @@ function extractIp(req: Request): string | null {
   return remoteAddress;
 }
 
-function getCountryFromIp(ip: string | null): string | null {
+function getGeoFromIp(ip: string | null): { country: string; city: string } | null {
   if (!ip) {
     return null;
   }
   const lookup = geoip.lookup(ip);
-  return normalizeCountry(lookup?.country ?? null);
+  const country = normalizeCountry(lookup?.country ?? null);
+  if (!country) return null;
+  return {
+    country,
+    city: lookup?.city || ""
+  };
 }
 
 @Controller("auth")
@@ -82,11 +87,11 @@ export class AuthController {
   @Post("register")
   async register(@Req() req: Request, @Body() dto: RegisterDto) {
     const ip = extractIp(req);
-    const country = getCountryFromIp(ip);
+    const geo = getGeoFromIp(ip);
 
     // 临时放开限制，允许所有地区注册进行测试
     // 如果识别不到 country，默认为 US 以确保流程通过
-    const finalCountry = country || "US";
+    const finalCountry = geo?.country || "US";
 
     return this.authService.register({ ...dto, country: finalCountry });
   }
@@ -104,11 +109,8 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response
   ) {
     const ip = extractIp(req);
-    const country = getCountryFromIp(ip);
-    const { accessToken, refreshToken } = await this.authService.login(
-      dto,
-      country
-    );
+    const geo = getGeoFromIp(ip);
+    const { accessToken, refreshToken } = await this.authService.login(dto, geo);
     res.cookie(AUTH_REFRESH_COOKIE_NAME, refreshToken, {
       ...baseCookieOptions,
       maxAge: JWT_REFRESH_TTL_SECONDS * 1000

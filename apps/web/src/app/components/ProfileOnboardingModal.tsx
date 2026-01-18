@@ -258,34 +258,6 @@ export default function ProfileOnboardingModal({
             </label>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="text-xs text-slate-300">
-              Language
-              <input
-                className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
-                value={language}
-                onChange={(event) => setLanguage(event.target.value)}
-                maxLength={32}
-                placeholder="English"
-              />
-            </label>
-            <label className="text-xs text-slate-300">
-              City
-              <input
-                className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
-                value={city}
-                onChange={(event) => setCity(event.target.value)}
-                maxLength={64}
-                placeholder="New York"
-              />
-            </label>
-          </div>
-
-          <div className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-xs text-slate-300">
-            <span className="text-slate-400">Country (auto): </span>
-            {me.country ?? "Detecting by IP"}
-          </div>
-
           <label className="text-xs text-slate-300">
             Vibe tags (comma separated)
             <input
