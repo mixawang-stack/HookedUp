@@ -44,24 +44,7 @@ export class NovelsService {
     const shouldArchive = dto.status === "ARCHIVED";
     const autoHallPost = dto.autoHallPost ?? true;
     const autoRoom = dto.autoRoom ?? true;
-    const data: Prisma.NovelCreateInput = {
-      title: dto.title.trim(),
-      coverImageUrl: dto.coverImageUrl?.trim() || null,
-      description: dto.description?.trim() || null,
-      authorName: dto.authorName?.trim() || null,
-      language: dto.language?.trim() || null,
-      tagsJson: dto.tagsJson ?? [],
-      contentWarningsJson: dto.contentWarningsJson ?? [],
-      status: (dto.status as NovelStatus | undefined) ?? "DRAFT",
-      audience: dto.audience ?? "ALL",
-      sourceType: dto.sourceType ?? "TEXT",
-      isFeatured: dto.isFeatured ?? false,
-      autoHallPost,
-      autoRoom,
-      scheduledAt: shouldSchedule ? scheduledAt ?? new Date() : null,
-      publishedAt: shouldPublish ? new Date() : null,
-      archivedAt: shouldArchive ? new Date() : null
-    };
+
     return this.prisma.$transaction(async (tx) => {
       let hallTraceId: string | null = null;
       let roomId: string | null = null;
@@ -75,7 +58,7 @@ export class NovelsService {
               {
                 title: dto.title,
                 description: dto.description ?? null,
-                tagsJson: dto.tagsJson ?? []
+                tagsJson: (dto.tagsJson as any) ?? []
               },
               dto
             ),
@@ -92,7 +75,22 @@ export class NovelsService {
 
       return tx.novel.create({
         data: {
-          ...data,
+          title: dto.title.trim(),
+          coverImageUrl: dto.coverImageUrl?.trim() || null,
+          description: dto.description?.trim() || null,
+          authorName: dto.authorName?.trim() || null,
+          language: dto.language?.trim() || null,
+          tagsJson: (dto.tagsJson as any) ?? [],
+          contentWarningsJson: (dto.contentWarningsJson as any) ?? [],
+          status: (dto.status as NovelStatus | undefined) ?? "DRAFT",
+          audience: dto.audience ?? "ALL",
+          sourceType: dto.sourceType ?? "TEXT",
+          isFeatured: dto.isFeatured ?? false,
+          autoHallPost,
+          autoRoom,
+          scheduledAt: shouldSchedule ? scheduledAt ?? new Date() : null,
+          publishedAt: shouldPublish ? new Date() : null,
+          archivedAt: shouldArchive ? new Date() : null,
           hallTraceId,
           roomId
         }
@@ -118,30 +116,6 @@ export class NovelsService {
     const shouldUnpublish = existing.status === "PUBLISHED" && nextStatus !== "PUBLISHED";
     const shouldSchedule = nextStatus === "SCHEDULED";
     const shouldArchive = nextStatus === "ARCHIVED";
-
-    const data: Prisma.NovelUpdateInput = {
-      title: dto.title?.trim(),
-      coverImageUrl:
-        dto.coverImageUrl !== undefined
-          ? dto.coverImageUrl.trim() || null
-          : undefined,
-      description:
-        dto.description !== undefined ? dto.description.trim() || null : undefined,
-      authorName:
-        dto.authorName !== undefined ? dto.authorName.trim() || null : undefined,
-      language: dto.language !== undefined ? dto.language.trim() || null : undefined,
-      tagsJson: dto.tagsJson ?? undefined,
-      contentWarningsJson: dto.contentWarningsJson ?? undefined,
-      status: dto.status as NovelStatus | undefined,
-      audience: dto.audience ?? undefined,
-      sourceType: dto.sourceType ?? undefined,
-      isFeatured: dto.isFeatured,
-      autoHallPost: dto.autoHallPost,
-      autoRoom: dto.autoRoom,
-      scheduledAt: shouldSchedule ? scheduledAt ?? existing.scheduledAt ?? new Date() : undefined,
-      publishedAt: shouldPublish ? new Date() : undefined,
-      archivedAt: shouldArchive ? new Date() : undefined
-    };
 
     return this.prisma.$transaction(async (tx) => {
       let hallTraceId = existing.hallTraceId ?? null;
@@ -190,7 +164,27 @@ export class NovelsService {
       return tx.novel.update({
         where: { id },
         data: {
-          ...data,
+          title: dto.title?.trim(),
+          coverImageUrl:
+            dto.coverImageUrl !== undefined
+              ? dto.coverImageUrl.trim() || null
+              : undefined,
+          description:
+            dto.description !== undefined ? dto.description.trim() || null : undefined,
+          authorName:
+            dto.authorName !== undefined ? dto.authorName.trim() || null : undefined,
+          language: dto.language !== undefined ? dto.language.trim() || null : undefined,
+          tagsJson: (dto.tagsJson as any) ?? undefined,
+          contentWarningsJson: (dto.contentWarningsJson as any) ?? undefined,
+          status: dto.status as NovelStatus | undefined,
+          audience: dto.audience ?? undefined,
+          sourceType: dto.sourceType ?? undefined,
+          isFeatured: dto.isFeatured,
+          autoHallPost: dto.autoHallPost,
+          autoRoom: dto.autoRoom,
+          scheduledAt: shouldSchedule ? scheduledAt ?? existing.scheduledAt ?? new Date() : undefined,
+          publishedAt: shouldPublish ? new Date() : undefined,
+          archivedAt: shouldArchive ? new Date() : undefined,
           hallTraceId,
           roomId
         }
@@ -389,7 +383,7 @@ export class NovelsService {
       data: {
         title: `Discussion: ${payload.title}`,
         description: payload.description ?? null,
-        tagsJson,
+        tagsJson: tagsJson as any,
         isOfficial: true,
         createdById: officialUser.id
       },
