@@ -32,6 +32,13 @@ type RoomsResponse = {
   nextCursor: string | null;
 };
 
+type NovelItem = {
+  id: string;
+  title: string;
+  coverImageUrl: string | null;
+  description: string | null;
+};
+
 export default function RoomsPage() {
   const router = useRouter();
   const [token, setToken] = useState<string | null>(null);
@@ -48,6 +55,7 @@ export default function RoomsPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [capacity, setCapacity] = useState("");
+  const [novels, setNovels] = useState<NovelItem[]>([]);
 
   const authHeader = useMemo(() => {
     if (!token) {
@@ -99,6 +107,18 @@ export default function RoomsPage() {
   useEffect(() => {
     setToken(localStorage.getItem("accessToken"));
     loadRooms(null).catch(() => setStatus("Failed to load."));
+  }, []);
+
+  useEffect(() => {
+    const loadNovels = async () => {
+      const res = await fetch(`${API_BASE}/novels?featured=true&limit=3`);
+      if (!res.ok) {
+        return;
+      }
+      const data = (await res.json()) as NovelItem[];
+      setNovels(data);
+    };
+    loadNovels().catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -423,6 +443,34 @@ export default function RoomsPage() {
           </button>
         </div>
       </div>
+      {novels.length > 0 && (
+        <div className="border-t border-white/10 pt-4">
+          <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+            Featured novels
+          </p>
+          <div className="mt-3 space-y-3">
+            {novels.map((novel) => (
+              <div
+                key={novel.id}
+                className="rounded-2xl border border-white/10 bg-slate-950/60 p-3 text-xs text-slate-200"
+              >
+                <p className="font-semibold">{novel.title}</p>
+                {novel.description && (
+                  <p className="mt-1 text-[11px] text-slate-400 line-clamp-2">
+                    {novel.description}
+                  </p>
+                )}
+                <Link
+                  href="/hall"
+                  className="mt-2 inline-flex text-[11px] font-semibold text-sky-200"
+                >
+                  View in Hall →
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="border-t border-white/10 pt-4">
         <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
           Actions

@@ -1,21 +1,48 @@
-﻿import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
+﻿import { BadRequestException, ForbiddenException, Injectable, UnauthorizedException } from "@nestjs/common";
 import {
   Prisma,
   ReportStatus,
   VerificationStatus,
   VerificationType
 } from "@prisma/client";
+import { JwtService } from "@nestjs/jwt";
+import * as argon2 from "argon2";
 import { AuditService } from "../audit.service";
 import { CryptoService } from "../crypto.service";
 import { PrismaService } from "../prisma.service";
+import { JWT_ACCESS_SECRET, JWT_ACCESS_TTL_SECONDS } from "../auth/auth.constants";
+import { LoginDto } from "../auth/dto/login.dto";
 
 @Injectable()
 export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly crypto: CryptoService,
-    private readonly audit: AuditService
+    private readonly audit: AuditService,
+    private readonly jwt: JwtService
   ) {}
+
+  async adminLogin(dto: LoginDto) {
+    const email = dto.email.trim().toLowerCase();
+    const user = await this.prisma.user.findUnique({
+      where: { email }
+    });
+    if (!user) {
+      throw new UnauthorizedException("INVALID_CREDENTIALS");
+    }
+    if (user.role !== "ADMIN") {
+      throw new ForbiddenException("ADMIN_ONLY");
+    }
+    const passwordOk = await argon2.verify(user.passwordHash, dto.password);
+    if (!passwordOk) {
+      throw new UnauthorizedException("INVALID_CREDENTIALS");
+    }
+    const accessToken = await this.jwt.signAsync(
+      { sub: user.id, role: user.role },
+      { secret: JWT_ACCESS_SECRET, expiresIn: JWT_ACCESS_TTL_SECONDS }
+    );
+    return { accessToken };
+  }
 
   async listVerifications(role: string, type?: string, status?: string) {
     this.ensureAdmin(role);

@@ -99,6 +99,32 @@ type HallResponse = {
     scheduled: RoomItem[];
   };
   traces: TraceItem[];
+  novels?: NovelItem[];
+};
+
+type NovelItem = {
+  id: string;
+  title: string;
+  coverImageUrl: string | null;
+  description: string | null;
+  tagsJson?: string[] | null;
+};
+
+type NovelPreview = {
+  id: string;
+  title: string;
+  coverImageUrl: string | null;
+  description: string | null;
+  tagsJson?: string[] | null;
+  chapters: Array<{
+    id: string;
+    title: string;
+    content: string;
+    orderIndex: number;
+    isFree: boolean;
+    isPublished: boolean;
+    isLocked?: boolean;
+  }>;
 };
 
 type TraceDetailResponse = {
@@ -140,6 +166,8 @@ export default function HallPage() {
   const [traceDetail, setTraceDetail] = useState<TraceDetailResponse | null>(
     null
   );
+  const [novelPreview, setNovelPreview] = useState<NovelPreview | null>(null);
+  const [novelLoading, setNovelLoading] = useState(false);
   const [replyInput, setReplyInput] = useState("");
   const [postingReply, setPostingReply] = useState(false);
   const [loadingReplies, setLoadingReplies] = useState(false);
@@ -411,6 +439,25 @@ export default function HallPage() {
       const message =
         error instanceof Error ? error.message : "Failed to report user.";
       setStatus(message);
+    }
+  };
+
+  const openNovelPreview = async (novelId: string) => {
+    setNovelLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/novels/${novelId}/preview`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.message ?? `HTTP ${res.status}`);
+      }
+      const data = (await res.json()) as NovelPreview;
+      setNovelPreview(data);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to load novel preview.";
+      setStatus(message);
+    } finally {
+      setNovelLoading(false);
     }
   };
 
@@ -772,6 +819,50 @@ export default function HallPage() {
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-100">Hall Traces</h2>
         </div>
+        {hall?.novels && hall.novels.length > 0 && (
+          <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950/80 p-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-300">
+                Featured novels
+              </h3>
+              {novelLoading && (
+                <span className="text-xs text-slate-400">Loading…</span>
+              )}
+            </div>
+            <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {hall.novels.map((novel) => (
+                <button
+                  key={novel.id}
+                  type="button"
+                  className="flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-slate-900/60 text-left text-slate-100 transition hover:border-slate-400/60"
+                  onClick={() => openNovelPreview(novel.id)}
+                >
+                  <div className="h-40 w-full overflow-hidden bg-slate-800">
+                    {novel.coverImageUrl ? (
+                      <img
+                        src={resolveMediaUrl(novel.coverImageUrl) ?? ""}
+                        alt={novel.title}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">
+                        No cover
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-4">
+                    <p className="text-sm font-semibold">{novel.title}</p>
+                    {novel.description && (
+                      <p className="mt-2 text-xs text-slate-300 line-clamp-3">
+                        {novel.description}
+                      </p>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="mt-4 columns-1 gap-4 sm:columns-2 lg:columns-3">
         {hall?.traces.map((trace) => {
           const isSelected = selectedTraceId === trace.id;
@@ -1104,6 +1195,64 @@ export default function HallPage() {
                   {postingReply ? "Replying..." : "Reply"}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {novelPreview && (
+        <div className="fixed inset-0 z-40 flex items-stretch" role="dialog" aria-modal="true">
+          <div
+            className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+            onClick={() => setNovelPreview(null)}
+          />
+          <div className="relative ml-auto flex h-full w-full max-w-[560px] flex-col overflow-hidden bg-slate-950 text-slate-100 shadow-[0_30px_60px_rgba(2,6,23,0.6)]">
+            <header className="flex items-start justify-between border-b border-white/10 px-6 py-4">
+              <div>
+                <h3 className="text-lg font-semibold">{novelPreview.title}</h3>
+                {novelPreview.description && (
+                  <p className="mt-1 text-xs text-slate-400">
+                    {novelPreview.description}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                className="text-xs text-slate-400 hover:text-white"
+                onClick={() => setNovelPreview(null)}
+              >
+                Close
+              </button>
+            </header>
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+              {novelPreview.coverImageUrl && (
+                <img
+                  src={resolveMediaUrl(novelPreview.coverImageUrl) ?? ""}
+                  alt={novelPreview.title}
+                  className="w-full rounded-2xl object-cover"
+                />
+              )}
+              {novelPreview.chapters.map((chapter) => (
+                <section
+                  key={chapter.id}
+                  className="rounded-2xl border border-white/10 bg-slate-900/60 p-4"
+                >
+                  <div className="flex items-center justify-between text-xs text-slate-400">
+                    <span>
+                      Chapter {chapter.orderIndex}: {chapter.title}
+                    </span>
+                    <span>{chapter.isFree ? "Free" : "Locked"}</span>
+                  </div>
+                  <p className="mt-3 text-sm text-slate-100 whitespace-pre-wrap">
+                    {chapter.content}
+                  </p>
+                  {chapter.isLocked && (
+                    <div className="mt-3 rounded-xl border border-amber-400/30 bg-amber-500/10 p-3 text-xs text-amber-100">
+                      Continue reading by purchasing or inviting a friend.
+                    </div>
+                  )}
+                </section>
+              ))}
             </div>
           </div>
         </div>

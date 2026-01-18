@@ -17,6 +17,7 @@ import { TracesModule } from "./traces/traces.module";
 import { HallModule } from "./hall/hall.module";
 import { PrivateModule } from "./private/private.module";
 import { IntentModule } from "./intent/intent.module";
+import { NovelsModule } from "./novels/novels.module";
 
 @Module({
   imports: [
@@ -42,7 +43,8 @@ import { IntentModule } from "./intent/intent.module";
     TracesModule,
     HallModule,
     PrivateModule,
-    IntentModule
+    IntentModule,
+    NovelsModule
   ],
   controllers: [HealthController, ConfigController]
 })

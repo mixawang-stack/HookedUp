@@ -87,6 +87,11 @@ enum IntentStatus {
   CONFIRMED
 }
 
+enum NovelStatus {
+  DRAFT
+  PUBLISHED
+}
+
 model User {
   id                       String     @id @default(uuid())
   email                    String     @unique
@@ -477,6 +482,37 @@ model TraceReply {
 
   trace  Trace @relation(fields: [traceId], references: [id])
   author User  @relation("TraceReplyAuthor", fields: [authorId], references: [id])
+}
+
+model Novel {
+  id            String      @id @default(uuid())
+  title         String
+  coverImageUrl String?     @db.Text
+  description   String?     @db.Text
+  tagsJson      Json?
+  status        NovelStatus @default(DRAFT)
+  isFeatured    Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  chapters NovelChapter[]
+}
+
+model NovelChapter {
+  id          String   @id @default(uuid())
+  novelId     String
+  title       String
+  content     String   @db.Text
+  orderIndex  Int
+  isFree      Boolean  @default(false)
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  novel Novel @relation(fields: [novelId], references: [id], onDelete: Cascade)
+
+  @@unique([novelId, orderIndex])
+  @@index([novelId])
 }
 
 model TraceLike {

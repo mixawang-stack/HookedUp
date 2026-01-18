@@ -88,7 +88,12 @@ export class HallService {
         live: rooms.filter((room) => room.status === "LIVE"),
         scheduled: rooms.filter((room) => room.status === "SCHEDULED")
       },
-      traces
+      traces,
+      novels: await this.prisma.novel.findMany({
+        where: { status: "PUBLISHED" },
+        orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
+        take: 6
+      })
     };
   }
 }

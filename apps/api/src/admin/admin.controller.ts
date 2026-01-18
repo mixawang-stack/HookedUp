@@ -1,13 +1,19 @@
 ﻿import { BadRequestException, Body, Controller, Get, Param, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard, AuthenticatedRequest } from "../auth/jwt-auth.guard";
+import { LoginDto } from "../auth/dto/login.dto";
 import { AdminService } from "./admin.service";
 
 @Controller("admin")
-@UseGuards(JwtAuthGuard)
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
+  @Post("login")
+  async login(@Body() dto: LoginDto) {
+    return this.adminService.adminLogin(dto);
+  }
+
   @Get("verifications")
+  @UseGuards(JwtAuthGuard)
   async listVerifications(
     @Req() req: AuthenticatedRequest,
     @Query("type") type?: string,
@@ -17,6 +23,7 @@ export class AdminController {
   }
 
   @Post("verifications/:id/approve")
+  @UseGuards(JwtAuthGuard)
   async approve(
     @Req() req: AuthenticatedRequest,
     @Param("id") id: string
@@ -25,6 +32,7 @@ export class AdminController {
   }
 
   @Post("verifications/:id/reject")
+  @UseGuards(JwtAuthGuard)
   async reject(
     @Req() req: AuthenticatedRequest,
     @Param("id") id: string,
@@ -39,6 +47,7 @@ export class AdminController {
   }
 
   @Get("reports")
+  @UseGuards(JwtAuthGuard)
   async listReports(
     @Req() req: AuthenticatedRequest,
     @Query("status") status?: string
@@ -47,6 +56,7 @@ export class AdminController {
   }
 
   @Post("reports/:id/resolve")
+  @UseGuards(JwtAuthGuard)
   async resolveReport(
     @Req() req: AuthenticatedRequest,
     @Param("id") id: string,
