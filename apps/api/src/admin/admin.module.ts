@@ -4,13 +4,13 @@ import { AuditService } from "../audit.service";
 import { CryptoService } from "../crypto.service";
 import { PrismaModule } from "../prisma.module";
 import { AdminController } from "./admin.controller";
-import { AdminUsersController } from "./admin-users.controller";
+import { AdminUsersAliasController, AdminUsersController } from "./admin-users.controller";
 import { AdminService } from "./admin.service";
 import { AdminUsersService } from "./admin-users.service";
 
 @Module({
   imports: [PrismaModule, AuthModule],
-  controllers: [AdminController, AdminUsersController],
+  controllers: [AdminController, AdminUsersController, AdminUsersAliasController],
   providers: [AdminService, AdminUsersService, CryptoService, AuditService]
 })
 export class AdminModule {}
