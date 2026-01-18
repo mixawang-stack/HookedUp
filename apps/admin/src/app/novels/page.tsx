@@ -50,12 +50,13 @@ export default function AdminNovelsPage() {
   const [coverImageUrl, setCoverImageUrl] = useState("");
   const [description, setDescription] = useState("");
   const [tags, setTags] = useState("");
-  const [novelStatus, setNovelStatus] = useState<NovelItem["status"]>("DRAFT");
   const [audience, setAudience] = useState<NovelItem["audience"]>("ALL");
   const [isFeatured, setIsFeatured] = useState(false);
-  const [authorName, setAuthorName] = useState("Uncle's Tavern");
-  const [language, setLanguage] = useState("EN");
   const [autoPostHall, setAutoPostHall] = useState(true);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverUploading, setCoverUploading] = useState(false);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [pdfUploading, setPdfUploading] = useState(false);
 
   const authHeader = useMemo(() => {
     if (!token) return null;
@@ -101,12 +102,66 @@ export default function AdminNovelsPage() {
     setCoverImageUrl("");
     setDescription("");
     setTags("");
-    setNovelStatus("DRAFT");
     setAudience("ALL");
     setIsFeatured(false);
-    setAuthorName("Uncle's Tavern");
-    setLanguage("EN");
     setAutoPostHall(true);
+    setCoverFile(null);
+    setPdfFile(null);
+  };
+
+  const handleUploadCover = async () => {
+    if (!authHeader || !coverFile) return;
+    setCoverUploading(true);
+    setStatus(null);
+    const form = new FormData();
+    form.append("file", coverFile);
+    try {
+      const res = await fetch(`${API_BASE}/uploads/image`, {
+        method: "POST",
+        headers: { ...authHeader },
+        body: form
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setStatus(data?.message ?? "Failed to upload cover.");
+        return;
+      }
+      if (data?.imageUrl) {
+        setCoverImageUrl(data.imageUrl);
+        setCoverFile(null);
+      }
+    } finally {
+      setCoverUploading(false);
+    }
+  };
+
+  const handleUploadPdf = async () => {
+    if (!authHeader || !pdfFile) return;
+    if (!selectedNovel) {
+      setStatus("Save the novel first, then upload the PDF.");
+      return;
+    }
+    setPdfUploading(true);
+    setStatus(null);
+    const form = new FormData();
+    form.append("file", pdfFile);
+    try {
+      const res = await fetch(`${API_BASE}/admin/novels/${selectedNovel.id}/pdf`, {
+        method: "POST",
+        headers: { ...authHeader },
+        body: form
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setStatus(data?.message ?? "Failed to import PDF.");
+        return;
+      }
+      setStatus(`Imported ${data?.chapterCount ?? 0} chapters from PDF.`);
+      setPdfFile(null);
+      await loadChapters(selectedNovel.id);
+    } finally {
+      setPdfUploading(false);
+    }
   };
 
   const handleSaveNovel = async () => {
@@ -117,11 +172,8 @@ export default function AdminNovelsPage() {
       coverImageUrl,
       description,
       tagsJson: parseTags(tags),
-      status: novelStatus,
       audience,
       isFeatured,
-      authorName,
-      language,
       autoPostHall
     };
     const res = await fetch(
@@ -158,24 +210,24 @@ export default function AdminNovelsPage() {
     setCoverImageUrl(novel.coverImageUrl ?? "");
     setDescription(novel.description ?? "");
     setTags((novel.tagsJson ?? []).join(", "));
-    setNovelStatus(novel.status);
     setAudience(novel.audience);
     setIsFeatured(novel.isFeatured);
-    setAuthorName(novel.authorName ?? "Uncle's Tavern");
-    setLanguage(novel.language ?? "EN");
     setDrawerOpen(true);
     loadChapters(novel.id).catch(() => undefined);
   };
 
-  const handleDeleteNovel = async (novelId: string) => {
+  const handleUpdateStatus = async (novelId: string, nextStatus: NovelItem["status"]) => {
     if (!authHeader) return;
-    if (!confirm("Delete this novel?")) return;
     const res = await fetch(`${API_BASE}/admin/novels/${novelId}`, {
-      method: "DELETE",
-      headers: { ...authHeader }
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeader
+      },
+      body: JSON.stringify({ status: nextStatus })
     });
     if (!res.ok) {
-      setStatus("Failed to delete novel.");
+      setStatus("Failed to update novel status.");
       return;
     }
     await loadNovels();
@@ -278,13 +330,42 @@ export default function AdminNovelsPage() {
                     >
                       Edit
                     </button>
-                    <button
-                      type="button"
-                      className="rounded-full border border-rose-500/30 px-3 py-1 text-[10px] text-rose-300 hover:bg-rose-500/10"
-                      onClick={() => handleDeleteNovel(novel.id)}
-                    >
-                      Archive
-                    </button>
+                    {novel.status !== "PUBLISHED" && (
+                      <button
+                        type="button"
+                        className="rounded-full border border-emerald-500/30 px-3 py-1 text-[10px] text-emerald-300 hover:bg-emerald-500/10"
+                        onClick={() => handleUpdateStatus(novel.id, "PUBLISHED")}
+                      >
+                        Publish
+                      </button>
+                    )}
+                    {novel.status === "PUBLISHED" && (
+                      <button
+                        type="button"
+                        className="rounded-full border border-white/20 px-3 py-1 text-[10px] text-slate-200 hover:bg-white/10"
+                        onClick={() => handleUpdateStatus(novel.id, "DRAFT")}
+                      >
+                        Unpublish
+                      </button>
+                    )}
+                    {novel.status !== "ARCHIVED" && (
+                      <button
+                        type="button"
+                        className="rounded-full border border-rose-500/30 px-3 py-1 text-[10px] text-rose-300 hover:bg-rose-500/10"
+                        onClick={() => handleUpdateStatus(novel.id, "ARCHIVED")}
+                      >
+                        Archive
+                      </button>
+                    )}
+                    {novel.status === "ARCHIVED" && (
+                      <button
+                        type="button"
+                        className="rounded-full border border-white/20 px-3 py-1 text-[10px] text-slate-200 hover:bg-white/10"
+                        onClick={() => handleUpdateStatus(novel.id, "DRAFT")}
+                      >
+                        Restore
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -327,12 +408,39 @@ export default function AdminNovelsPage() {
                     />
                   </label>
                   <label className="text-xs text-slate-300">
-                    Cover Image URL
+                    Cover Image (upload)
                     <input
+                      type="file"
+                      accept="image/*"
                       className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-white"
-                      value={coverImageUrl}
-                      onChange={(e) => setCoverImageUrl(e.target.value)}
+                      onChange={(event) =>
+                        setCoverFile(event.target.files?.[0] ?? null)
+                      }
                     />
+                    <div className="mt-3 flex items-center gap-3">
+                      <button
+                        type="button"
+                        className="rounded-full border border-white/20 px-4 py-1.5 text-xs text-slate-200"
+                        disabled={!coverFile || coverUploading}
+                        onClick={handleUploadCover}
+                      >
+                        {coverUploading ? "Uploading..." : "Upload cover"}
+                      </button>
+                      {coverImageUrl && (
+                        <span className="text-[10px] text-slate-400">
+                          Cover uploaded
+                        </span>
+                      )}
+                    </div>
+                    {coverImageUrl && (
+                      <div className="mt-3 h-28 w-20 overflow-hidden rounded-lg border border-white/10 bg-slate-900">
+                        <img
+                          src={coverImageUrl}
+                          alt="Cover preview"
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                    )}
                   </label>
                   <label className="text-xs text-slate-300">
                     Description
@@ -343,24 +451,6 @@ export default function AdminNovelsPage() {
                       onChange={(e) => setDescription(e.target.value)}
                     />
                   </label>
-                  <div className="grid grid-cols-2 gap-4">
-                    <label className="text-xs text-slate-300">
-                      Author Name
-                      <input
-                        className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-white"
-                        value={authorName}
-                        onChange={(e) => setAuthorName(e.target.value)}
-                      />
-                    </label>
-                    <label className="text-xs text-slate-300">
-                      Language
-                      <input
-                        className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-white"
-                        value={language}
-                        onChange={(e) => setLanguage(e.target.value)}
-                      />
-                    </label>
-                  </div>
                   <label className="text-xs text-slate-300">
                     Tags (comma separated)
                     <input
@@ -373,25 +463,45 @@ export default function AdminNovelsPage() {
                 </div>
               </section>
 
+              {/* Content Import */}
+              <section className="space-y-4">
+                <h3 className="text-[11px] font-bold uppercase tracking-[0.3em] text-slate-500">
+                  Novel Content (PDF)
+                </h3>
+                <div className="rounded-2xl border border-white/5 bg-white/5 p-4">
+                  <label className="text-xs text-slate-300">
+                    Upload PDF
+                    <input
+                      type="file"
+                      accept="application/pdf"
+                      className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-white"
+                      onChange={(event) =>
+                        setPdfFile(event.target.files?.[0] ?? null)
+                      }
+                    />
+                  </label>
+                  <div className="mt-3 flex items-center gap-3">
+                    <button
+                      type="button"
+                      className="rounded-full border border-white/20 px-4 py-1.5 text-xs text-slate-200"
+                      disabled={!pdfFile || pdfUploading}
+                      onClick={handleUploadPdf}
+                    >
+                      {pdfUploading ? "Importing..." : "Import PDF"}
+                    </button>
+                    <span className="text-[10px] text-slate-500">
+                      PDF will be parsed into chapters automatically.
+                    </span>
+                  </div>
+                </div>
+              </section>
+
               {/* Visibility & Compliance */}
               <section className="space-y-4">
                 <h3 className="text-[11px] font-bold uppercase tracking-[0.3em] text-slate-500">
                   Visibility & Compliance
                 </h3>
                 <div className="flex flex-wrap gap-6 rounded-2xl border border-white/5 bg-white/5 p-4">
-                  <div className="flex flex-col gap-2">
-                    <span className="text-[10px] text-slate-500 uppercase">Status</span>
-                    <select
-                      className="rounded-full border border-white/10 bg-slate-900 px-3 py-1.5 text-xs text-white"
-                      value={novelStatus}
-                      onChange={(e) => setNovelStatus(e.target.value as any)}
-                    >
-                      <option value="DRAFT">Draft</option>
-                      <option value="PUBLISHED">Published</option>
-                      <option value="SCHEDULED">Scheduled</option>
-                      <option value="ARCHIVED">Archived</option>
-                    </select>
-                  </div>
                   <div className="flex flex-col gap-2">
                     <span className="text-[10px] text-slate-500 uppercase">Audience</span>
                     <select

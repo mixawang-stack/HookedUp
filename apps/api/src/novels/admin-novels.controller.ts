@@ -1,8 +1,31 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards, UseInterceptors } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
+import { randomBytes } from "crypto";
+import path from "path";
+import { diskStorage } from "multer";
 import { JwtAuthGuard, AuthenticatedRequest } from "../auth/jwt-auth.guard";
 import { AdminNovelDto } from "./dto/admin-novel.dto";
 import { AdminChapterDto } from "./dto/admin-chapter.dto";
 import { NovelsService } from "./novels.service";
+import { STORAGE_DIR } from "../uploads/uploads.constants";
+
+const pdfUploadInterceptor = FileInterceptor("file", {
+  storage: diskStorage({
+    destination: STORAGE_DIR,
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname).toLowerCase();
+      const token = randomBytes(16).toString("hex");
+      cb(null, `${Date.now()}-${token}${ext}`);
+    }
+  }),
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype !== "application/pdf") {
+      return cb(new Error("UNSUPPORTED_PDF_TYPE"), false);
+    }
+    return cb(null, true);
+  }
+});
 
 @Controller("admin/novels")
 @UseGuards(JwtAuthGuard)
@@ -63,5 +86,14 @@ export class AdminNovelsController {
     @Param("chapterId") chapterId: string
   ) {
     return this.novelsService.deleteAdminChapter(req.user.role, chapterId);
+  }
+
+  @Post(":id/pdf")
+  @UseInterceptors(pdfUploadInterceptor)
+  async uploadPdf(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") id: string
+  ) {
+    return this.novelsService.importPdfChapters(req.user.role, id, req.file);
   }
 }

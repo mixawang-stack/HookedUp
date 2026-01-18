@@ -1,7 +1,9 @@
 import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
-import { NovelStatus, Prisma, Role } from "@prisma/client";
+import { NovelSourceType, NovelStatus, Prisma, Role } from "@prisma/client";
 import * as argon2 from "argon2";
 import { randomBytes } from "crypto";
+import { readFile } from "fs/promises";
+import pdfParse from "pdf-parse";
 import { PrismaService } from "../prisma.service";
 import { AdminNovelDto } from "./dto/admin-novel.dto";
 import { AdminChapterDto } from "./dto/admin-chapter.dto";
@@ -249,6 +251,98 @@ export class NovelsService {
   async deleteAdminChapter(role: string, chapterId: string) {
     this.ensureAdmin(role);
     return this.prisma.novelChapter.delete({ where: { id: chapterId } });
+  }
+
+  async importPdfChapters(
+    role: string,
+    novelId: string,
+    file?: Express.Multer.File
+  ) {
+    this.ensureAdmin(role);
+    if (!file) {
+      throw new BadRequestException("MISSING_FILE");
+    }
+
+    const novel = await this.prisma.novel.findUnique({
+      where: { id: novelId },
+      select: { id: true }
+    });
+    if (!novel) {
+      throw new BadRequestException("NOVEL_NOT_FOUND");
+    }
+
+    const buffer = await readFile(file.path);
+    const parsed = await pdfParse(buffer);
+    const rawText = parsed.text?.replace(/\r\n/g, "\n").trim() ?? "";
+    if (!rawText) {
+      throw new BadRequestException("PDF_EMPTY");
+    }
+
+    const chapters = this.splitPdfIntoChapters(rawText);
+    if (chapters.length === 0) {
+      throw new BadRequestException("PDF_PARSE_FAILED");
+    }
+
+    const freeCount = 2;
+    await this.prisma.$transaction(async (tx) => {
+      await tx.novelChapter.deleteMany({ where: { novelId } });
+      await tx.novelChapter.createMany({
+        data: chapters.map((chapter, index) => ({
+          novelId,
+          title: chapter.title,
+          content: chapter.content,
+          orderIndex: index + 1,
+          isFree: index < freeCount,
+          isPublished: true
+        }))
+      });
+      await tx.novel.update({
+        where: { id: novelId },
+        data: { sourceType: NovelSourceType.PDF }
+      });
+    });
+
+    return { chapterCount: chapters.length };
+  }
+
+  private splitPdfIntoChapters(text: string) {
+    const chapterRegex =
+      /(^|\n)\s*(Chapter\s+\d+[^\n]*|CHAPTER\s+\d+[^\n]*|第[0-9一二三四五六七八九十百千]+章[^\n]*)/g;
+    const matches = Array.from(text.matchAll(chapterRegex));
+
+    if (matches.length === 0) {
+      return [
+        {
+          title: "Chapter 1",
+          content: text.trim()
+        }
+      ];
+    }
+
+    const chapters: { title: string; content: string }[] = [];
+    for (let index = 0; index < matches.length; index += 1) {
+      const match = matches[index];
+      const title = match[2]?.trim() || `Chapter ${index + 1}`;
+      const start = (match.index ?? 0) + match[0].length;
+      const end =
+        index + 1 < matches.length ? matches[index + 1].index ?? text.length : text.length;
+      const content = text.slice(start, end).trim();
+      if (content.length === 0) {
+        continue;
+      }
+      chapters.push({ title, content });
+    }
+
+    if (chapters.length === 0) {
+      return [
+        {
+          title: "Chapter 1",
+          content: text.trim()
+        }
+      ];
+    }
+
+    return chapters;
   }
 
   async listNovels(limit?: number, featured?: boolean) {
