@@ -23,6 +23,21 @@ type UserRow = {
   activityCounts: { posts: number; rooms: number; privateChats: number };
 };
 
+type UsersResponse = {
+  items: UserRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+type FilterOption = { value: string; count: number };
+
+type UsersFilters = {
+  total: number;
+  countries: FilterOption[];
+  genders: FilterOption[];
+};
+
 type UserDetail = {
   id: string;
   email: string;
@@ -77,6 +92,10 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [selectedUser, setSelectedUser] = useState<UserDetail | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [filterOptions, setFilterOptions] = useState<UsersFilters | null>(null);
 
   const [search, setSearch] = useState("");
   const [country, setCountry] = useState("");
@@ -94,7 +113,7 @@ export default function AdminUsersPage() {
     if (stored) setToken(stored);
   }, []);
 
-  const loadUsers = async () => {
+  const loadUsers = async (targetPage?: number) => {
     if (!authHeader) return;
     setStatus(null);
     const params = new URLSearchParams();
@@ -103,6 +122,9 @@ export default function AdminUsersPage() {
     if (gender.trim()) params.set("gender", gender.trim());
     if (member.trim()) params.set("member", member.trim());
     if (activeDays.trim()) params.set("active", activeDays.trim());
+    const nextPage = targetPage ?? page;
+    params.set("page", String(nextPage));
+    params.set("limit", String(pageSize));
     const res = await fetch(`${API_BASE}/admin/users?${params.toString()}`, {
       headers: { ...authHeader }
     });
@@ -110,8 +132,23 @@ export default function AdminUsersPage() {
       setStatus("Failed to load users.");
       return;
     }
-    const data = (await res.json()) as UserRow[];
-    setUsers(data);
+    const data = (await res.json()) as UsersResponse;
+    setUsers(data.items ?? []);
+    setTotalUsers(data.total ?? 0);
+    setPage(data.page ?? nextPage);
+    setPageSize(data.pageSize ?? pageSize);
+  };
+
+  const loadFilters = async () => {
+    if (!authHeader) return;
+    const res = await fetch(`${API_BASE}/admin/users/filters`, {
+      headers: { ...authHeader }
+    });
+    if (!res.ok) {
+      return;
+    }
+    const data = (await res.json()) as UsersFilters;
+    setFilterOptions(data);
   };
 
   const loadUserDetail = async (userId: string) => {
@@ -130,7 +167,8 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     if (!authHeader) return;
-    loadUsers().catch(() => undefined);
+    loadUsers(1).catch(() => undefined);
+    loadFilters().catch(() => undefined);
   }, [authHeader]);
 
   return (
@@ -142,10 +180,21 @@ export default function AdminUsersPage() {
             Track user activity, compliance, and growth metrics.
           </p>
         </div>
+        <div className="flex items-center gap-3 text-xs text-slate-400">
+          <span>
+            Filtered: <span className="text-slate-200">{totalUsers}</span>
+          </span>
+          <span>
+            Total:{" "}
+            <span className="text-slate-200">
+              {filterOptions?.total ?? "—"}
+            </span>
+          </span>
+        </div>
         <button
           type="button"
           className="rounded-full border border-white/20 px-3 py-1 text-xs text-slate-200"
-          onClick={() => loadUsers()}
+          onClick={() => loadUsers(page)}
         >
           Refresh
         </button>
@@ -160,18 +209,30 @@ export default function AdminUsersPage() {
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
-        <input
+        <select
           className="rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2"
-          placeholder="Country"
           value={country}
           onChange={(event) => setCountry(event.target.value)}
-        />
-        <input
+        >
+          <option value="">Country</option>
+          {(filterOptions?.countries ?? []).map((item) => (
+            <option key={item.value} value={item.value}>
+              {item.value} ({item.count})
+            </option>
+          ))}
+        </select>
+        <select
           className="rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2"
-          placeholder="Gender"
           value={gender}
           onChange={(event) => setGender(event.target.value)}
-        />
+        >
+          <option value="">Gender</option>
+          {(filterOptions?.genders ?? []).map((item) => (
+            <option key={item.value} value={item.value}>
+              {item.value} ({item.count})
+            </option>
+          ))}
+        </select>
         <select
           className="rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2"
           value={member}
@@ -194,7 +255,7 @@ export default function AdminUsersPage() {
         <button
           type="button"
           className="col-span-full rounded-full bg-white px-4 py-2 text-xs font-semibold text-slate-900"
-          onClick={() => loadUsers()}
+          onClick={() => loadUsers(1)}
         >
           Apply filters
         </button>
@@ -272,6 +333,47 @@ export default function AdminUsersPage() {
             </button>
           ))
         )}
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-300">
+        <span>
+          Page {page} of {Math.max(1, Math.ceil(totalUsers / pageSize))}
+        </span>
+        <div className="flex items-center gap-2">
+          <label className="flex items-center gap-2">
+            <span className="text-slate-400">Rows</span>
+            <select
+              className="rounded-lg border border-white/10 bg-slate-950/60 px-2 py-1"
+              value={pageSize}
+              onChange={(event) => {
+                const nextSize = Number(event.target.value);
+                setPageSize(nextSize);
+                setPage(1);
+                loadUsers(1).catch(() => undefined);
+              }}
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+            </select>
+          </label>
+          <button
+            type="button"
+            className="rounded-full border border-white/10 px-3 py-1"
+            disabled={page <= 1}
+            onClick={() => loadUsers(Math.max(1, page - 1))}
+          >
+            Prev
+          </button>
+          <button
+            type="button"
+            className="rounded-full border border-white/10 px-3 py-1"
+            disabled={page >= Math.ceil(totalUsers / pageSize)}
+            onClick={() => loadUsers(page + 1)}
+          >
+            Next
+          </button>
+        </div>
       </div>
 
       {detailOpen && selectedUser && (

@@ -8,6 +8,8 @@ type AdminUsersQuery = {
   gender?: string;
   member?: string;
   activeDays?: number;
+  page?: number;
+  limit?: number;
 };
 
 @Injectable()
@@ -36,31 +38,40 @@ export class AdminUsersService {
       where.updatedAt = { gte: since };
     }
 
-    const users = await this.prisma.user.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        email: true,
-        maskName: true,
-        maskAvatarUrl: true,
-        country: true,
-        gender: true,
-        dob: true,
-        createdAt: true,
-        updatedAt: true,
-        status: true,
-        _count: {
-          select: {
-            traces: true,
-            createdRooms: true,
-            messagesSent: true
+    const pageSize = Math.min(Math.max(query.limit ?? 20, 1), 100);
+    const page = Math.max(query.page ?? 1, 1);
+    const skip = (page - 1) * pageSize;
+
+    const [total, users] = await Promise.all([
+      this.prisma.user.count({ where }),
+      this.prisma.user.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: pageSize,
+        select: {
+          id: true,
+          email: true,
+          maskName: true,
+          maskAvatarUrl: true,
+          country: true,
+          gender: true,
+          dob: true,
+          createdAt: true,
+          updatedAt: true,
+          status: true,
+          _count: {
+            select: {
+              traces: true,
+              createdRooms: true,
+              messagesSent: true
+            }
           }
         }
-      }
-    });
+      })
+    ]);
 
-    return users.map((user) => ({
+    const items = users.map((user) => ({
       ...user,
       membershipStatus: "FREE",
       lastActiveAt: user.updatedAt,
@@ -70,6 +81,51 @@ export class AdminUsersService {
         privateChats: user._count.messagesSent
       }
     }));
+
+    return {
+      items,
+      total,
+      page,
+      pageSize
+    };
+  }
+
+  async getFilterOptions() {
+    const [total, countryGroups, genderGroups] = await Promise.all([
+      this.prisma.user.count(),
+      this.prisma.user.groupBy({
+        by: ["country"],
+        where: { country: { not: null } },
+        _count: { _all: true }
+      }),
+      this.prisma.user.groupBy({
+        by: ["gender"],
+        where: { gender: { not: null } },
+        _count: { _all: true }
+      })
+    ]);
+
+    const countries = countryGroups
+      .map((item) => ({
+        value: (item.country ?? "").trim(),
+        count: item._count._all
+      }))
+      .filter((item) => item.value.length > 0)
+      .sort((a, b) => b.count - a.count);
+
+    const genders = genderGroups
+      .map((item) => ({
+        value: (item.gender ?? "").trim(),
+        count: item._count._all
+      }))
+      .filter((item) => item.value.length > 0)
+      .sort((a, b) => b.count - a.count);
+
+    return {
+      total,
+      countries,
+      genders
+    };
   }
 
   async getUserDetail(userId: string) {

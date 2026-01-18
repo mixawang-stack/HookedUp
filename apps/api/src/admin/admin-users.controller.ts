@@ -14,7 +14,9 @@ export class AdminUsersController {
     @Query("country") country?: string,
     @Query("gender") gender?: string,
     @Query("member") member?: string,
-    @Query("active") active?: string
+    @Query("active") active?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string
   ) {
     if (req.user.role !== "ADMIN") {
       throw new ForbiddenException("ADMIN_ONLY");
@@ -25,8 +27,19 @@ export class AdminUsersController {
       country,
       gender,
       member,
-      activeDays: Number.isFinite(activeDays) ? activeDays : undefined
+      activeDays: Number.isFinite(activeDays) ? activeDays : undefined,
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined
     });
+  }
+
+  @Get("filters")
+  @UseGuards(JwtAuthGuard)
+  async getFilters(@Req() req: { user: { role: string } }) {
+    if (req.user.role !== "ADMIN") {
+      throw new ForbiddenException("ADMIN_ONLY");
+    }
+    return this.adminUsersService.getFilterOptions();
   }
 
   @Get(":id")
@@ -55,7 +68,9 @@ export class AdminUsersAliasController {
     @Query("country") country?: string,
     @Query("gender") gender?: string,
     @Query("member") member?: string,
-    @Query("active") active?: string
+    @Query("active") active?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string
   ) {
     if (req.user.role !== "ADMIN") {
       throw new ForbiddenException("ADMIN_ONLY");
@@ -66,8 +81,19 @@ export class AdminUsersAliasController {
       country,
       gender,
       member,
-      activeDays: Number.isFinite(activeDays) ? activeDays : undefined
+      activeDays: Number.isFinite(activeDays) ? activeDays : undefined,
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined
     });
+  }
+
+  @Get("filters")
+  @UseGuards(JwtAuthGuard)
+  async getFilters(@Req() req: { user: { role: string } }) {
+    if (req.user.role !== "ADMIN") {
+      throw new ForbiddenException("ADMIN_ONLY");
+    }
+    return this.adminUsersService.getFilterOptions();
   }
 
   @Get(":id")
