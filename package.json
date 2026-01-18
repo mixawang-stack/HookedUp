@@ -11,6 +11,9 @@
     "build:web": "pnpm -C apps/web build",
     "build:admin": "pnpm -C apps/admin build"
   },
+  "prisma": {
+    "schema": "apps/api/prisma/schema.prisma"
+  },
   "devDependencies": {
     "prisma": "^5.22.0",
     "@prisma/client": "^5.22.0"
