@@ -113,6 +113,10 @@ export default function AdminNovelsPage() {
 
   const handleUploadCover = async () => {
     if (!authHeader || !coverFile) return;
+    if (coverFile.size > 10 * 1024 * 1024) {
+      setStatus("Cover image must be 10MB or smaller.");
+      return;
+    }
     setCoverUploading(true);
     setStatus(null);
     const form = new FormData();
@@ -125,7 +129,11 @@ export default function AdminNovelsPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setStatus(data?.message ?? "Failed to upload cover.");
+        if (res.status === 413) {
+          setStatus("Cover image too large. Please use 10MB or smaller.");
+        } else {
+          setStatus(data?.message ?? "Failed to upload cover.");
+        }
         return;
       }
       if (data?.imageUrl) {
@@ -172,6 +180,10 @@ export default function AdminNovelsPage() {
   const handleSaveNovel = async () => {
     if (!authHeader) return;
     setStatus(null);
+    if (!title.trim()) {
+      setStatus("Title is required.");
+      return;
+    }
     const payload = {
       title,
       coverImageUrl,
@@ -194,7 +206,9 @@ export default function AdminNovelsPage() {
     );
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      setStatus(body?.message ?? "Failed to save novel.");
+      const message =
+        Array.isArray(body?.message) ? body.message.join(" / ") : body?.message;
+      setStatus(message ?? "Failed to save novel.");
       return;
     }
     setDrawerOpen(false);
@@ -422,6 +436,12 @@ export default function AdminNovelsPage() {
                         setCoverFile(event.target.files?.[0] ?? null)
                       }
                     />
+                    {coverFile && (
+                      <p className="mt-2 text-[10px] text-slate-500">
+                        Selected: {coverFile.name} ·{" "}
+                        {(coverFile.size / (1024 * 1024)).toFixed(2)} MB
+                      </p>
+                    )}
                     <div className="mt-3 flex items-center gap-3">
                       <button
                         type="button"
