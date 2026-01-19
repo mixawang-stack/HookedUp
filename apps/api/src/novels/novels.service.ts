@@ -566,7 +566,7 @@ export class NovelsService {
         ? (existing.tagsJson as string[])
         : [];
     const tagLine = tags.length > 0 ? `Tags: ${tags.join(" / ")}` : "";
-    return [
+    const content = [
       "The Bartender's Pick",
       title,
       description,
@@ -575,6 +575,15 @@ export class NovelsService {
       .map((line) => line.trim())
       .filter((line) => line.length > 0)
       .join("\n");
+    return this.truncateTraceContent(content);
+  }
+
+  private truncateTraceContent(content: string) {
+    const maxLen = 200;
+    if (content.length <= maxLen) {
+      return content;
+    }
+    return `${content.slice(0, maxLen - 3)}...`;
   }
 
   private async ensureOfficialUser(tx: Prisma.TransactionClient) {
