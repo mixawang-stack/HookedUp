@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 const API_BASE =
@@ -12,6 +12,11 @@ type NovelPreview = {
   coverImageUrl: string | null;
   description: string | null;
   tagsJson?: string[] | null;
+  viewCount?: number;
+  favoriteCount?: number;
+  dislikeCount?: number;
+  myReaction?: "LIKE" | "DISLIKE" | null;
+  room?: { id: string; title: string; _count: { memberships: number } } | null;
   chapters: Array<{
     id: string;
     title: string;
@@ -46,14 +51,27 @@ export default function NovelDetailPage() {
   const params = useParams();
   const router = useRouter();
   const novelId = typeof params?.id === "string" ? params.id : "";
+  const [token, setToken] = useState<string | null>(null);
   const [novel, setNovel] = useState<NovelPreview | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [reactionLoading, setReactionLoading] = useState(false);
+
+  const authHeader = useMemo(
+    () => (token ? { Authorization: `Bearer ${token}` } : null),
+    [token]
+  );
+
+  useEffect(() => {
+    setToken(localStorage.getItem("accessToken"));
+  }, []);
 
   useEffect(() => {
     if (!novelId) return;
     const load = async () => {
       setStatus(null);
-      const res = await fetch(`${API_BASE}/novels/${novelId}/full`);
+      const res = await fetch(`${API_BASE}/novels/${novelId}/full`, {
+        headers: authHeader ? { ...authHeader } : undefined
+      });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
         setStatus(body?.message ?? "Failed to load novel.");
@@ -62,62 +80,143 @@ export default function NovelDetailPage() {
       setNovel(body as NovelPreview);
     };
     load().catch(() => setStatus("Failed to load novel."));
-  }, [novelId]);
+  }, [novelId, authHeader]);
+
+  const handleReaction = async (type: "LIKE" | "DISLIKE") => {
+    if (!authHeader) {
+      setStatus("Please sign in to react.");
+      return;
+    }
+    if (!novelId) return;
+    setReactionLoading(true);
+    try {
+      const endpoint = type === "LIKE" ? "like" : "dislike";
+      const res = await fetch(`${API_BASE}/novels/${novelId}/${endpoint}`, {
+        method: "POST",
+        headers: { ...authHeader }
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(body?.message ?? "Failed to react.");
+      }
+      setNovel((prev) =>
+        prev
+          ? {
+              ...prev,
+              favoriteCount: body.favoriteCount ?? prev.favoriteCount,
+              dislikeCount: body.dislikeCount ?? prev.dislikeCount,
+              myReaction: body.myReaction ?? prev.myReaction
+            }
+          : prev
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to react.";
+      setStatus(message);
+    } finally {
+      setReactionLoading(false);
+    }
+  };
+
+  const handleShare = async () => {
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: novel?.title ?? "Story", url });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      setStatus("Link copied.");
+    } catch {
+      setStatus("Failed to share.");
+    }
+  };
+
+  const readingText = novel?.chapters
+    ? novel.chapters.map((chapter) => chapter.content).join("\n\n")
+    : "";
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-10 text-slate-100">
+    <main className="relative mx-auto w-full max-w-4xl px-4 py-10 text-slate-100">
       <button
         type="button"
         className="text-xs text-slate-400 hover:text-white"
         onClick={() => router.push("/hall")}
       >
-        ← Back to Hall
+        ← Back
       </button>
       {status && <p className="mt-4 text-sm text-rose-400">{status}</p>}
       {novel && (
-        <div className="mt-6 space-y-6">
-          <header className="space-y-2">
-            <h1 className="text-2xl font-semibold">{novel.title}</h1>
-            {novel.description && (
-              <p className="text-sm text-slate-400">{novel.description}</p>
-            )}
-          </header>
-          {novel.coverImageUrl && (
-            <img
-              src={resolveMediaUrl(novel.coverImageUrl) ?? ""}
-              alt={novel.title}
-              className="w-full rounded-2xl object-cover"
-            />
-          )}
-          <div className="space-y-4">
-            {novel.chapters.length === 0 && (
-              <p className="text-sm text-slate-400">
-                No chapters are available yet. Ask the admin to import the PDF.
-              </p>
-            )}
-            {novel.chapters.map((chapter) => (
-              <section
-                key={chapter.id}
-                className="rounded-2xl border border-white/10 bg-slate-900/60 p-4"
-              >
-                <div className="flex items-center justify-between text-xs text-slate-400">
-                  <span>
-                    Chapter {chapter.orderIndex}: {chapter.title}
-                  </span>
-                  <span>{chapter.isFree ? "Free" : "Locked"}</span>
+        <>
+          <aside className="hidden lg:flex fixed left-6 top-1/3 z-30 flex-col gap-3">
+            <button
+              type="button"
+              className={`h-10 w-10 rounded-full border border-white/10 text-xs font-semibold ${
+                novel.myReaction === "LIKE"
+                  ? "bg-emerald-400 text-slate-900"
+                  : "bg-slate-900/80 text-white"
+              }`}
+              onClick={() => handleReaction("LIKE")}
+              disabled={reactionLoading}
+            >
+              Like
+            </button>
+            <button
+              type="button"
+              className={`h-10 w-10 rounded-full border border-white/10 text-xs font-semibold ${
+                novel.myReaction === "DISLIKE"
+                  ? "bg-rose-400 text-slate-900"
+                  : "bg-slate-900/80 text-white"
+              }`}
+              onClick={() => handleReaction("DISLIKE")}
+              disabled={reactionLoading}
+            >
+              Dislike
+            </button>
+            <button
+              type="button"
+              className="h-10 w-10 rounded-full border border-white/10 bg-slate-900/80 text-xs font-semibold text-white"
+              onClick={handleShare}
+            >
+              Share
+            </button>
+          </aside>
+          <div className="mt-6 space-y-6">
+            <header className="space-y-2">
+              <h1 className="text-3xl font-semibold">{novel.title}</h1>
+              {novel.description && (
+                <p className="text-base text-slate-300">{novel.description}</p>
+              )}
+            </header>
+            <div className="mx-auto w-full max-w-2xl space-y-6">
+              {readingText ? (
+                <div className="text-base leading-8 text-slate-100 whitespace-pre-wrap">
+                  {readingText}
                 </div>
-                <p className="mt-3 text-sm text-slate-100 whitespace-pre-wrap">
-                  {chapter.content}
+              ) : (
+                <p className="text-sm text-slate-400">
+                  No story content yet.
                 </p>
-                {chapter.isLocked && (
-                  <div className="mt-3 rounded-xl border border-amber-400/30 bg-amber-500/10 p-3 text-xs text-amber-100">
-                    Continue reading by purchasing or inviting a friend.
-                  </div>
-                )}
-              </section>
-            ))}
+              )}
+            </div>
+            <div className="mx-auto w-full max-w-2xl rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-300">
+                <span>{novel.viewCount ?? 0} reads</span>
+                <span>{novel.room?._count?.memberships ?? 0} discussing</span>
+              </div>
+              <button
+                type="button"
+                className="mt-4 w-full rounded-full bg-white px-4 py-2 text-xs font-semibold text-slate-900"
+                onClick={() =>
+                  novel.room?.id
+                    ? router.push(`/rooms/${novel.room.id}`)
+                    : setStatus("Discussion room is not ready yet.")
+                }
+              >
+                Join the discussion
+              </button>
+            </div>
           </div>
-        </div>
+        </>
       )}
     </main>
   );

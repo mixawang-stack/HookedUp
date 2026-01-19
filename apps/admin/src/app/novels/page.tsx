@@ -18,6 +18,9 @@ type NovelItem = {
   isFeatured: boolean;
   authorName: string | null;
   language: string | null;
+  viewCount?: number;
+  favoriteCount?: number;
+  dislikeCount?: number;
   _count?: { chapters: number };
   room?: { id: string; _count: { memberships: number } } | null;
 };
@@ -362,13 +365,18 @@ export default function AdminNovelsPage() {
                     <div>
                       <h3 className="font-semibold text-slate-100 line-clamp-1">{novel.title}</h3>
                       <div className="mt-1 flex flex-wrap gap-2">
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                          novel.status === "PUBLISHED" ? "bg-emerald-500/20 text-emerald-400" :
-                          novel.status === "DRAFT" ? "bg-slate-500/20 text-slate-400" :
-                          novel.status === "ARCHIVED" ? "bg-rose-500/20 text-rose-400" :
-                          "bg-amber-500/20 text-amber-400"
-                        }`}>
-                          {novel.status}
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                            novel.status === "PUBLISHED"
+                              ? "bg-emerald-500/20 text-emerald-400"
+                              : novel.status === "DRAFT"
+                              ? "bg-slate-500/20 text-slate-400"
+                              : novel.status === "ARCHIVED"
+                              ? "bg-rose-500/20 text-rose-400"
+                              : "bg-amber-500/20 text-amber-400"
+                          }`}
+                        >
+                          {novel.status === "ARCHIVED" ? "UNPUBLISHED" : novel.status}
                         </span>
                         <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-slate-400">
                           {novel.audience}
@@ -385,9 +393,15 @@ export default function AdminNovelsPage() {
                     {novel.description || "No description provided."}
                   </p>
                 </div>
-                <div className="mt-3 flex items-center justify-between">
-                  <div className="flex items-center gap-3 text-[10px] text-slate-500">
+                  <div className="mt-3 flex items-center justify-between">
+                  <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
                     <span>{novel._count?.chapters ?? 0} Chapters</span>
+                    <span>•</span>
+                    <span>{novel.viewCount ?? 0} Reads</span>
+                    <span>•</span>
+                    <span>{novel.favoriteCount ?? 0} Likes</span>
+                    <span>•</span>
+                    <span>{novel.dislikeCount ?? 0} Dislikes</span>
                     <span>•</span>
                     <span>{novel.room?._count?.memberships ?? 0} Room Members</span>
                   </div>
@@ -405,7 +419,7 @@ export default function AdminNovelsPage() {
                         className="rounded-full border border-emerald-500/30 px-3 py-1 text-[10px] text-emerald-300 hover:bg-emerald-500/10"
                         onClick={() => handleUpdateStatus(novel.id, "PUBLISHED")}
                       >
-                        Publish
+                        Publish to Hall
                       </button>
                     )}
                     {novel.status === "PUBLISHED" && (
@@ -414,7 +428,7 @@ export default function AdminNovelsPage() {
                         className="rounded-full border border-rose-500/30 px-3 py-1 text-[10px] text-rose-300 hover:bg-rose-500/10"
                         onClick={() => handleUpdateStatus(novel.id, "ARCHIVED")}
                       >
-                        Archive
+                        Unpublish
                       </button>
                     )}
                     {novel.status === "ARCHIVED" && (
@@ -423,7 +437,7 @@ export default function AdminNovelsPage() {
                         className="rounded-full border border-emerald-500/30 px-3 py-1 text-[10px] text-emerald-300 hover:bg-emerald-500/10"
                         onClick={() => handleUpdateStatus(novel.id, "PUBLISHED")}
                       >
-                        Restore Publish
+                        Publish to Hall
                       </button>
                     )}
                   </div>

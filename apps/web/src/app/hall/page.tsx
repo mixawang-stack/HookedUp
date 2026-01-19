@@ -120,26 +120,6 @@ type NovelItem = {
   } | null;
 };
 
-type NovelPreview = {
-  id: string;
-  title: string;
-  coverImageUrl: string | null;
-  description: string | null;
-  tagsJson?: string[] | null;
-  favoriteCount?: number;
-  dislikeCount?: number;
-  myReaction?: "LIKE" | "DISLIKE" | null;
-  chapters: Array<{
-    id: string;
-    title: string;
-    content: string;
-    orderIndex: number;
-    isFree: boolean;
-    isPublished: boolean;
-    isLocked?: boolean;
-  }>;
-};
-
 type TraceDetailResponse = {
   trace: TraceItem;
   replies: TraceReply[];
@@ -182,8 +162,6 @@ export default function HallPage() {
   const [traceDetail, setTraceDetail] = useState<TraceDetailResponse | null>(
     null
   );
-  const [novelPreview, setNovelPreview] = useState<NovelPreview | null>(null);
-  const [novelLoading, setNovelLoading] = useState(false);
   const [replyInput, setReplyInput] = useState("");
   const [postingReply, setPostingReply] = useState(false);
   const [loadingReplies, setLoadingReplies] = useState(false);
@@ -191,7 +169,6 @@ export default function HallPage() {
   const [profileCard, setProfileCard] = useState<PublicProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [meProfile, setMeProfile] = useState<PublicProfile | null>(null);
-  const [savedTraces, setSavedTraces] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const authHeader = useMemo(() => {
@@ -205,19 +182,6 @@ export default function HallPage() {
     setToken(localStorage.getItem("accessToken"));
   }, []);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const raw = localStorage.getItem("saved_traces");
-    if (!raw) return;
-    try {
-      const parsed = JSON.parse(raw) as string[];
-      if (Array.isArray(parsed)) {
-        setSavedTraces(new Set(parsed));
-      }
-    } catch {
-      setSavedTraces(new Set());
-    }
-  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -440,20 +404,6 @@ export default function HallPage() {
     }
   };
 
-  const toggleSave = (traceId: string) => {
-    setSavedTraces((prev) => {
-      const next = new Set(prev);
-      if (next.has(traceId)) {
-        next.delete(traceId);
-      } else {
-        next.add(traceId);
-      }
-      if (typeof window !== "undefined") {
-        localStorage.setItem("saved_traces", JSON.stringify(Array.from(next)));
-      }
-      return next;
-    });
-  };
 
   const reportUser = async (userId: string) => {
     if (!authHeader) {
@@ -493,76 +443,6 @@ export default function HallPage() {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to report user.";
-      setStatus(message);
-    }
-  };
-
-  const openNovelPreview = async (novelId: string) => {
-    setNovelLoading(true);
-    try {
-      const res = await fetch(`${API_BASE}/novels/${novelId}/preview`);
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message ?? `HTTP ${res.status}`);
-      }
-      const data = (await res.json()) as NovelPreview;
-      setNovelPreview(data);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to load novel preview.";
-      setStatus(message);
-    } finally {
-      setNovelLoading(false);
-    }
-  };
-
-  const toggleNovelReaction = async (
-    novelId: string,
-    type: "LIKE" | "DISLIKE"
-  ) => {
-    if (!authHeader) {
-      setStatus("Please sign in to react to a novel.");
-      return;
-    }
-    const endpoint = type === "LIKE" ? "like" : "dislike";
-    try {
-      const res = await fetch(`${API_BASE}/novels/${novelId}/${endpoint}`, {
-        method: "POST",
-        headers: { ...authHeader }
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data?.message ?? `HTTP ${res.status}`);
-      }
-      setHall((prev) => {
-        if (!prev?.novels) return prev;
-        return {
-          ...prev,
-          novels: prev.novels.map((item) =>
-            item.id === novelId
-              ? {
-                  ...item,
-                  favoriteCount: data.favoriteCount,
-                  dislikeCount: data.dislikeCount,
-                  myReaction: data.myReaction
-                }
-              : item
-          )
-        };
-      });
-      setNovelPreview((prev) =>
-        prev?.id === novelId
-          ? {
-              ...prev,
-              favoriteCount: data.favoriteCount,
-              dislikeCount: data.dislikeCount,
-              myReaction: data.myReaction
-            }
-          : prev
-      );
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to react to novel.";
       setStatus(message);
     }
   };
@@ -953,48 +833,40 @@ export default function HallPage() {
       )}
       {status && <p className="mt-3 text-sm text-rose-600">{status}</p>}
 
-      <section className="mt-6">
+      <section className="mt-6 sticky top-20 z-20 rounded-3xl border border-white/10 bg-slate-950/90 p-4 shadow-[0_20px_50px_rgba(15,23,42,0.5)] backdrop-blur">
         <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-100">Official Stories</h2>
-            <p className="text-xs text-slate-400">
-              Curated series from the HookedUp team.
-            </p>
-          </div>
+          <h2 className="text-lg font-semibold text-slate-100">Official Stories</h2>
           <button
             type="button"
-            className="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-200 hover:border-white/30"
-            onClick={() => setStatus("Novel list is coming soon.")}
+            className="text-xs font-semibold text-slate-300 hover:text-white"
+            onClick={() => router.push("/novels")}
           >
-            See all
+            View all stories
           </button>
         </div>
         <div className="mt-4 overflow-x-auto">
           <div className="flex gap-4 pb-2">
-            {(hall?.novels ?? []).map((novel) => {
-              const memberCount = novel.room?._count?.memberships ?? 0;
+            {(hall?.novels ?? []).slice(0, 3).map((novel) => {
+              const teaser = (novel.description ?? novel.title).split("\n")[0] ?? "";
               return (
                 <div
                   key={novel.id}
-                  className="relative min-w-[220px] max-w-[240px] rounded-2xl border border-amber-200/60 bg-gradient-to-br from-amber-50/90 via-white to-amber-100/70 p-4 text-slate-900 shadow-[0_18px_40px_rgba(251,191,36,0.25)]"
+                  className="min-w-[220px] max-w-[240px] rounded-2xl border border-amber-200/60 bg-amber-50/90 p-4 text-slate-900 shadow-[0_18px_40px_rgba(251,191,36,0.25)]"
                 >
-                  <span className="absolute left-3 top-3 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-900">
-                    Official story
-                  </span>
                   <button
                     type="button"
-                    className="mt-6 block w-full text-left"
+                    className="block w-full text-left"
                     onClick={() => router.push(`/novels/${novel.id}`)}
                   >
-                    <div className="overflow-hidden rounded-xl bg-slate-200">
+                    <div className="overflow-hidden rounded-xl border border-amber-200/80 bg-slate-200">
                       {novel.coverImageUrl ? (
                         <img
                           src={resolveMediaUrl(novel.coverImageUrl) ?? ""}
                           alt={novel.title}
-                          className="h-44 w-full object-cover"
+                          className="w-full aspect-[3/4] object-cover"
                         />
                       ) : (
-                        <div className="flex h-44 items-center justify-center text-xs text-slate-500">
+                        <div className="flex aspect-[3/4] items-center justify-center text-xs text-slate-500">
                           No cover
                         </div>
                       )}
@@ -1002,46 +874,23 @@ export default function HallPage() {
                     <p className="mt-3 text-sm font-semibold line-clamp-1">
                       {novel.title}
                     </p>
-                    {novel.description && (
-                      <p className="mt-1 text-xs text-slate-600 line-clamp-3">
-                        {novel.description}
-                      </p>
-                    )}
+                    <p className="mt-1 text-xs text-slate-600 line-clamp-1">
+                      {teaser}
+                    </p>
                   </button>
-                  <div className="mt-3 text-[10px] uppercase tracking-wide text-slate-500">
-                    {typeof novel.viewCount === "number" && novel.viewCount > 0 && (
-                      <span>{novel.viewCount} Reads</span>
-                    )}
-                    {typeof novel.favoriteCount === "number" &&
-                      novel.favoriteCount > 0 && (
-                        <span className="ml-2">{novel.favoriteCount} Likes</span>
-                      )}
-                  </div>
                   <button
                     type="button"
-                    className="mt-3 w-full rounded-full bg-amber-500 px-3 py-2 text-xs font-semibold text-slate-900"
+                    className="mt-3 w-full rounded-full bg-slate-900 px-3 py-2 text-xs font-semibold text-white"
                     onClick={() => router.push(`/novels/${novel.id}`)}
                   >
-                    Read full story
-                  </button>
-                  <button
-                    type="button"
-                    className="mt-2 w-full text-center text-[11px] text-amber-800 hover:text-amber-900"
-                    onClick={() =>
-                      novel.room?.id
-                        ? router.push(`/rooms/${novel.room.id}`)
-                        : setStatus("Discussion room is not ready yet.")
-                    }
-                  >
-                    Discuss in Room
-                    {memberCount > 0 ? ` · ${memberCount} discussing` : ""}
+                    Read story
                   </button>
                 </div>
               );
             })}
             {(!hall?.novels || hall.novels.length === 0) && (
               <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-xs text-slate-400">
-                No official stories yet.
+                No stories yet.
               </div>
             )}
           </div>
@@ -1070,7 +919,6 @@ export default function HallPage() {
           ]
             .filter(Boolean)
             .join(" ");
-          const needsReadMore = trace.content.length > 220;
           return (
             <button
               key={trace.id}
@@ -1103,9 +951,6 @@ export default function HallPage() {
                   </button>
                   <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-700">
                     {renderTraceAuthor(trace.author)}
-                  </span>
-                  <span className="rounded-full border border-slate-300 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                    Post
                   </span>
                 </div>
                 <span className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
@@ -1151,18 +996,6 @@ export default function HallPage() {
                 >
                   {normalizeTraceContent(trace.content)}
                 </p>
-              )}
-              {needsReadMore && (
-                <button
-                  type="button"
-                  className="mt-2 text-xs font-semibold text-slate-500 hover:text-slate-700"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setSelectedTraceId(trace.id);
-                  }}
-                >
-                  Read more
-                </button>
               )}
               <div className="mt-4 flex items-center justify-between">
                 {/* Replies icon - Chat bubble with notification badge */}
@@ -1275,18 +1108,6 @@ export default function HallPage() {
                     </span>
                   )}
                 </div>
-                <button
-                  type="button"
-                  className={`text-[10px] font-semibold uppercase tracking-[0.2em] ${
-                    savedTraces.has(trace.id) ? "text-emerald-600" : "text-slate-400"
-                  }`}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    toggleSave(trace.id);
-                  }}
-                >
-                  Save
-                </button>
               </div>
               {currentUserId &&
                 trace.author?.id &&
@@ -1443,94 +1264,6 @@ export default function HallPage() {
         </div>
       )}
 
-      {novelPreview && (
-        <div className="fixed inset-0 z-40 flex items-stretch" role="dialog" aria-modal="true">
-          <div
-            className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
-            onClick={() => setNovelPreview(null)}
-          />
-          <div className="relative ml-auto flex h-full w-full max-w-[560px] flex-col overflow-hidden bg-slate-950 text-slate-100 shadow-[0_30px_60px_rgba(2,6,23,0.6)]">
-            <header className="flex items-start justify-between border-b border-white/10 px-6 py-4">
-              <div>
-                <h3 className="text-lg font-semibold">{novelPreview.title}</h3>
-                {novelPreview.description && (
-                  <p className="mt-1 text-xs text-slate-400">
-                    {novelPreview.description}
-                  </p>
-                )}
-              </div>
-              <button
-                type="button"
-                className="text-xs text-slate-400 hover:text-white"
-                onClick={() => setNovelPreview(null)}
-              >
-                Close
-              </button>
-            </header>
-            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-              <div className="flex items-center gap-3 text-xs text-slate-300">
-                <button
-                  type="button"
-                  className={`rounded-full border px-3 py-1 transition ${
-                    novelPreview.myReaction === "LIKE"
-                      ? "border-emerald-400/60 text-emerald-200"
-                      : "border-white/10 text-slate-300 hover:text-white"
-                  }`}
-                  onClick={() => toggleNovelReaction(novelPreview.id, "LIKE")}
-                >
-                  Like {novelPreview.favoriteCount ?? 0}
-                </button>
-                <button
-                  type="button"
-                  className={`rounded-full border px-3 py-1 transition ${
-                    novelPreview.myReaction === "DISLIKE"
-                      ? "border-rose-400/60 text-rose-200"
-                      : "border-white/10 text-slate-300 hover:text-white"
-                  }`}
-                  onClick={() => toggleNovelReaction(novelPreview.id, "DISLIKE")}
-                >
-                  Dislike {novelPreview.dislikeCount ?? 0}
-                </button>
-                <button
-                  type="button"
-                  className="rounded-full border border-white/10 px-3 py-1 text-slate-300 hover:text-white"
-                  onClick={() => router.push(`/novels/${novelPreview.id}`)}
-                >
-                  Read full story
-                </button>
-              </div>
-              {novelPreview.coverImageUrl && (
-                <img
-                  src={resolveMediaUrl(novelPreview.coverImageUrl) ?? ""}
-                  alt={novelPreview.title}
-                  className="w-full rounded-2xl object-cover"
-                />
-              )}
-              {novelPreview.chapters.map((chapter) => (
-                <section
-                  key={chapter.id}
-                  className="rounded-2xl border border-white/10 bg-slate-900/60 p-4"
-                >
-                  <div className="flex items-center justify-between text-xs text-slate-400">
-                    <span>
-                      Chapter {chapter.orderIndex}: {chapter.title}
-                    </span>
-                    <span>{chapter.isFree ? "Free" : "Locked"}</span>
-                  </div>
-                  <p className="mt-3 text-sm text-slate-100 whitespace-pre-wrap">
-                    {chapter.content}
-                  </p>
-                  {chapter.isLocked && (
-                    <div className="mt-3 rounded-xl border border-amber-400/30 bg-amber-500/10 p-3 text-xs text-amber-100">
-                      Continue reading by purchasing or inviting a friend.
-                    </div>
-                  )}
-                </section>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 

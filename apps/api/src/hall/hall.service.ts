@@ -156,7 +156,7 @@ export class HallService {
       novels = await this.prisma.novel.findMany({
         where: { status: "PUBLISHED" },
         orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
-        take: 10,
+        take: 3,
         include: {
           hallTrace: { select: { imageUrl: true } },
           room: {

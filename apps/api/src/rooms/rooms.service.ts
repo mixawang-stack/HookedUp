@@ -236,7 +236,16 @@ export class RoomsService {
       where,
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take,
-      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {})
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      include: {
+        novel: {
+          select: {
+            id: true,
+            title: true,
+            coverImageUrl: true
+          }
+        }
+      }
     });
 
     const roomIds = rooms.map((room) => room.id);

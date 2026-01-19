@@ -12,6 +12,25 @@ import { emitHostStatus } from "../lib/hostStatus";
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
 
+const resolveMediaUrl = (value?: string | null) => {
+  if (!value) return null;
+  if (value.startsWith("/uploads/")) {
+    return `${API_BASE}${value}`;
+  }
+  if (!value.startsWith("http://") && !value.startsWith("https://")) {
+    return value;
+  }
+  try {
+    const parsed = new URL(value);
+    if (parsed.pathname.startsWith("/uploads/")) {
+      return `${API_BASE}${parsed.pathname}`;
+    }
+  } catch {
+    return value;
+  }
+  return value;
+};
+
 type RoomItem = {
   id: string;
   title: string;
@@ -25,6 +44,11 @@ type RoomItem = {
   capacity: number | null;
   memberCount: number;
   createdAt: string;
+  novel?: {
+    id: string;
+    title: string;
+    coverImageUrl: string | null;
+  } | null;
 };
 
 type RoomsResponse = {
@@ -221,141 +245,115 @@ export default function RoomsPage() {
 
       <div className="grid gap-4 md:grid-cols-2">
         {rooms.map((room) => {
-          const cardClasses = room.isOfficial
-            ? "group relative flex flex-col rounded-2xl border border-amber-200/60 bg-gradient-to-br from-amber-50 via-amber-50/95 to-amber-100/80 p-5 shadow-[0_2px_8px_rgba(180,83,9,0.15),0_0_0_1px_rgba(251,191,36,0.1)] transition-all duration-200 hover:border-amber-300/60 hover:shadow-[0_4px_16px_rgba(180,83,9,0.25),0_0_0_1px_rgba(251,191,36,0.2)] hover:scale-[1.02]"
-            : "group relative flex flex-col rounded-2xl border border-white/10 bg-white/5 p-5 shadow-[0_2px_10px_rgba(15,23,42,0.4)] transition-all duration-200 hover:border-white/20 hover:bg-white/10";
-          const titleClass = room.isOfficial
-            ? "text-amber-900"
-            : "text-slate-100";
-          const metaClass = room.isOfficial
-            ? "text-amber-800/90"
-            : "text-slate-300/90";
+          if (room.novel) {
+            return (
+              <Link
+                key={room.id}
+                href={`/rooms/${room.id}`}
+                className="group relative flex flex-col rounded-2xl border border-amber-200/70 bg-amber-50/90 p-4 shadow-[0_18px_40px_rgba(251,191,36,0.2)] transition hover:border-amber-300/80"
+              >
+                <span className="absolute left-3 top-3 rounded-full bg-amber-500 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-slate-900">
+                  Story room
+                </span>
+                <div className="mt-5 flex items-start gap-3">
+                  <div className="h-20 w-14 overflow-hidden rounded-lg border border-amber-200/80 bg-slate-200">
+                    {room.novel.coverImageUrl ? (
+                      <img
+                        src={resolveMediaUrl(room.novel.coverImageUrl) ?? ""}
+                        alt={room.novel.title}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-[9px] text-slate-500">
+                        No cover
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <h2 className="text-sm font-semibold text-amber-900 line-clamp-1">
+                      {room.novel.title}
+                    </h2>
+                    <p className="mt-1 text-xs text-amber-800/80 line-clamp-2">
+                      {room.description ?? "Join the official story discussion."}
+                    </p>
+                    <p className="mt-2 text-[10px] text-amber-700/70">
+                      {room.memberCount} discussing
+                    </p>
+                  </div>
+                </div>
+              </Link>
+            );
+          }
+
           return (
-          <Link
-            key={room.id}
-            href={`/rooms/${room.id}`}
-            className={cardClasses}
-          >
-            {/* Warm glow effect */}
-            {room.isOfficial && (
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-amber-100/20 via-transparent to-amber-50/30 opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
-            )}
-            
-            <div className="relative z-10">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex flex-col gap-2 flex-1">
-                  {room.isOfficial && (
-                    <span className="w-fit rounded-full border border-amber-300/70 bg-amber-100/80 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-amber-800">
-                      Official discussion
+            <Link
+              key={room.id}
+              href={`/rooms/${room.id}`}
+              className="group relative flex flex-col rounded-lg border border-amber-200/40 bg-gradient-to-br from-amber-50 via-amber-50/95 to-amber-100/80 p-5 shadow-[0_2px_8px_rgba(180,83,9,0.15),0_0_0_1px_rgba(251,191,36,0.1)] transition-all duration-200 hover:border-amber-300/60 hover:shadow-[0_4px_16px_rgba(180,83,9,0.25),0_0_0_1px_rgba(251,191,36,0.2)] hover:scale-[1.02]"
+            >
+              <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-amber-100/20 via-transparent to-amber-50/30 opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
+              <div className="relative z-10">
+                <div className="flex items-start justify-between gap-3">
+                  <h2 className="text-lg font-bold text-amber-900 leading-tight flex-1">
+                    {room.title}
+                  </h2>
+                  {room.status === "LIVE" && (
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <div className="relative">
+                        <div className="absolute inset-0 rounded-full bg-amber-400/40 blur-sm animate-pulse" />
+                        <div className="relative w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]" />
+                      </div>
+                      <span className="rounded-full border border-amber-300/50 bg-amber-100/80 px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-amber-800 shadow-sm">
+                        LIVE
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <p className="mt-2 text-sm text-amber-800/90 leading-snug line-clamp-1">
+                  {room.description ?? "-"}
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-amber-700/80">
+                  <span className="font-medium">
+                    {room.memberCount}
+                    {room.capacity ? `/${room.capacity}` : ""} guests
+                  </span>
+                  {room.capacity !== null && room.memberCount >= room.capacity ? (
+                    <span className="rounded-full border border-amber-300/60 bg-amber-50 px-2 py-0.5 text-[9px] font-medium text-amber-800">
+                      Full
+                    </span>
+                  ) : room.status === "LIVE" ? (
+                    <span className="rounded-full border border-amber-300/60 bg-amber-50 px-2 py-0.5 text-[9px] font-medium text-amber-800">
+                      Open
+                    </span>
+                  ) : (
+                    <span className="rounded-full border border-amber-300/60 bg-amber-50 px-2 py-0.5 text-[9px] font-medium text-amber-800">
+                      Waiting
                     </span>
                   )}
-                  <h2 className={`text-lg font-bold leading-tight ${titleClass}`}>
-                  {room.title}
-                </h2>
                 </div>
-                {room.status === "LIVE" && (
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                    {/* Light leaking from door effect */}
-                    <div className="relative">
-                      <div className="absolute inset-0 rounded-full bg-amber-400/40 blur-sm animate-pulse" />
-                      <div className="relative w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]" />
-                    </div>
-                    <span className="rounded-full border border-amber-300/50 bg-amber-100/80 px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-amber-800 shadow-sm">
-                      LIVE
+                <div className="mt-4 flex items-center gap-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
+                  <span className="rounded-full border border-amber-300/60 bg-amber-50 px-3 py-1.5 text-[10px] font-semibold text-amber-900 shadow-sm">
+                    Enter
+                  </span>
+                  {room.status === "LIVE" && (
+                    <span className="rounded-full border border-amber-300/40 bg-amber-50/60 px-3 py-1.5 text-[10px] font-medium text-amber-800/80">
+                      Peek
                     </span>
-                  </div>
-                )}
+                  )}
+                </div>
+                {(room.status === "LIVE" && room.endsAt) ||
+                (room.startsAt && room.status !== "LIVE") ? (
+                  <p className="mt-2 text-[9px] text-amber-700/60">
+                    {room.status === "LIVE" && room.endsAt
+                      ? `Until ${new Date(room.endsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                      : room.startsAt
+                      ? `Starts ${new Date(room.startsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                      : ""}
+                  </p>
+                ) : null}
               </div>
-              
-              {/* One-line theme */}
-              <p className={`mt-2 text-sm leading-snug line-clamp-1 ${metaClass}`}>
-                {room.description ?? "-"}
-              </p>
-              
-              {/* Guests info - small and clear */}
-              <div
-                className={`mt-3 flex flex-wrap items-center gap-2 text-[10px] ${
-                  room.isOfficial ? "text-amber-700/80" : "text-slate-400"
-                }`}
-              >
-                <span className="font-medium">
-                  {room.memberCount}
-                  {room.capacity ? `/${room.capacity}` : ""} guests
-                </span>
-                {room.capacity !== null && room.memberCount >= room.capacity ? (
-                  <span
-                    className={`rounded-full border px-2 py-0.5 text-[9px] font-medium ${
-                      room.isOfficial
-                        ? "border-amber-300/60 bg-amber-50 text-amber-800"
-                        : "border-white/20 bg-white/10 text-slate-200"
-                    }`}
-                  >
-                    Full
-                  </span>
-                ) : room.status === "LIVE" ? (
-                  <span
-                    className={`rounded-full border px-2 py-0.5 text-[9px] font-medium ${
-                      room.isOfficial
-                        ? "border-amber-300/60 bg-amber-50 text-amber-800"
-                        : "border-white/20 bg-white/10 text-slate-200"
-                    }`}
-                  >
-                    Open
-                  </span>
-                ) : (
-                  <span
-                    className={`rounded-full border px-2 py-0.5 text-[9px] font-medium ${
-                      room.isOfficial
-                        ? "border-amber-300/60 bg-amber-50 text-amber-800"
-                        : "border-white/20 bg-white/10 text-slate-200"
-                    }`}
-                  >
-                    Waiting
-                  </span>
-                )}
-              </div>
-              
-              {/* CTA buttons - only on hover */}
-              <div className="mt-4 flex items-center gap-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
-                <span
-                  className={`rounded-full border px-3 py-1.5 text-[10px] font-semibold shadow-sm ${
-                    room.isOfficial
-                      ? "border-amber-300/60 bg-amber-50 text-amber-900"
-                      : "border-white/20 bg-white/10 text-slate-100"
-                  }`}
-                >
-                  Enter
-                </span>
-                {room.status === "LIVE" && (
-                  <span
-                    className={`rounded-full border px-3 py-1.5 text-[10px] font-medium ${
-                      room.isOfficial
-                        ? "border-amber-300/40 bg-amber-50/60 text-amber-800/80"
-                        : "border-white/20 bg-white/10 text-slate-300"
-                    }`}
-                  >
-                    Peek
-                  </span>
-                )}
-              </div>
-              
-              {/* Time info - subtle */}
-              {(room.status === "LIVE" && room.endsAt) || (room.startsAt && room.status !== "LIVE") ? (
-                <p
-                  className={`mt-2 text-[9px] ${
-                    room.isOfficial ? "text-amber-700/60" : "text-slate-500"
-                  }`}
-                >
-                  {room.status === "LIVE" && room.endsAt
-                    ? `Until ${new Date(room.endsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
-                    : room.startsAt
-                    ? `Starts ${new Date(room.startsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
-                    : ""}
-                </p>
-              ) : null}
-            </div>
-          </Link>
-        );
+            </Link>
+          );
         })}
       </div>
 

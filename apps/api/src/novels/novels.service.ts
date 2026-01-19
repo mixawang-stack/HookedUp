@@ -442,6 +442,13 @@ export class NovelsService {
         chapters: {
           where: { isPublished: true },
           orderBy: { orderIndex: "asc" }
+        },
+        room: {
+          select: {
+            id: true,
+            title: true,
+            _count: { select: { memberships: true } }
+          }
         }
       }
     });
@@ -455,6 +462,11 @@ export class NovelsService {
         })
       : null;
 
+    await this.prisma.novel.update({
+      where: { id: novelId },
+      data: { viewCount: { increment: 1 } }
+    });
+
     const chapters = novel.chapters.map((chapter) => ({
       ...chapter,
       isLocked: false
@@ -466,10 +478,12 @@ export class NovelsService {
       coverImageUrl: novel.coverImageUrl,
       description: novel.description,
       tagsJson: novel.tagsJson,
+      viewCount: novel.viewCount + 1,
       favoriteCount: novel.favoriteCount,
       dislikeCount: novel.dislikeCount,
       myReaction: reaction?.type ?? null,
-      chapters
+      chapters,
+      room: novel.room
     };
   }
 
