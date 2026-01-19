@@ -191,7 +191,7 @@ export default function AdminNovelsPage() {
       tagsJson: parseTags(tags),
       audience,
       isFeatured,
-      autoPostHall
+      autoHallPost: autoPostHall
     };
     const res = await fetch(
       `${API_BASE}/admin/novels${selectedNovel ? `/${selectedNovel.id}` : ""}`,
