@@ -53,7 +53,7 @@ export default function NovelDetailPage() {
     if (!novelId) return;
     const load = async () => {
       setStatus(null);
-      const res = await fetch(`${API_BASE}/novels/${novelId}/preview`);
+      const res = await fetch(`${API_BASE}/novels/${novelId}/full`);
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
         setStatus(body?.message ?? "Failed to load novel.");
@@ -106,7 +106,7 @@ export default function NovelDetailPage() {
                 </p>
                 {chapter.isLocked && (
                   <div className="mt-3 rounded-xl border border-amber-400/30 bg-amber-500/10 p-3 text-xs text-amber-100">
-                    点击看全文需要付费或邀请好友注册。
+                    Continue reading by purchasing or inviting a friend.
                   </div>
                 )}
               </section>

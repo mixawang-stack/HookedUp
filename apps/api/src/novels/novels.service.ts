@@ -435,6 +435,44 @@ export class NovelsService {
     };
   }
 
+  async fullNovel(novelId: string, userId?: string) {
+    const novel = await this.prisma.novel.findUnique({
+      where: { id: novelId },
+      include: {
+        chapters: {
+          where: { isPublished: true },
+          orderBy: { orderIndex: "asc" }
+        }
+      }
+    });
+    if (!novel || novel.status !== "PUBLISHED") {
+      throw new BadRequestException("NOVEL_NOT_FOUND");
+    }
+
+    const reaction = userId
+      ? await this.prisma.novelReaction.findUnique({
+          where: { novelId_userId: { novelId, userId } }
+        })
+      : null;
+
+    const chapters = novel.chapters.map((chapter) => ({
+      ...chapter,
+      isLocked: false
+    }));
+
+    return {
+      id: novel.id,
+      title: novel.title,
+      coverImageUrl: novel.coverImageUrl,
+      description: novel.description,
+      tagsJson: novel.tagsJson,
+      favoriteCount: novel.favoriteCount,
+      dislikeCount: novel.dislikeCount,
+      myReaction: reaction?.type ?? null,
+      chapters
+    };
+  }
+
   async toggleNovelReaction(
     novelId: string,
     userId: string,
@@ -561,7 +599,7 @@ export class NovelsService {
     const description = dto.description?.trim() ?? existing.description ?? "";
     const title = dto.title?.trim() ?? existing.title;
     const base = description.length > 0 ? description : title;
-    const content = [base, "点击看全文"]
+    const content = [base, "Read full story"]
       .map((line) => line.trim())
       .filter((line) => line.length > 0)
       .join("\n");

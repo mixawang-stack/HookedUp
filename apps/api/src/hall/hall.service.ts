@@ -136,12 +136,18 @@ export class HallService {
         : null
     }));
 
-    let novels: (Novel & { myReaction?: "LIKE" | "DISLIKE" | null })[] = [];
+    let novels: (Novel & {
+      myReaction?: "LIKE" | "DISLIKE" | null;
+      hallTrace?: { imageUrl: string | null } | null;
+    })[] = [];
     try {
       novels = await this.prisma.novel.findMany({
         where: { status: "PUBLISHED" },
         orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
-        take: 6
+        take: 6,
+        include: {
+          hallTrace: { select: { imageUrl: true } }
+        }
       });
       if (userId && novels.length > 0) {
         const reactions = await this.prisma.novelReaction.findMany({
@@ -152,7 +158,15 @@ export class HallService {
         );
         novels = novels.map((novel) => ({
           ...novel,
-          myReaction: reactionMap.get(novel.id) ?? null
+          myReaction: reactionMap.get(novel.id) ?? null,
+          coverImageUrl:
+            novel.coverImageUrl ?? novel.hallTrace?.imageUrl ?? null
+        }));
+      } else {
+        novels = novels.map((novel) => ({
+          ...novel,
+          coverImageUrl:
+            novel.coverImageUrl ?? novel.hallTrace?.imageUrl ?? null
         }));
       }
     } catch (error) {

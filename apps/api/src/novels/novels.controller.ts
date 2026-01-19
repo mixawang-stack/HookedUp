@@ -46,6 +46,26 @@ export class NovelsController {
     return this.novelsService.previewNovel(id, userId);
   }
 
+  @Get("novels/:id/full")
+  async full(@Req() req: Request, @Param("id") id: string) {
+    const header = req.headers.authorization;
+    let userId: string | undefined;
+    if (header) {
+      const [scheme, token] = header.split(" ");
+      if (scheme === "Bearer" && token) {
+        try {
+          const payload = await this.jwt.verifyAsync<{ sub: string }>(token, {
+            secret: JWT_ACCESS_SECRET
+          });
+          userId = payload.sub;
+        } catch {
+          userId = undefined;
+        }
+      }
+    }
+    return this.novelsService.fullNovel(id, userId);
+  }
+
   @Get("recommendations")
   async recommend(@Req() req: Request) {
     const header = req.headers.authorization;

@@ -1310,7 +1310,7 @@ export default function HallPage() {
                   className="rounded-full border border-white/10 px-3 py-1 text-slate-300 hover:text-white"
                   onClick={() => router.push(`/novels/${novelPreview.id}`)}
                 >
-                  点击看全文
+                  Read full story
                 </button>
               </div>
               {novelPreview.coverImageUrl && (
