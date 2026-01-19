@@ -108,6 +108,9 @@ type NovelItem = {
   coverImageUrl: string | null;
   description: string | null;
   tagsJson?: string[] | null;
+  favoriteCount?: number;
+  dislikeCount?: number;
+  myReaction?: "LIKE" | "DISLIKE" | null;
 };
 
 type NovelPreview = {
@@ -116,6 +119,9 @@ type NovelPreview = {
   coverImageUrl: string | null;
   description: string | null;
   tagsJson?: string[] | null;
+  favoriteCount?: number;
+  dislikeCount?: number;
+  myReaction?: "LIKE" | "DISLIKE" | null;
   chapters: Array<{
     id: string;
     title: string;
@@ -458,6 +464,57 @@ export default function HallPage() {
       setStatus(message);
     } finally {
       setNovelLoading(false);
+    }
+  };
+
+  const toggleNovelReaction = async (
+    novelId: string,
+    type: "LIKE" | "DISLIKE"
+  ) => {
+    if (!authHeader) {
+      setStatus("Please sign in to react to a novel.");
+      return;
+    }
+    const endpoint = type === "LIKE" ? "like" : "dislike";
+    try {
+      const res = await fetch(`${API_BASE}/novels/${novelId}/${endpoint}`, {
+        method: "POST",
+        headers: { ...authHeader }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.message ?? `HTTP ${res.status}`);
+      }
+      setHall((prev) => {
+        if (!prev?.novels) return prev;
+        return {
+          ...prev,
+          novels: prev.novels.map((item) =>
+            item.id === novelId
+              ? {
+                  ...item,
+                  favoriteCount: data.favoriteCount,
+                  dislikeCount: data.dislikeCount,
+                  myReaction: data.myReaction
+                }
+              : item
+          )
+        };
+      });
+      setNovelPreview((prev) =>
+        prev?.id === novelId
+          ? {
+              ...prev,
+              favoriteCount: data.favoriteCount,
+              dislikeCount: data.dislikeCount,
+              myReaction: data.myReaction
+            }
+          : prev
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to react to novel.";
+      setStatus(message);
     }
   };
 
@@ -1225,6 +1282,30 @@ export default function HallPage() {
               </button>
             </header>
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+              <div className="flex items-center gap-3 text-xs text-slate-300">
+                <button
+                  type="button"
+                  className={`rounded-full border px-3 py-1 transition ${
+                    novelPreview.myReaction === "LIKE"
+                      ? "border-emerald-400/60 text-emerald-200"
+                      : "border-white/10 text-slate-300 hover:text-white"
+                  }`}
+                  onClick={() => toggleNovelReaction(novelPreview.id, "LIKE")}
+                >
+                  Like {novelPreview.favoriteCount ?? 0}
+                </button>
+                <button
+                  type="button"
+                  className={`rounded-full border px-3 py-1 transition ${
+                    novelPreview.myReaction === "DISLIKE"
+                      ? "border-rose-400/60 text-rose-200"
+                      : "border-white/10 text-slate-300 hover:text-white"
+                  }`}
+                  onClick={() => toggleNovelReaction(novelPreview.id, "DISLIKE")}
+                >
+                  Dislike {novelPreview.dislikeCount ?? 0}
+                </button>
+              </div>
               {novelPreview.coverImageUrl && (
                 <img
                   src={resolveMediaUrl(novelPreview.coverImageUrl) ?? ""}

@@ -136,13 +136,25 @@ export class HallService {
         : null
     }));
 
-    let novels: Novel[] = [];
+    let novels: (Novel & { myReaction?: "LIKE" | "DISLIKE" | null })[] = [];
     try {
       novels = await this.prisma.novel.findMany({
         where: { status: "PUBLISHED" },
         orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
         take: 6
       });
+      if (userId && novels.length > 0) {
+        const reactions = await this.prisma.novelReaction.findMany({
+          where: { userId, novelId: { in: novels.map((novel) => novel.id) } }
+        });
+        const reactionMap = new Map(
+          reactions.map((reaction) => [reaction.novelId, reaction.type])
+        );
+        novels = novels.map((novel) => ({
+          ...novel,
+          myReaction: reactionMap.get(novel.id) ?? null
+        }));
+      }
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&

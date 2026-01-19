@@ -377,7 +377,7 @@ export class NovelsService {
     });
   }
 
-  async previewNovel(novelId: string) {
+  async previewNovel(novelId: string, userId?: string) {
     const novel = await this.prisma.novel.findUnique({
       where: { id: novelId },
       include: {
@@ -390,6 +390,12 @@ export class NovelsService {
     if (!novel || novel.status !== "PUBLISHED") {
       throw new BadRequestException("NOVEL_NOT_FOUND");
     }
+
+    const reaction = userId
+      ? await this.prisma.novelReaction.findUnique({
+          where: { novelId_userId: { novelId, userId } }
+        })
+      : null;
 
     const chapters = novel.chapters.map((chapter) => {
       if (chapter.isFree) {
@@ -408,8 +414,102 @@ export class NovelsService {
       coverImageUrl: novel.coverImageUrl,
       description: novel.description,
       tagsJson: novel.tagsJson,
+      favoriteCount: novel.favoriteCount,
+      dislikeCount: novel.dislikeCount,
+      myReaction: reaction?.type ?? null,
       chapters
     };
+  }
+
+  async toggleNovelReaction(
+    novelId: string,
+    userId: string,
+    type: "LIKE" | "DISLIKE"
+  ) {
+    const novel = await this.prisma.novel.findUnique({
+      where: { id: novelId },
+      select: { id: true, status: true }
+    });
+    if (!novel || novel.status !== "PUBLISHED") {
+      throw new BadRequestException("NOVEL_NOT_FOUND");
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.novelReaction.findUnique({
+        where: { novelId_userId: { novelId, userId } }
+      });
+
+      if (!existing) {
+        await tx.novelReaction.create({
+          data: { novelId, userId, type: type as any }
+        });
+        await tx.novel.update({
+          where: { id: novelId },
+          data:
+            type === "LIKE"
+              ? { favoriteCount: { increment: 1 } }
+              : { dislikeCount: { increment: 1 } }
+        });
+        const updated = await tx.novel.findUnique({
+          where: { id: novelId },
+          select: { favoriteCount: true, dislikeCount: true }
+        });
+        return {
+          favoriteCount: updated?.favoriteCount ?? 0,
+          dislikeCount: updated?.dislikeCount ?? 0,
+          myReaction: type
+        };
+      }
+
+      if (existing.type === type) {
+        await tx.novelReaction.delete({
+          where: { novelId_userId: { novelId, userId } }
+        });
+        await tx.novel.update({
+          where: { id: novelId },
+          data:
+            type === "LIKE"
+              ? { favoriteCount: { decrement: 1 } }
+              : { dislikeCount: { decrement: 1 } }
+        });
+        const updated = await tx.novel.findUnique({
+          where: { id: novelId },
+          select: { favoriteCount: true, dislikeCount: true }
+        });
+        return {
+          favoriteCount: Math.max(updated?.favoriteCount ?? 0, 0),
+          dislikeCount: Math.max(updated?.dislikeCount ?? 0, 0),
+          myReaction: null
+        };
+      }
+
+      await tx.novelReaction.update({
+        where: { novelId_userId: { novelId, userId } },
+        data: { type: type as any }
+      });
+      await tx.novel.update({
+        where: { id: novelId },
+        data:
+          type === "LIKE"
+            ? {
+                favoriteCount: { increment: 1 },
+                dislikeCount: { decrement: 1 }
+              }
+            : {
+                favoriteCount: { decrement: 1 },
+                dislikeCount: { increment: 1 }
+              }
+      });
+      const updated = await tx.novel.findUnique({
+        where: { id: novelId },
+        select: { favoriteCount: true, dislikeCount: true }
+      });
+      return {
+        favoriteCount: Math.max(updated?.favoriteCount ?? 0, 0),
+        dislikeCount: Math.max(updated?.dislikeCount ?? 0, 0),
+        myReaction: type
+      };
+    });
   }
 
   async recommendNovels(userId?: string) {

@@ -105,6 +105,11 @@ enum NovelSourceType {
   PDF
 }
 
+enum NovelReactionType {
+  LIKE
+  DISLIKE
+}
+
 model User {
   id                       String     @id @default(uuid())
   email                    String     @unique
@@ -161,6 +166,7 @@ model User {
   conversationParticipants ConversationParticipant[]
   intentRequests           IntentOffline[]           @relation("IntentRequester")
   intentResponses          IntentOffline[]           @relation("IntentResponder")
+  novelReactions           NovelReaction[]
 }
 
 model EmailVerificationToken {
@@ -527,8 +533,24 @@ model Novel {
   updatedAt          DateTime        @updatedAt
 
   chapters  NovelChapter[]
+  reactions NovelReaction[]
   hallTrace Trace?         @relation(fields: [hallTraceId], references: [id])
   room      Room?          @relation(fields: [roomId], references: [id])
+}
+
+model NovelReaction {
+  id        String             @id @default(uuid())
+  novelId   String
+  userId    String
+  type      NovelReactionType
+  createdAt DateTime           @default(now())
+
+  novel Novel @relation(fields: [novelId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([novelId, userId])
+  @@index([novelId])
+  @@index([userId])
 }
 
 model NovelChapter {
