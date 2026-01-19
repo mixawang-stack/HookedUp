@@ -14,6 +14,13 @@ const verifyTtlRaw = Number(process.env.EMAIL_VERIFY_TTL ?? 86400);
 export const JWT_ACCESS_TTL_SECONDS = Number.isFinite(accessTtlRaw)
   ? accessTtlRaw
   : 900;
+
+const adminAccessTtlRaw = Number(
+  process.env.ADMIN_JWT_ACCESS_TTL ?? JWT_ACCESS_TTL_SECONDS
+);
+export const ADMIN_JWT_ACCESS_TTL_SECONDS = Number.isFinite(adminAccessTtlRaw)
+  ? adminAccessTtlRaw
+  : JWT_ACCESS_TTL_SECONDS;
 export const JWT_REFRESH_TTL_SECONDS = Number.isFinite(refreshTtlRaw)
   ? refreshTtlRaw
   : 604800;

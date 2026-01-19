@@ -16,7 +16,7 @@ import * as argon2 from "argon2";
 import { AuditService } from "../audit.service";
 import { CryptoService } from "../crypto.service";
 import { PrismaService } from "../prisma.service";
-import { JWT_ACCESS_SECRET, JWT_ACCESS_TTL_SECONDS } from "../auth/auth.constants";
+import { ADMIN_JWT_ACCESS_TTL_SECONDS, JWT_ACCESS_SECRET } from "../auth/auth.constants";
 import { LoginDto } from "../auth/dto/login.dto";
 
 @Injectable()
@@ -73,7 +73,7 @@ export class AdminService implements OnModuleInit {
 
     const accessToken = await this.jwt.signAsync(
       { sub: admin.id, role: "ADMIN" },
-      { secret: JWT_ACCESS_SECRET, expiresIn: JWT_ACCESS_TTL_SECONDS }
+      { secret: JWT_ACCESS_SECRET, expiresIn: ADMIN_JWT_ACCESS_TTL_SECONDS }
     );
     return { accessToken };
   }
