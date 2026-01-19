@@ -220,20 +220,39 @@ export default function RoomsPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        {rooms.map((room) => (
+        {rooms.map((room) => {
+          const cardClasses = room.isOfficial
+            ? "group relative flex flex-col rounded-2xl border border-amber-200/60 bg-gradient-to-br from-amber-50 via-amber-50/95 to-amber-100/80 p-5 shadow-[0_2px_8px_rgba(180,83,9,0.15),0_0_0_1px_rgba(251,191,36,0.1)] transition-all duration-200 hover:border-amber-300/60 hover:shadow-[0_4px_16px_rgba(180,83,9,0.25),0_0_0_1px_rgba(251,191,36,0.2)] hover:scale-[1.02]"
+            : "group relative flex flex-col rounded-2xl border border-white/10 bg-white/5 p-5 shadow-[0_2px_10px_rgba(15,23,42,0.4)] transition-all duration-200 hover:border-white/20 hover:bg-white/10";
+          const titleClass = room.isOfficial
+            ? "text-amber-900"
+            : "text-slate-100";
+          const metaClass = room.isOfficial
+            ? "text-amber-800/90"
+            : "text-slate-300/90";
+          return (
           <Link
             key={room.id}
             href={`/rooms/${room.id}`}
-            className="group relative flex flex-col rounded-lg border border-amber-200/40 bg-gradient-to-br from-amber-50 via-amber-50/95 to-amber-100/80 p-5 shadow-[0_2px_8px_rgba(180,83,9,0.15),0_0_0_1px_rgba(251,191,36,0.1)] transition-all duration-200 hover:border-amber-300/60 hover:shadow-[0_4px_16px_rgba(180,83,9,0.25),0_0_0_1px_rgba(251,191,36,0.2)] hover:scale-[1.02]"
+            className={cardClasses}
           >
             {/* Warm glow effect */}
-            <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-amber-100/20 via-transparent to-amber-50/30 opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
+            {room.isOfficial && (
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-amber-100/20 via-transparent to-amber-50/30 opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
+            )}
             
             <div className="relative z-10">
               <div className="flex items-start justify-between gap-3">
-                <h2 className="text-lg font-bold text-amber-900 leading-tight flex-1">
+                <div className="flex flex-col gap-2 flex-1">
+                  {room.isOfficial && (
+                    <span className="w-fit rounded-full border border-amber-300/70 bg-amber-100/80 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-amber-800">
+                      Official discussion
+                    </span>
+                  )}
+                  <h2 className={`text-lg font-bold leading-tight ${titleClass}`}>
                   {room.title}
                 </h2>
+                </div>
                 {room.status === "LIVE" && (
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     {/* Light leaking from door effect */}
@@ -249,26 +268,48 @@ export default function RoomsPage() {
               </div>
               
               {/* One-line theme */}
-              <p className="mt-2 text-sm text-amber-800/90 leading-snug line-clamp-1">
+              <p className={`mt-2 text-sm leading-snug line-clamp-1 ${metaClass}`}>
                 {room.description ?? "-"}
               </p>
               
               {/* Guests info - small and clear */}
-              <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-amber-700/80">
+              <div
+                className={`mt-3 flex flex-wrap items-center gap-2 text-[10px] ${
+                  room.isOfficial ? "text-amber-700/80" : "text-slate-400"
+                }`}
+              >
                 <span className="font-medium">
                   {room.memberCount}
                   {room.capacity ? `/${room.capacity}` : ""} guests
                 </span>
                 {room.capacity !== null && room.memberCount >= room.capacity ? (
-                  <span className="rounded-full border border-amber-300/60 bg-amber-50 px-2 py-0.5 text-[9px] font-medium text-amber-800">
+                  <span
+                    className={`rounded-full border px-2 py-0.5 text-[9px] font-medium ${
+                      room.isOfficial
+                        ? "border-amber-300/60 bg-amber-50 text-amber-800"
+                        : "border-white/20 bg-white/10 text-slate-200"
+                    }`}
+                  >
                     Full
                   </span>
                 ) : room.status === "LIVE" ? (
-                  <span className="rounded-full border border-amber-300/60 bg-amber-50 px-2 py-0.5 text-[9px] font-medium text-amber-800">
+                  <span
+                    className={`rounded-full border px-2 py-0.5 text-[9px] font-medium ${
+                      room.isOfficial
+                        ? "border-amber-300/60 bg-amber-50 text-amber-800"
+                        : "border-white/20 bg-white/10 text-slate-200"
+                    }`}
+                  >
                     Open
                   </span>
                 ) : (
-                  <span className="rounded-full border border-amber-300/60 bg-amber-50 px-2 py-0.5 text-[9px] font-medium text-amber-800">
+                  <span
+                    className={`rounded-full border px-2 py-0.5 text-[9px] font-medium ${
+                      room.isOfficial
+                        ? "border-amber-300/60 bg-amber-50 text-amber-800"
+                        : "border-white/20 bg-white/10 text-slate-200"
+                    }`}
+                  >
                     Waiting
                   </span>
                 )}
@@ -276,11 +317,23 @@ export default function RoomsPage() {
               
               {/* CTA buttons - only on hover */}
               <div className="mt-4 flex items-center gap-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
-                <span className="rounded-full border border-amber-300/60 bg-amber-50 px-3 py-1.5 text-[10px] font-semibold text-amber-900 shadow-sm">
+                <span
+                  className={`rounded-full border px-3 py-1.5 text-[10px] font-semibold shadow-sm ${
+                    room.isOfficial
+                      ? "border-amber-300/60 bg-amber-50 text-amber-900"
+                      : "border-white/20 bg-white/10 text-slate-100"
+                  }`}
+                >
                   Enter
                 </span>
                 {room.status === "LIVE" && (
-                  <span className="rounded-full border border-amber-300/40 bg-amber-50/60 px-3 py-1.5 text-[10px] font-medium text-amber-800/80">
+                  <span
+                    className={`rounded-full border px-3 py-1.5 text-[10px] font-medium ${
+                      room.isOfficial
+                        ? "border-amber-300/40 bg-amber-50/60 text-amber-800/80"
+                        : "border-white/20 bg-white/10 text-slate-300"
+                    }`}
+                  >
                     Peek
                   </span>
                 )}
@@ -288,7 +341,11 @@ export default function RoomsPage() {
               
               {/* Time info - subtle */}
               {(room.status === "LIVE" && room.endsAt) || (room.startsAt && room.status !== "LIVE") ? (
-                <p className="mt-2 text-[9px] text-amber-700/60">
+                <p
+                  className={`mt-2 text-[9px] ${
+                    room.isOfficial ? "text-amber-700/60" : "text-slate-500"
+                  }`}
+                >
                   {room.status === "LIVE" && room.endsAt
                     ? `Until ${new Date(room.endsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
                     : room.startsAt
@@ -298,7 +355,8 @@ export default function RoomsPage() {
               ) : null}
             </div>
           </Link>
-        ))}
+        );
+        })}
       </div>
 
       {rooms.length === 0 && (

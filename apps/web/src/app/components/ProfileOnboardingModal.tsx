@@ -10,15 +10,11 @@ type MeProfile = {
   maskName: string | null;
   maskAvatarUrl: string | null;
   bio: string | null;
-  gender?: string | null;
-  language?: string | null;
-  city?: string | null;
-  dob?: string | null;
-  country?: string | null;
   preference?: {
     vibeTags?: string[] | null;
     interests?: string[] | null;
     allowStrangerPrivate?: boolean | null;
+    smPreference?: string | null;
   } | null;
 };
 
@@ -35,17 +31,6 @@ const parseTags = (value: string) =>
     .map((item) => item.trim())
     .filter((item) => item.length > 0);
 
-const toDateInput = (value?: string | null) => {
-  if (!value) {
-    return "";
-  }
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return "";
-  }
-  return parsed.toISOString().slice(0, 10);
-};
-
 export default function ProfileOnboardingModal({
   token,
   me,
@@ -54,15 +39,14 @@ export default function ProfileOnboardingModal({
 }: ProfileOnboardingModalProps) {
   const [maskName, setMaskName] = useState(me.maskName ?? "");
   const [bio, setBio] = useState(me.bio ?? "");
-  const [gender, setGender] = useState(me.gender ?? "");
-  const [language, setLanguage] = useState(me.language ?? "");
-  const [city, setCity] = useState(me.city ?? "");
-  const [dob, setDob] = useState(toDateInput(me.dob));
   const [vibeTags, setVibeTags] = useState(
     (me.preference?.vibeTags ?? []).join(", ")
   );
   const [interests, setInterests] = useState(
     (me.preference?.interests ?? []).join(", ")
+  );
+  const [personality, setPersonality] = useState(
+    me.preference?.smPreference ?? ""
   );
   const [allowStrangerPrivate, setAllowStrangerPrivate] = useState(
     me.preference?.allowStrangerPrivate ?? true
@@ -88,6 +72,16 @@ export default function ProfileOnboardingModal({
     setAvatarPreview(url);
     return () => URL.revokeObjectURL(url);
   }, [avatarFile]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -119,10 +113,6 @@ export default function ProfileOnboardingModal({
         body: JSON.stringify({
           maskName: maskName.trim(),
           bio: bio.trim(),
-          gender: gender.trim(),
-          language: language.trim(),
-          city: city.trim(),
-          ...(dob.trim() ? { dob: dob.trim() } : {}),
           ...(avatarUrl ? { maskAvatarUrl: avatarUrl } : {})
         })
       });
@@ -140,7 +130,8 @@ export default function ProfileOnboardingModal({
         body: JSON.stringify({
           vibeTagsJson: parseTags(vibeTags),
           interestsJson: parseTags(interests),
-          allowStrangerPrivate
+          allowStrangerPrivate,
+          smPreference: personality.trim()
         })
       });
       if (!prefRes.ok) {
@@ -165,7 +156,7 @@ export default function ProfileOnboardingModal({
   return (
     <div className="fixed inset-0 z-50 flex min-h-[100svh] items-center justify-center overflow-y-auto px-4 py-10">
       <div className="absolute inset-0 bg-slate-950/70 backdrop-blur" onClick={onClose} />
-      <div className="relative w-full max-w-lg rounded-2xl border border-white/10 bg-slate-900/95 p-6 text-slate-100 shadow-[0_30px_80px_rgba(2,6,23,0.8)]">
+      <div className="relative w-full max-w-[520px] max-h-[80vh] overflow-y-auto rounded-2xl border border-white/10 bg-slate-900/95 p-6 text-slate-100 shadow-[0_30px_80px_rgba(2,6,23,0.8)]">
         <div className="flex items-start justify-between">
           <div>
             <h2 className="text-lg font-semibold text-white">Complete your profile</h2>
@@ -178,7 +169,7 @@ export default function ProfileOnboardingModal({
             className="text-xs text-slate-400 hover:text-white"
             onClick={onClose}
           >
-            Skip
+            Skip for now
           </button>
         </div>
 
@@ -236,28 +227,6 @@ export default function ProfileOnboardingModal({
             />
           </label>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="text-xs text-slate-300">
-              Gender
-              <input
-                className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
-                value={gender}
-                onChange={(event) => setGender(event.target.value)}
-                maxLength={32}
-                placeholder="Woman / Man / Other"
-              />
-            </label>
-            <label className="text-xs text-slate-300">
-              Date of birth
-              <input
-                type="date"
-                className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
-                value={dob}
-                onChange={(event) => setDob(event.target.value)}
-              />
-            </label>
-          </div>
-
           <label className="text-xs text-slate-300">
             Vibe tags (comma separated)
             <input
@@ -275,6 +244,17 @@ export default function ProfileOnboardingModal({
               value={interests}
               onChange={(event) => setInterests(event.target.value)}
               placeholder="Art, travel, late-night chats"
+            />
+          </label>
+
+          <label className="text-xs text-slate-300">
+            Personality preference
+            <input
+              className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
+              value={personality}
+              onChange={(event) => setPersonality(event.target.value)}
+              maxLength={128}
+              placeholder="Warm, playful, intense..."
             />
           </label>
 

@@ -38,29 +38,28 @@ export default function TopNav() {
     maskName: string | null;
     maskAvatarUrl: string | null;
     bio: string | null;
-    gender?: string | null;
-    language?: string | null;
-    city?: string | null;
-    dob?: string | null;
-    country?: string | null;
     profileCompleted?: boolean;
     preference?: {
       vibeTags?: string[] | null;
       interests?: string[] | null;
       allowStrangerPrivate?: boolean | null;
+      smPreference?: string | null;
     } | null;
   } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
   const [unreadTotal, setUnreadTotal] = useState(0);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const isProfileComplete = Boolean(
     me?.profileCompleted ??
-      (me?.maskName && me.maskName.trim().length > 0 && me?.maskAvatarUrl)
+      (me?.maskName &&
+        me.maskName.trim().length > 0 &&
+        me?.maskAvatarUrl &&
+        ((me.preference?.vibeTags?.length ?? 0) > 0 ||
+          (me.preference?.interests?.length ?? 0) > 0) &&
+        (me.preference?.smPreference?.trim().length ?? 0) > 0)
   );
-  const dismissalKey = me?.id ? `profile_onboarding_seen_${me.id}` : null;
-  const globalDismissalKey = "profile_onboarding_seen";
+  const sessionKey = me?.id ? `profile_onboarding_seen_session_${me.id}` : null;
 
   const hideNav =
     pathname.startsWith("/login") || pathname.startsWith("/register");
@@ -122,39 +121,34 @@ export default function TopNav() {
   }, [token, fetchUnreadTotal]);
 
   useEffect(() => {
+    if (!me || isProfileComplete) {
+      return;
+    }
     if (typeof window === "undefined") {
       return;
     }
-    const hasSeen =
-      localStorage.getItem(globalDismissalKey) === "1" ||
-      (dismissalKey ? localStorage.getItem(dismissalKey) === "1" : false);
-    setDismissed(hasSeen);
-  }, [dismissalKey, globalDismissalKey]);
-
-  useEffect(() => {
-    if (!me || isProfileComplete || dismissed) {
+    if (sessionKey && sessionStorage.getItem(sessionKey) === "1") {
       return;
     }
-    if (typeof window !== "undefined") {
-      localStorage.setItem(globalDismissalKey, "1");
-      if (dismissalKey) {
-        localStorage.setItem(dismissalKey, "1");
-      }
+    if (sessionKey) {
+      sessionStorage.setItem(sessionKey, "1");
     }
     setShowOnboarding(true);
-    setDismissed(true);
-  }, [me, dismissed, isProfileComplete, dismissalKey, globalDismissalKey]);
+  }, [me, isProfileComplete, sessionKey]);
 
   const handleDismissOnboarding = () => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem(globalDismissalKey, "1");
-      if (dismissalKey) {
-        localStorage.setItem(dismissalKey, "1");
-      }
-    }
-    setDismissed(true);
     setShowOnboarding(false);
   };
+
+  useEffect(() => {
+    const handleOpen = () => {
+      if (me) {
+        setShowOnboarding(true);
+      }
+    };
+    window.addEventListener("open-profile-onboarding", handleOpen);
+    return () => window.removeEventListener("open-profile-onboarding", handleOpen);
+  }, [me]);
 
   useEffect(() => {
     if (!menuOpen) {

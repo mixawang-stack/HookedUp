@@ -150,14 +150,22 @@ export class HallService {
     let novels: (Novel & {
       myReaction?: "LIKE" | "DISLIKE" | null;
       hallTrace?: { imageUrl: string | null } | null;
+      room?: { id: string; title: string; _count: { memberships: number } } | null;
     })[] = [];
     try {
       novels = await this.prisma.novel.findMany({
         where: { status: "PUBLISHED" },
         orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
-        take: 6,
+        take: 10,
         include: {
-          hallTrace: { select: { imageUrl: true } }
+          hallTrace: { select: { imageUrl: true } },
+          room: {
+            select: {
+              id: true,
+              title: true,
+              _count: { select: { memberships: true } }
+            }
+          }
         }
       });
       if (userId && novels.length > 0) {

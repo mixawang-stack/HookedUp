@@ -61,8 +61,9 @@ export class UserService {
     const interests = this.normalizeTags(user.preference?.interestsJson);
     const profileCompleted =
       Boolean(user.maskName?.trim()) &&
-      Boolean(user.bio?.trim()) &&
-      (vibeTags?.length ?? 0) > 0;
+      Boolean(user.maskAvatarUrl?.trim()) &&
+      ((vibeTags?.length ?? 0) > 0 || (interests?.length ?? 0) > 0) &&
+      Boolean(user.preference?.smPreference?.trim());
 
     return {
       ...user,
@@ -229,6 +230,7 @@ export class UserService {
         bio: true,
         language: true,
         city: true,
+        country: true,
         gender: true,
         preference: {
           select: {

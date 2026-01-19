@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type ProfileCardProps = {
   profile: {
@@ -8,6 +8,8 @@ type ProfileCardProps = {
     maskName: string | null;
     maskAvatarUrl: string | null;
     bio: string | null;
+    city?: string | null;
+    country?: string | null;
     preference?: {
       vibeTags?: string[] | null;
       interests?: string[] | null;
@@ -16,6 +18,7 @@ type ProfileCardProps = {
   };
   mutedHint?: string | null;
   onStartPrivate: (userId: string) => Promise<void> | void;
+  onViewProfile?: (userId: string) => Promise<void> | void;
   onBlock?: (userId: string) => Promise<void> | void;
   onReport?: (userId: string) => Promise<void> | void;
   onClose: () => void;
@@ -25,6 +28,7 @@ export default function ProfileCard({
   profile,
   mutedHint,
   onStartPrivate,
+  onViewProfile,
   onBlock,
   onReport,
   onClose
@@ -33,6 +37,22 @@ export default function ProfileCard({
   const vibeTags = profile.preference?.vibeTags ?? [];
   const interests = profile.preference?.interests ?? [];
   const allowStrangerPrivate = profile.preference?.allowStrangerPrivate ?? true;
+  const tags = [...vibeTags, ...interests].filter(Boolean);
+  const displayTags = tags.slice(0, 6);
+  const overflowCount = Math.max(tags.length - displayTags.length, 0);
+  const locationLine = [profile.city, profile.country]
+    .filter((item) => item && item.trim().length > 0)
+    .join(" · ");
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
 
   const handleStart = async () => {
     if (starting) {
@@ -49,7 +69,7 @@ export default function ProfileCard({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
       <div className="absolute inset-0 bg-slate-950/70 backdrop-blur" onClick={onClose} />
-      <div className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-slate-900/95 p-5 text-slate-100 shadow-[0_30px_80px_rgba(2,6,23,0.8)]">
+      <div className="relative w-full max-w-[520px] max-h-[80vh] overflow-y-auto rounded-2xl border border-white/10 bg-slate-900/95 p-5 text-slate-100 shadow-[0_30px_80px_rgba(2,6,23,0.8)]">
         <button
           type="button"
           className="absolute right-4 top-4 text-xs text-slate-400 hover:text-white"
@@ -73,7 +93,13 @@ export default function ProfileCard({
             <p className="text-lg font-semibold text-white">
               {profile.maskName ?? "Anonymous"}
             </p>
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Profile</p>
+            {locationLine ? (
+              <p className="text-xs text-slate-300">{locationLine}</p>
+            ) : (
+              <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                Profile
+              </p>
+            )}
           </div>
         </div>
 
@@ -81,13 +107,13 @@ export default function ProfileCard({
           <p className="mt-4 text-sm text-slate-200">{profile.bio}</p>
         )}
 
-        {vibeTags.length > 0 && (
+        {displayTags.length > 0 && (
           <div className="mt-4">
             <p className="text-[10px] uppercase tracking-wide text-slate-400">
-              Vibe tags
+              Tags
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
-              {vibeTags.map((tag) => (
+              {displayTags.map((tag) => (
                 <span
                   key={tag}
                   className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-slate-200"
@@ -95,24 +121,11 @@ export default function ProfileCard({
                   {tag}
                 </span>
               ))}
-            </div>
-          </div>
-        )}
-
-        {interests.length > 0 && (
-          <div className="mt-4">
-            <p className="text-[10px] uppercase tracking-wide text-slate-400">
-              Interests
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {interests.map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-slate-200"
-                >
-                  {tag}
+              {overflowCount > 0 && (
+                <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-slate-300">
+                  +{overflowCount}
                 </span>
-              ))}
+              )}
             </div>
           </div>
         )}
@@ -143,6 +156,15 @@ export default function ProfileCard({
                 ? "Start private chat"
                 : "Request private chat"}
           </button>
+          {onViewProfile && (
+            <button
+              type="button"
+              className="w-full rounded-full border border-white/20 px-4 py-2 text-xs text-white"
+              onClick={() => onViewProfile(profile.id)}
+            >
+              View profile
+            </button>
+          )}
           <div className="flex items-center justify-between gap-2 text-xs">
             {onReport && (
               <button

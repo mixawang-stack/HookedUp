@@ -109,9 +109,15 @@ type NovelItem = {
   coverImageUrl: string | null;
   description: string | null;
   tagsJson?: string[] | null;
+  viewCount?: number | null;
   favoriteCount?: number;
   dislikeCount?: number;
   myReaction?: "LIKE" | "DISLIKE" | null;
+  room?: {
+    id: string;
+    title: string;
+    _count: { memberships: number };
+  } | null;
 };
 
 type NovelPreview = {
@@ -145,10 +151,13 @@ type PublicProfile = {
   maskName: string | null;
   maskAvatarUrl: string | null;
   bio: string | null;
+  city?: string | null;
+  country?: string | null;
   preference?: {
     vibeTags?: string[] | null;
     interests?: string[] | null;
     allowStrangerPrivate?: boolean | null;
+    smPreference?: string | null;
   } | null;
 };
 
@@ -181,6 +190,8 @@ export default function HallPage() {
   const [showWelcome, setShowWelcome] = useState(false);
   const [profileCard, setProfileCard] = useState<PublicProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
+  const [meProfile, setMeProfile] = useState<PublicProfile | null>(null);
+  const [savedTraces, setSavedTraces] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const authHeader = useMemo(() => {
@@ -195,6 +206,20 @@ export default function HallPage() {
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = localStorage.getItem("saved_traces");
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw) as string[];
+      if (Array.isArray(parsed)) {
+        setSavedTraces(new Set(parsed));
+      }
+    } catch {
+      setSavedTraces(new Set());
+    }
+  }, []);
+
+  useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
@@ -206,6 +231,8 @@ export default function HallPage() {
 
   useEffect(() => {
     if (!authHeader) {
+      setCurrentUserId(null);
+      setMeProfile(null);
       return;
     }
     fetch(`${API_BASE}/me`, { headers: { ...authHeader } })
@@ -215,10 +242,14 @@ export default function HallPage() {
         }
         return res.json();
       })
-      .then((data: { id: string } | null) => {
+      .then((data: PublicProfile | null) => {
         setCurrentUserId(data?.id ?? null);
+        setMeProfile(data ?? null);
       })
-      .catch(() => setCurrentUserId(null));
+      .catch(() => {
+        setCurrentUserId(null);
+        setMeProfile(null);
+      });
   }, [authHeader]);
 
   const fetchHall = async () => {
@@ -289,6 +320,8 @@ export default function HallPage() {
         maskName: data.maskName ?? (isSelf ? "You" : null),
         maskAvatarUrl: data.maskAvatarUrl ?? null,
         bio: data.bio ?? null,
+        city: data.city ?? null,
+        country: data.country ?? null,
         preference: data.preference ?? null
       });
     } catch (error) {
@@ -405,6 +438,21 @@ export default function HallPage() {
           : prev
       );
     }
+  };
+
+  const toggleSave = (traceId: string) => {
+    setSavedTraces((prev) => {
+      const next = new Set(prev);
+      if (next.has(traceId)) {
+        next.delete(traceId);
+      } else {
+        next.add(traceId);
+      }
+      if (typeof window !== "undefined") {
+        localStorage.setItem("saved_traces", JSON.stringify(Array.from(next)));
+      }
+      return next;
+    });
   };
 
   const reportUser = async (userId: string) => {
@@ -795,6 +843,20 @@ export default function HallPage() {
     return filtered.join("\n");
   };
 
+  const isProfileComplete = Boolean(
+    meProfile?.maskName &&
+      meProfile.maskName.trim().length > 0 &&
+      meProfile?.maskAvatarUrl &&
+      ((meProfile.preference?.vibeTags?.length ?? 0) > 0 ||
+        (meProfile.preference?.interests?.length ?? 0) > 0) &&
+      (meProfile.preference?.smPreference?.trim().length ?? 0) > 0
+  );
+
+  const openProfileOnboarding = () => {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(new Event("open-profile-onboarding"));
+  };
+
   const renderAuthorMeta = (author: TraceAuthor) => {
     if (!author) {
       return null;
@@ -859,6 +921,11 @@ export default function HallPage() {
       minute: "2-digit"
     });
 
+  const postTraces = useMemo(
+    () => (hall?.traces ?? []).filter((trace) => !trace.novelId),
+    [hall]
+  );
+
   const stageContent = (
     <>
       <div className="space-y-2 text-sm text-slate-200">
@@ -888,25 +955,122 @@ export default function HallPage() {
 
       <section className="mt-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-100">Hall Traces</h2>
+          <div>
+            <h2 className="text-lg font-semibold text-slate-100">Official Stories</h2>
+            <p className="text-xs text-slate-400">
+              Curated series from the HookedUp team.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-200 hover:border-white/30"
+            onClick={() => setStatus("Novel list is coming soon.")}
+          >
+            See all
+          </button>
+        </div>
+        <div className="mt-4 overflow-x-auto">
+          <div className="flex gap-4 pb-2">
+            {(hall?.novels ?? []).map((novel) => {
+              const memberCount = novel.room?._count?.memberships ?? 0;
+              return (
+                <div
+                  key={novel.id}
+                  className="relative min-w-[220px] max-w-[240px] rounded-2xl border border-amber-200/60 bg-gradient-to-br from-amber-50/90 via-white to-amber-100/70 p-4 text-slate-900 shadow-[0_18px_40px_rgba(251,191,36,0.25)]"
+                >
+                  <span className="absolute left-3 top-3 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-900">
+                    Official story
+                  </span>
+                  <button
+                    type="button"
+                    className="mt-6 block w-full text-left"
+                    onClick={() => router.push(`/novels/${novel.id}`)}
+                  >
+                    <div className="overflow-hidden rounded-xl bg-slate-200">
+                      {novel.coverImageUrl ? (
+                        <img
+                          src={resolveMediaUrl(novel.coverImageUrl) ?? ""}
+                          alt={novel.title}
+                          className="h-44 w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-44 items-center justify-center text-xs text-slate-500">
+                          No cover
+                        </div>
+                      )}
+                    </div>
+                    <p className="mt-3 text-sm font-semibold line-clamp-1">
+                      {novel.title}
+                    </p>
+                    {novel.description && (
+                      <p className="mt-1 text-xs text-slate-600 line-clamp-3">
+                        {novel.description}
+                      </p>
+                    )}
+                  </button>
+                  <div className="mt-3 text-[10px] uppercase tracking-wide text-slate-500">
+                    {typeof novel.viewCount === "number" && novel.viewCount > 0 && (
+                      <span>{novel.viewCount} Reads</span>
+                    )}
+                    {typeof novel.favoriteCount === "number" &&
+                      novel.favoriteCount > 0 && (
+                        <span className="ml-2">{novel.favoriteCount} Likes</span>
+                      )}
+                  </div>
+                  <button
+                    type="button"
+                    className="mt-3 w-full rounded-full bg-amber-500 px-3 py-2 text-xs font-semibold text-slate-900"
+                    onClick={() => router.push(`/novels/${novel.id}`)}
+                  >
+                    Read full story
+                  </button>
+                  <button
+                    type="button"
+                    className="mt-2 w-full text-center text-[11px] text-amber-800 hover:text-amber-900"
+                    onClick={() =>
+                      novel.room?.id
+                        ? router.push(`/rooms/${novel.room.id}`)
+                        : setStatus("Discussion room is not ready yet.")
+                    }
+                  >
+                    Discuss in Room
+                    {memberCount > 0 ? ` · ${memberCount} discussing` : ""}
+                  </button>
+                </div>
+              );
+            })}
+            {(!hall?.novels || hall.novels.length === 0) && (
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-xs text-slate-400">
+                No official stories yet.
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="mt-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-100">Community Feed</h2>
+            <p className="text-xs text-slate-400">
+              Join the discussion, share a thought, or meet someone new.
+            </p>
+          </div>
         </div>
         <div className="mt-4 columns-1 gap-4 sm:columns-2 lg:columns-3">
-        {hall?.traces.map((trace) => {
+        {postTraces.map((trace) => {
           const isSelected = selectedTraceId === trace.id;
           const isImageTrace = Boolean(trace.imageUrl);
-          const isNovelTrace = Boolean(trace.novelId);
           const cardClasses = [
             "block w-full break-inside-avoid mb-4 rounded-2xl border p-4 text-left transition duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60",
             "bg-white/90 text-slate-900 border-slate-200/80 shadow-sm hover:border-slate-400",
-            isNovelTrace
-              ? "bg-gradient-to-br from-white via-white to-amber-50/80 border-amber-200/60 shadow-[0_16px_40px_rgba(251,191,36,0.15)]"
-              : "",
             isSelected
               ? "ring-1 ring-slate-500/60 shadow-[0_25px_60px_rgba(15,23,42,0.7)]"
               : ""
           ]
             .filter(Boolean)
             .join(" ");
+          const needsReadMore = trace.content.length > 220;
           return (
             <button
               key={trace.id}
@@ -940,6 +1104,9 @@ export default function HallPage() {
                   <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-700">
                     {renderTraceAuthor(trace.author)}
                   </span>
+                  <span className="rounded-full border border-slate-300 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                    Post
+                  </span>
                 </div>
                 <span className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
                   {formatTraceTime(trace.createdAt)}
@@ -951,7 +1118,13 @@ export default function HallPage() {
                     <img
                       src={resolveMediaUrl(trace.imageUrl) ?? ""}
                       alt={trace.content.slice(0, 40)}
-                      className="aspect-[4/5] w-full object-cover"
+                      className="w-full object-contain"
+                      style={{
+                        aspectRatio:
+                          trace.imageWidth && trace.imageHeight
+                            ? `${trace.imageWidth} / ${trace.imageHeight}`
+                            : "4 / 5"
+                      }}
                     />
                   </div>
                   <p
@@ -971,13 +1144,25 @@ export default function HallPage() {
                   className="mt-4 text-base leading-relaxed text-slate-800"
                   style={{
                     display: "-webkit-box",
-                    WebkitLineClamp: 6,
+                    WebkitLineClamp: 5,
                     WebkitBoxOrient: "vertical",
                     overflow: "hidden"
                   }}
                 >
                   {normalizeTraceContent(trace.content)}
                 </p>
+              )}
+              {needsReadMore && (
+                <button
+                  type="button"
+                  className="mt-2 text-xs font-semibold text-slate-500 hover:text-slate-700"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setSelectedTraceId(trace.id);
+                  }}
+                >
+                  Read more
+                </button>
               )}
               <div className="mt-4 flex items-center justify-between">
                 {/* Replies icon - Chat bubble with notification badge */}
@@ -1090,19 +1275,19 @@ export default function HallPage() {
                     </span>
                   )}
                 </div>
-              </div>
-              {trace.novelId && (
                 <button
                   type="button"
-                  className="mt-3 w-full rounded-full border border-slate-300 px-3 py-2 text-[10px] font-semibold text-slate-700"
+                  className={`text-[10px] font-semibold uppercase tracking-[0.2em] ${
+                    savedTraces.has(trace.id) ? "text-emerald-600" : "text-slate-400"
+                  }`}
                   onClick={(event) => {
                     event.stopPropagation();
-                    router.push(`/novels/${trace.novelId}`);
+                    toggleSave(trace.id);
                   }}
                 >
-                  Read full story
+                  Save
                 </button>
-              )}
+              </div>
               {currentUserId &&
                 trace.author?.id &&
                 trace.author.role !== "OFFICIAL" &&
@@ -1122,7 +1307,7 @@ export default function HallPage() {
           );
         })}
       </div>
-        {hall && hall.traces.length === 0 && (
+        {hall && postTraces.length === 0 && (
           <p className="mt-4 text-sm text-slate-500">No traces in the Hall yet.</p>
         )}
       </section>
@@ -1179,7 +1364,13 @@ export default function HallPage() {
                   <img
                     src={resolveMediaUrl(traceDetail.trace.imageUrl) ?? ""}
                     alt={traceDetail.trace.content.slice(0, 40)}
-                    className="w-full object-cover"
+                    className="w-full object-contain"
+                    style={{
+                      aspectRatio:
+                        traceDetail.trace.imageWidth && traceDetail.trace.imageHeight
+                          ? `${traceDetail.trace.imageWidth} / ${traceDetail.trace.imageHeight}`
+                          : "4 / 5"
+                    }}
                   />
                 </div>
               )}
@@ -1345,6 +1536,27 @@ export default function HallPage() {
 
   const panelContent = (
     <div className="space-y-6">
+      {!token || !isProfileComplete ? (
+        <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-slate-100">
+          <p className="text-sm font-semibold">Complete your profile</p>
+          <p className="mt-1 text-xs text-amber-100/80">
+            Add a name, avatar, and tags so people can connect with you faster.
+          </p>
+          <button
+            type="button"
+            className="mt-3 w-full rounded-full bg-amber-400 px-4 py-2 text-xs font-semibold text-slate-900"
+            onClick={() => {
+              if (!token) {
+                router.push("/login");
+                return;
+              }
+              openProfileOnboarding();
+            }}
+          >
+            {token ? "Complete profile" : "Sign in to continue"}
+          </button>
+        </div>
+      ) : null}
       <div className="space-y-4">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-200">
           Do something.
@@ -1471,6 +1683,15 @@ export default function HallPage() {
           onClose={() => setProfileCard(null)}
           onStartPrivate={async (userId) => {
             await startConversation(userId);
+            setProfileCard(null);
+          }}
+          onViewProfile={(userId) => {
+            if (currentUserId && userId === currentUserId) {
+              router.push("/me");
+              setProfileCard(null);
+              return;
+            }
+            router.push(`/users/${userId}`);
             setProfileCard(null);
           }}
           onBlock={blockUser}
