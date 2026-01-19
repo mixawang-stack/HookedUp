@@ -1305,6 +1305,13 @@ export default function HallPage() {
                 >
                   Dislike {novelPreview.dislikeCount ?? 0}
                 </button>
+                <button
+                  type="button"
+                  className="rounded-full border border-white/10 px-3 py-1 text-slate-300 hover:text-white"
+                  onClick={() => router.push(`/novels/${novelPreview.id}`)}
+                >
+                  点击看全文
+                </button>
               </div>
               {novelPreview.coverImageUrl && (
                 <img
@@ -1353,7 +1360,7 @@ export default function HallPage() {
             <textarea
               className="mt-2 w-full rounded-xl border border-slate-700/60 bg-slate-950/50 px-3 py-2 text-sm text-white placeholder:text-slate-500"
               rows={3}
-              maxLength={200}
+              maxLength={1000}
               placeholder="Add a thought to the hall..."
               value={traceInput}
               onChange={(event) => setTraceInput(event.target.value)}
@@ -1419,7 +1426,7 @@ export default function HallPage() {
               {imageError && <p className="text-xs text-rose-400">{imageError}</p>}
             </div>
             <div className="flex items-center justify-between text-xs text-slate-400">
-              <span>{traceInput.length}/200</span>
+              <span>{traceInput.length}/1000</span>
               <button
                 type="button"
                 className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"

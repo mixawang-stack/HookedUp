@@ -1,0 +1,2 @@
+ALTER TABLE "Trace"
+  ALTER COLUMN "content" TYPE VARCHAR(1000);

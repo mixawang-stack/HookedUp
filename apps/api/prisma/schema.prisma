@@ -482,7 +482,7 @@ model RoomMessage {
 model Trace {
   id          String   @id @default(uuid())
   authorId    String?
-  content     String   @db.VarChar(200)
+  content     String   @db.VarChar(1000)
   imageUrl    String?  @db.Text @map("image_url")
   imageWidth  Int?     @map("image_width")
   imageHeight Int?     @map("image_height")

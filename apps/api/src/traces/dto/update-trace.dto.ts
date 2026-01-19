@@ -2,6 +2,6 @@ import { IsString, MaxLength } from "class-validator";
 
 export class UpdateTraceDto {
   @IsString()
-  @MaxLength(2000)
+  @MaxLength(1000)
   content!: string;
 }

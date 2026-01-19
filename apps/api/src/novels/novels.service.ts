@@ -558,20 +558,10 @@ export class NovelsService {
     existing: { title: string; description: string | null; tagsJson: Prisma.JsonValue },
     dto: AdminNovelDto
   ) {
-    const title = dto.title?.trim() ?? existing.title;
     const description = dto.description?.trim() ?? existing.description ?? "";
-    const tags = Array.isArray(dto.tagsJson)
-      ? dto.tagsJson
-      : Array.isArray(existing.tagsJson)
-        ? (existing.tagsJson as string[])
-        : [];
-    const tagLine = tags.length > 0 ? `Tags: ${tags.join(" / ")}` : "";
-    const content = [
-      "The Bartender's Pick",
-      title,
-      description,
-      tagLine
-    ]
+    const title = dto.title?.trim() ?? existing.title;
+    const base = description.length > 0 ? description : title;
+    const content = [base, "点击看全文"]
       .map((line) => line.trim())
       .filter((line) => line.length > 0)
       .join("\n");
@@ -579,7 +569,7 @@ export class NovelsService {
   }
 
   private truncateTraceContent(content: string) {
-    const maxLen = 200;
+    const maxLen = 1000;
     if (content.length <= maxLen) {
       return content;
     }
@@ -587,11 +577,20 @@ export class NovelsService {
   }
 
   private async ensureOfficialUser(tx: Prisma.TransactionClient) {
+    const officialName = process.env.OFFICIAL_USER_NAME?.trim() || "Theo";
+    const officialAvatarUrl = process.env.OFFICIAL_USER_AVATAR_URL?.trim() || null;
     const existing = await tx.user.findFirst({
       where: { role: Role.OFFICIAL },
       select: { id: true }
     });
     if (existing) {
+      await tx.user.update({
+        where: { id: existing.id },
+        data: {
+          maskName: officialName,
+          ...(officialAvatarUrl ? { maskAvatarUrl: officialAvatarUrl } : {})
+        }
+      });
       return existing;
     }
     const passwordHash = await argon2.hash(randomBytes(24).toString("hex"));
@@ -600,7 +599,8 @@ export class NovelsService {
         email: `official-${Date.now()}@hookedup.local`,
         passwordHash,
         role: Role.OFFICIAL,
-        maskName: "The Bartender"
+        maskName: officialName,
+        ...(officialAvatarUrl ? { maskAvatarUrl: officialAvatarUrl } : {})
       },
       select: { id: true }
     });

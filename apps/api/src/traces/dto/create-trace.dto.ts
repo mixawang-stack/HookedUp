@@ -11,7 +11,7 @@ import {
 
 export class CreateTraceDto {
   @IsString()
-  @MaxLength(2000)
+  @MaxLength(1000)
   content!: string;
 
   @IsOptional()
