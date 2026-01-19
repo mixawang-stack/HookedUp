@@ -74,7 +74,11 @@ export class NovelsService {
       }
 
       if (shouldPublish && autoRoom) {
-        const room = await this.createNovelRoom(tx, dto);
+        const room = await this.createNovelRoom(tx, {
+          title: dto.title!.trim(),
+          description: dto.description ?? null,
+          tagsJson: (dto.tagsJson as any) ?? []
+        });
         roomId = room.id;
       }
 
@@ -160,8 +164,15 @@ export class NovelsService {
 
       if (isPublished && nextAutoRoom && !roomId) {
         const room = await this.createNovelRoom(tx, {
-          ...existing,
-          ...dto
+          title: dto.title?.trim() ?? existing.title,
+          description:
+            dto.description !== undefined
+              ? dto.description.trim() || null
+              : existing.description ?? null,
+          tagsJson:
+            dto.tagsJson !== undefined
+              ? (dto.tagsJson as any)
+              : (existing.tagsJson as any)
         });
         roomId = room.id;
       }
