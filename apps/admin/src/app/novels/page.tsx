@@ -37,6 +37,25 @@ const parseTags = (value: string) =>
     .map((item) => item.trim())
     .filter((item) => item.length > 0);
 
+const resolveMediaUrl = (value?: string | null) => {
+  if (!value) return null;
+  if (value.startsWith("/uploads/")) {
+    return `${API_BASE}${value}`;
+  }
+  if (!value.startsWith("http://") && !value.startsWith("https://")) {
+    return value;
+  }
+  try {
+    const parsed = new URL(value);
+    if (parsed.pathname.startsWith("/uploads/")) {
+      return `${API_BASE}${parsed.pathname}`;
+    }
+  } catch {
+    return value;
+  }
+  return value;
+};
+
 export default function AdminNovelsPage() {
   const [token, setToken] = useState<string | null>(null);
   const [novels, setNovels] = useState<NovelItem[]>([]);
@@ -296,7 +315,7 @@ export default function AdminNovelsPage() {
               <div className="h-32 w-24 flex-shrink-0 overflow-hidden rounded-lg border border-white/5 bg-slate-900">
                 {novel.coverImageUrl ? (
                   <img
-                    src={novel.coverImageUrl}
+                    src={resolveMediaUrl(novel.coverImageUrl) ?? ""}
                     alt={novel.title}
                     className="h-full w-full object-cover"
                   />
@@ -460,7 +479,7 @@ export default function AdminNovelsPage() {
                     {coverImageUrl && (
                       <div className="mt-3 h-28 w-20 overflow-hidden rounded-lg border border-white/10 bg-slate-900">
                         <img
-                          src={coverImageUrl}
+                          src={resolveMediaUrl(coverImageUrl) ?? ""}
                           alt="Cover preview"
                           className="h-full w-full object-cover"
                         />

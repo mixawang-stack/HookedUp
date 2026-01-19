@@ -40,6 +40,9 @@ export class NovelsService {
 
   async createAdminNovel(role: string, dto: AdminNovelDto) {
     this.ensureAdmin(role);
+    if (!dto.title || dto.title.trim().length === 0) {
+      throw new BadRequestException("TITLE_REQUIRED");
+    }
     const scheduledAt = dto.scheduledAt ? new Date(dto.scheduledAt) : null;
     const shouldPublish = dto.status === "PUBLISHED";
     const shouldSchedule = dto.status === "SCHEDULED";

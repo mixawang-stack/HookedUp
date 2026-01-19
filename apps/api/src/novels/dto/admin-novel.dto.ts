@@ -2,9 +2,10 @@ import { IsBoolean, IsEnum, IsISO8601, IsOptional, IsString, MaxLength } from "c
 import { NovelAudience, NovelStatus, NovelSourceType } from "@prisma/client";
 
 export class AdminNovelDto {
+  @IsOptional()
   @IsString()
   @MaxLength(255)
-  title!: string;
+  title?: string;
 
   @IsOptional()
   @IsString()
