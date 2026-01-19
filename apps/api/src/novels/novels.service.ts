@@ -61,7 +61,7 @@ export class NovelsService {
             authorId: officialUser.id,
             content: this.buildHallPostContent(
               {
-                title: dto.title,
+                title: dto.title!.trim(),
                 description: dto.description ?? null,
                 tagsJson: (dto.tagsJson as any) ?? []
               },
@@ -80,7 +80,7 @@ export class NovelsService {
 
       return tx.novel.create({
         data: {
-          title: dto.title.trim(),
+          title: dto.title!.trim(),
           coverImageUrl: dto.coverImageUrl?.trim() || null,
           description: dto.description?.trim() || null,
           authorName: dto.authorName?.trim() || null,
