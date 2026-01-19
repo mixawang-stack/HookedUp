@@ -265,7 +265,10 @@ export default function AdminNovelsPage() {
       body: JSON.stringify({ status: nextStatus })
     });
     if (!res.ok) {
-      setStatus("Failed to update novel status.");
+      const body = await res.json().catch(() => ({}));
+      const message =
+        Array.isArray(body?.message) ? body.message.join(" / ") : body?.message;
+      setStatus(message ?? "Failed to update novel status.");
       return;
     }
     await loadNovels();
@@ -368,7 +371,7 @@ export default function AdminNovelsPage() {
                     >
                       Edit
                     </button>
-                    {novel.status !== "PUBLISHED" && (
+                    {novel.status === "DRAFT" && (
                       <button
                         type="button"
                         className="rounded-full border border-emerald-500/30 px-3 py-1 text-[10px] text-emerald-300 hover:bg-emerald-500/10"
@@ -380,15 +383,6 @@ export default function AdminNovelsPage() {
                     {novel.status === "PUBLISHED" && (
                       <button
                         type="button"
-                        className="rounded-full border border-white/20 px-3 py-1 text-[10px] text-slate-200 hover:bg-white/10"
-                        onClick={() => handleUpdateStatus(novel.id, "DRAFT")}
-                      >
-                        Unpublish
-                      </button>
-                    )}
-                    {novel.status !== "ARCHIVED" && (
-                      <button
-                        type="button"
                         className="rounded-full border border-rose-500/30 px-3 py-1 text-[10px] text-rose-300 hover:bg-rose-500/10"
                         onClick={() => handleUpdateStatus(novel.id, "ARCHIVED")}
                       >
@@ -398,10 +392,10 @@ export default function AdminNovelsPage() {
                     {novel.status === "ARCHIVED" && (
                       <button
                         type="button"
-                        className="rounded-full border border-white/20 px-3 py-1 text-[10px] text-slate-200 hover:bg-white/10"
-                        onClick={() => handleUpdateStatus(novel.id, "DRAFT")}
+                        className="rounded-full border border-emerald-500/30 px-3 py-1 text-[10px] text-emerald-300 hover:bg-emerald-500/10"
+                        onClick={() => handleUpdateStatus(novel.id, "PUBLISHED")}
                       >
-                        Restore
+                        Restore Publish
                       </button>
                     )}
                   </div>
