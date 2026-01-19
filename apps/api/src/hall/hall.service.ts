@@ -53,6 +53,7 @@ export class HallService {
       imageHeight: number | null;
       createdAt: Date;
       authorId: string | null;
+      novel?: { id: string } | null;
       author: {
         id: string;
         maskName: string | null;
@@ -95,6 +96,9 @@ export class HallService {
               }
             }
           },
+          novel: {
+            select: { id: true }
+          },
           _count: { select: { replies: true, likes: true } },
           ...(userId
             ? {
@@ -118,6 +122,7 @@ export class HallService {
       imageWidth: trace.imageWidth,
       imageHeight: trace.imageHeight,
       createdAt: trace.createdAt,
+      novelId: trace.novel?.id ?? null,
       replyCount: trace._count.replies,
       likeCount: trace._count.likes,
       likedByMe: userId
@@ -135,6 +140,12 @@ export class HallService {
           }
         : null
     }));
+
+    const normalizeCoverUrl = (value?: string | null) => {
+      if (!value) return null;
+      const trimmed = value.trim();
+      return trimmed.length > 0 ? trimmed : null;
+    };
 
     let novels: (Novel & {
       myReaction?: "LIKE" | "DISLIKE" | null;
@@ -160,13 +171,17 @@ export class HallService {
           ...novel,
           myReaction: reactionMap.get(novel.id) ?? null,
           coverImageUrl:
-            novel.coverImageUrl ?? novel.hallTrace?.imageUrl ?? null
+            normalizeCoverUrl(novel.coverImageUrl) ??
+            normalizeCoverUrl(novel.hallTrace?.imageUrl) ??
+            null
         }));
       } else {
         novels = novels.map((novel) => ({
           ...novel,
           coverImageUrl:
-            novel.coverImageUrl ?? novel.hallTrace?.imageUrl ?? null
+            normalizeCoverUrl(novel.coverImageUrl) ??
+            normalizeCoverUrl(novel.hallTrace?.imageUrl) ??
+            null
         }));
       }
     } catch (error) {

@@ -110,6 +110,9 @@ export class TracesService {
             role: true
           }
         },
+        novel: {
+          select: { id: true }
+        },
         _count: { select: { replies: true, likes: true } }
       }
     });
@@ -146,6 +149,7 @@ export class TracesService {
         imageUrl: trace.imageUrl,
         imageWidth: trace.imageWidth,
         imageHeight: trace.imageHeight,
+        novelId: trace.novel?.id ?? null,
         replyCount: trace._count.replies,
         likeCount: trace._count.likes,
         author: trace.author

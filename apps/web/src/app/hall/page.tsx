@@ -80,6 +80,7 @@ type TraceItem = {
   replyCount: number;
   likeCount?: number;
   likedByMe?: boolean;
+  novelId?: string | null;
   author: TraceAuthor;
   imageUrl?: string | null;
   imageWidth?: number | null;
@@ -781,6 +782,19 @@ export default function HallPage() {
     return author.maskName ?? "Anonymous";
   };
 
+  const normalizeTraceContent = (value: string) => {
+    if (!value) return value;
+    const sanitized = value.replace(/点击看全文/g, "Read full story");
+    const lines = sanitized.split("\n").map((line) => line.trim());
+    const filtered = lines.filter((line) => line.length > 0);
+    if (filtered.length === 0) return sanitized;
+    const last = filtered[filtered.length - 1];
+    if (last.toLowerCase() === "read full story") {
+      filtered.pop();
+    }
+    return filtered.join("\n");
+  };
+
   const renderAuthorMeta = (author: TraceAuthor) => {
     if (!author) {
       return null;
@@ -876,57 +890,17 @@ export default function HallPage() {
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-100">Hall Traces</h2>
         </div>
-        {hall?.novels && hall.novels.length > 0 && (
-          <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950/80 p-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-300">
-                Featured novels
-              </h3>
-              {novelLoading && (
-                <span className="text-xs text-slate-400">Loading…</span>
-              )}
-            </div>
-            <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {hall.novels.map((novel) => (
-                <button
-                  key={novel.id}
-                  type="button"
-                  className="flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-slate-900/60 text-left text-slate-100 transition hover:border-slate-400/60"
-                  onClick={() => openNovelPreview(novel.id)}
-                >
-                  <div className="h-40 w-full overflow-hidden bg-slate-800">
-                    {novel.coverImageUrl ? (
-                      <img
-                        src={resolveMediaUrl(novel.coverImageUrl) ?? ""}
-                        alt={novel.title}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">
-                        No cover
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-4">
-                    <p className="text-sm font-semibold">{novel.title}</p>
-                    {novel.description && (
-                      <p className="mt-2 text-xs text-slate-300 line-clamp-3">
-                        {novel.description}
-                      </p>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
         <div className="mt-4 columns-1 gap-4 sm:columns-2 lg:columns-3">
         {hall?.traces.map((trace) => {
           const isSelected = selectedTraceId === trace.id;
           const isImageTrace = Boolean(trace.imageUrl);
+          const isNovelTrace = Boolean(trace.novelId);
           const cardClasses = [
             "block w-full break-inside-avoid mb-4 rounded-2xl border p-4 text-left transition duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60",
             "bg-white/90 text-slate-900 border-slate-200/80 shadow-sm hover:border-slate-400",
+            isNovelTrace
+              ? "bg-gradient-to-br from-white via-white to-amber-50/80 border-amber-200/60 shadow-[0_16px_40px_rgba(251,191,36,0.15)]"
+              : "",
             isSelected
               ? "ring-1 ring-slate-500/60 shadow-[0_25px_60px_rgba(15,23,42,0.7)]"
               : ""
@@ -989,7 +963,7 @@ export default function HallPage() {
                       overflow: "hidden"
                     }}
                   >
-                    {trace.content}
+                    {normalizeTraceContent(trace.content)}
                   </p>
                 </>
               ) : (
@@ -1002,7 +976,7 @@ export default function HallPage() {
                     overflow: "hidden"
                   }}
                 >
-                  {trace.content}
+                  {normalizeTraceContent(trace.content)}
                 </p>
               )}
               <div className="mt-4 flex items-center justify-between">
@@ -1117,6 +1091,18 @@ export default function HallPage() {
                   )}
                 </div>
               </div>
+              {trace.novelId && (
+                <button
+                  type="button"
+                  className="mt-3 w-full rounded-full border border-slate-300 px-3 py-2 text-[10px] font-semibold text-slate-700"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    router.push(`/novels/${trace.novelId}`);
+                  }}
+                >
+                  Read full story
+                </button>
+              )}
               {currentUserId &&
                 trace.author?.id &&
                 trace.author.role !== "OFFICIAL" &&
@@ -1197,9 +1183,18 @@ export default function HallPage() {
                   />
                 </div>
               )}
-              <p className="mt-4 text-sm text-slate-800">
-                {traceDetail.trace.content}
+              <p className="mt-4 text-sm text-slate-800 whitespace-pre-wrap">
+                {normalizeTraceContent(traceDetail.trace.content)}
               </p>
+              {traceDetail.trace.novelId && (
+                <button
+                  type="button"
+                  className="mt-4 rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700"
+                  onClick={() => router.push(`/novels/${traceDetail.trace.novelId}`)}
+                >
+                  Read full story
+                </button>
+              )}
 
               <div className="mt-6 space-y-3">
                 {traceDetail.replies.map((reply) => (

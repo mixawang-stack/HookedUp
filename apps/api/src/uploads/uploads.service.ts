@@ -51,14 +51,23 @@ export class UploadsService {
       originalName: file.originalname
     };
 
+    const actorExists = actorId
+      ? await this.prisma.user.findUnique({
+          where: { id: actorId },
+          select: { id: true }
+        })
+      : null;
+    const safeActorId = actorExists?.id ?? null;
+
     await this.prisma.auditLog.create({
       data: {
-        actorId,
+        actorId: safeActorId,
         action: "UPLOAD_FILE",
         targetType: "Upload",
         targetId: result.fileKey,
         metaJson: {
           context,
+          requestedActorId: safeActorId ? undefined : actorId,
           fileHash: result.fileHash,
           size: result.size,
           mimeType: result.mimeType,

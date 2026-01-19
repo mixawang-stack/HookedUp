@@ -130,11 +130,11 @@ export default function AdminNovelsPage() {
     setFreeCount("2");
   };
 
-  const handleUploadCover = async () => {
-    if (!authHeader || !coverFile) return;
+  const uploadCoverIfNeeded = async () => {
+    if (!authHeader || !coverFile) return coverImageUrl;
     if (coverFile.size > 10 * 1024 * 1024) {
       setStatus("Cover image must be 10MB or smaller.");
-      return;
+      throw new Error("COVER_TOO_LARGE");
     }
     setCoverUploading(true);
     setStatus(null);
@@ -153,12 +153,14 @@ export default function AdminNovelsPage() {
         } else {
           setStatus(data?.message ?? "Failed to upload cover.");
         }
-        return;
+        throw new Error("UPLOAD_FAILED");
       }
       if (data?.imageUrl) {
         setCoverImageUrl(data.imageUrl);
         setCoverFile(null);
+        return data.imageUrl as string;
       }
+      return coverImageUrl;
     } finally {
       setCoverUploading(false);
     }
@@ -203,37 +205,63 @@ export default function AdminNovelsPage() {
       setStatus("Title is required.");
       return;
     }
-    const payload = {
-      title,
-      coverImageUrl,
-      description,
-      tagsJson: parseTags(tags),
-      audience,
-      isFeatured,
-      autoHallPost: autoPostHall
-    };
-    const res = await fetch(
-      `${API_BASE}/admin/novels${selectedNovel ? `/${selectedNovel.id}` : ""}`,
-      {
-        method: selectedNovel ? "PATCH" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader
-        },
-        body: JSON.stringify(payload)
-      }
-    );
-    if (!res.ok) {
+    try {
+      const uploadedCoverUrl = await uploadCoverIfNeeded();
+      const payload = {
+        title,
+        coverImageUrl: uploadedCoverUrl ?? coverImageUrl,
+        description,
+        tagsJson: parseTags(tags),
+        audience,
+        isFeatured,
+        autoHallPost: autoPostHall
+      };
+      const res = await fetch(
+        `${API_BASE}/admin/novels${selectedNovel ? `/${selectedNovel.id}` : ""}`,
+        {
+          method: selectedNovel ? "PATCH" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeader
+          },
+          body: JSON.stringify(payload)
+        }
+      );
       const body = await res.json().catch(() => ({}));
-      const message =
-        Array.isArray(body?.message) ? body.message.join(" / ") : body?.message;
-      setStatus(message ?? "Failed to save novel.");
-      return;
+      if (!res.ok) {
+        const message =
+          Array.isArray(body?.message) ? body.message.join(" / ") : body?.message;
+        setStatus(message ?? "Failed to save novel.");
+        return;
+      }
+
+      const savedNovelId = body?.id ?? selectedNovel?.id ?? null;
+      if (savedNovelId && pdfFile) {
+        setPdfUploading(true);
+        const form = new FormData();
+        form.append("file", pdfFile);
+        form.append("freeCount", freeCount.trim() || "2");
+        const pdfRes = await fetch(`${API_BASE}/admin/novels/${savedNovelId}/pdf`, {
+          method: "POST",
+          headers: { ...authHeader },
+          body: form
+        });
+        const pdfBody = await pdfRes.json().catch(() => ({}));
+        if (!pdfRes.ok) {
+          setStatus(pdfBody?.message ?? "Failed to import PDF.");
+          return;
+        }
+        setPdfFile(null);
+        await loadChapters(savedNovelId);
+      }
+
+      setDrawerOpen(false);
+      resetForm();
+      setSelectedNovel(null);
+      await loadNovels();
+    } finally {
+      setPdfUploading(false);
     }
-    setDrawerOpen(false);
-    resetForm();
-    setSelectedNovel(null);
-    await loadNovels();
   };
 
   const handleOpenCreate = () => {
@@ -455,21 +483,11 @@ export default function AdminNovelsPage() {
                         {(coverFile.size / (1024 * 1024)).toFixed(2)} MB
                       </p>
                     )}
-                    <div className="mt-3 flex items-center gap-3">
-                      <button
-                        type="button"
-                        className="rounded-full border border-white/20 px-4 py-1.5 text-xs text-slate-200"
-                        disabled={!coverFile || coverUploading}
-                        onClick={handleUploadCover}
-                      >
-                        {coverUploading ? "Uploading..." : "Upload cover"}
-                      </button>
-                      {coverImageUrl && (
-                        <span className="text-[10px] text-slate-400">
-                          Cover uploaded
-                        </span>
-                      )}
-                    </div>
+                    {coverUploading && (
+                      <p className="mt-3 text-[10px] text-slate-400">
+                        Uploading cover...
+                      </p>
+                    )}
                     {coverImageUrl && (
                       <div className="mt-3 h-28 w-20 overflow-hidden rounded-lg border border-white/10 bg-slate-900">
                         <img

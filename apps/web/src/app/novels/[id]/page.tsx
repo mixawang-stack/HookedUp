@@ -90,6 +90,11 @@ export default function NovelDetailPage() {
             />
           )}
           <div className="space-y-4">
+            {novel.chapters.length === 0 && (
+              <p className="text-sm text-slate-400">
+                No chapters are available yet. Ask the admin to import the PDF.
+              </p>
+            )}
             {novel.chapters.map((chapter) => (
               <section
                 key={chapter.id}
