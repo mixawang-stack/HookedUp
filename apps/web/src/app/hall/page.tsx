@@ -120,6 +120,10 @@ type NovelItem = {
   } | null;
 };
 
+type HallFeedItem =
+  | { kind: "novel"; novel: NovelItem }
+  | { kind: "trace"; trace: TraceItem };
+
 type TraceDetailResponse = {
   trace: TraceItem;
   replies: TraceReply[];
@@ -166,6 +170,8 @@ export default function HallPage() {
   const [postingReply, setPostingReply] = useState(false);
   const [loadingReplies, setLoadingReplies] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
+  const [activeTab, setActiveTab] = useState<"all" | "story" | "post">("all");
+  const [columnCount, setColumnCount] = useState(1);
   const [profileCard, setProfileCard] = useState<PublicProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [meProfile, setMeProfile] = useState<PublicProfile | null>(null);
@@ -191,6 +197,27 @@ export default function HallPage() {
     if (!seen) {
       setShowWelcome(true);
     }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const updateColumns = () => {
+      const width = window.innerWidth;
+      if (width >= 1280) {
+        setColumnCount(3);
+        return;
+      }
+      if (width >= 768) {
+        setColumnCount(2);
+        return;
+      }
+      setColumnCount(1);
+    };
+    updateColumns();
+    window.addEventListener("resize", updateColumns);
+    return () => window.removeEventListener("resize", updateColumns);
   }, []);
 
   useEffect(() => {
@@ -758,8 +785,8 @@ export default function HallPage() {
         : null
     ].filter((item): item is string => Boolean(item));
     return (
-      <div className="w-64 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-600 shadow-lg">
-        <p className="text-sm font-semibold text-slate-900">
+      <div className="w-64 rounded-xl border border-border-default bg-card p-3 text-xs text-text-secondary shadow-sm">
+        <p className="text-sm font-semibold text-text-primary">
           {renderTraceAuthor(author)}
         </p>
         {lines.length > 0 && (
@@ -769,7 +796,7 @@ export default function HallPage() {
             ))}
           </div>
         )}
-        <p className="mt-3 text-[10px] uppercase tracking-wide text-slate-500">
+        <p className="mt-3 text-[10px] uppercase tracking-wide text-text-muted">
           Known for:
         </p>
         {tags.length > 0 ? (
@@ -777,16 +804,16 @@ export default function HallPage() {
             {tags.map((tag) => (
               <span
                 key={tag}
-                className="rounded-full border border-slate-200 px-2 py-0.5 text-[10px] text-slate-500"
+                className="rounded-full border border-border-default px-2 py-0.5 text-[10px] text-text-muted"
               >
                 {tag}
               </span>
             ))}
           </div>
         ) : (
-          <p className="mt-2 text-slate-500">бк</p>
+          <p className="mt-2 text-text-muted">бк</p>
         )}
-        <div className="mt-3 space-y-1 text-slate-500">
+        <div className="mt-3 space-y-1 text-text-muted">
           <p>Curious what they sound like?</p>
           <p>You can say hello бк or just remember the face.</p>
           <p>Private conversations are optional. You can also meet people in rooms.</p>
@@ -801,27 +828,355 @@ export default function HallPage() {
       minute: "2-digit"
     });
 
+  const hallTabs: Array<{ id: "all" | "story" | "post"; label: string }> = [
+    { id: "all", label: "全部" },
+    { id: "story", label: "故事" },
+    { id: "post", label: "帖子" }
+  ];
+
+  const cardBaseClasses =
+    "ui-card w-full p-4 text-left text-text-primary transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40";
+
+  const renderNovelCard = (novel: NovelItem) => {
+    const teaser = (novel.description ?? novel.title).split("\n")[0] ?? "";
+    const metaParts = [
+      novel.viewCount ? `${novel.viewCount} views` : null,
+      novel.favoriteCount ? `${novel.favoriteCount} favorites` : null
+    ].filter(Boolean);
+    return (
+      <button
+        key={novel.id}
+        type="button"
+        className={`${cardBaseClasses} flex flex-col gap-3 bg-gradient-to-br from-brand-primary/10 via-surface to-card hover:border-brand-primary/40 max-h-[50vh] overflow-hidden`}
+        onClick={() => router.push(`/novels/${novel.id}`)}
+      >
+        <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.2em] text-text-muted">
+          <span className="rounded-full bg-accent-premium/15 px-2 py-1 text-[10px] font-semibold text-accent-premium">
+            Story
+          </span>
+          {metaParts.length > 0 && (
+            <span className="text-[10px] uppercase tracking-[0.3em] text-text-muted">
+              {metaParts.join(" · ")}
+            </span>
+          )}
+        </div>
+        <div className="overflow-hidden rounded-xl border border-border-default bg-card">
+          {novel.coverImageUrl ? (
+            <img
+              src={resolveMediaUrl(novel.coverImageUrl) ?? ""}
+              alt={novel.title}
+              className="w-full max-h-[32vh] object-cover"
+            />
+          ) : (
+            <div className="flex min-h-[160px] items-center justify-center text-xs text-text-muted">
+              No cover
+            </div>
+          )}
+        </div>
+        <div>
+          <p
+            className="text-base font-semibold text-text-primary"
+            style={{
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden"
+            }}
+          >
+            {novel.title}
+          </p>
+          <p
+            className="mt-2 text-sm text-text-secondary"
+            style={{
+              display: "-webkit-box",
+              WebkitLineClamp: 3,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden"
+            }}
+          >
+            {teaser}
+          </p>
+        </div>
+        <div className="mt-auto flex items-center justify-between text-xs text-text-muted">
+          <span>{novel.room?.title ?? "Official story"}</span>
+          <span className="font-semibold text-brand-primary">Read story</span>
+        </div>
+      </button>
+    );
+  };
+
+  const renderTraceCard = (trace: TraceItem) => {
+    const isSelected = selectedTraceId === trace.id;
+    const isImageTrace = Boolean(trace.imageUrl);
+    const cardClasses = [
+      cardBaseClasses,
+      "bg-card hover:border-brand-primary/40",
+      isSelected ? "ring-1 ring-brand-primary/40" : ""
+    ]
+      .filter(Boolean)
+      .join(" ");
+    return (
+      <button
+        key={trace.id}
+        type="button"
+        className={cardClasses}
+        onClick={() => setSelectedTraceId(trace.id)}
+      >
+        <div className="flex items-center justify-between gap-3 text-[11px] uppercase tracking-[0.2em] text-text-muted">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-surface overflow-hidden"
+              onClick={(event) => {
+                event.stopPropagation();
+                if (trace.author?.id) {
+                  openProfileCard(trace.author.id);
+                }
+              }}
+              aria-label="Open profile"
+            >
+              {trace.author?.maskAvatarUrl ? (
+                <img
+                  src={trace.author.maskAvatarUrl}
+                  alt={renderTraceAuthor(trace.author)}
+                  className="h-8 w-8 rounded-full object-cover"
+                />
+              ) : (
+                <span className="h-8 w-8 rounded-full bg-surface" />
+              )}
+            </button>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-text-primary">
+              {renderTraceAuthor(trace.author)}
+            </span>
+          </div>
+          <span className="text-[10px] uppercase tracking-[0.3em] text-text-muted">
+            {formatTraceTime(trace.createdAt)}
+          </span>
+        </div>
+        {isImageTrace && trace.imageUrl ? (
+          <>
+            <div className="mt-4 overflow-hidden rounded-xl bg-surface">
+              <img
+                src={resolveMediaUrl(trace.imageUrl) ?? ""}
+                alt={trace.content.slice(0, 40)}
+                className="w-full object-contain"
+                style={{
+                  aspectRatio:
+                    trace.imageWidth && trace.imageHeight
+                      ? `${trace.imageWidth} / ${trace.imageHeight}`
+                      : "4 / 5"
+                }}
+              />
+            </div>
+            <p
+              className="mt-3 text-sm leading-relaxed text-text-secondary"
+              style={{
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden"
+              }}
+            >
+              {normalizeTraceContent(trace.content)}
+            </p>
+          </>
+        ) : (
+          <p
+            className="mt-4 text-base leading-relaxed text-text-secondary"
+            style={{
+              display: "-webkit-box",
+              WebkitLineClamp: 5,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden"
+            }}
+          >
+            {normalizeTraceContent(trace.content)}
+          </p>
+        )}
+        <div className="mt-4 flex items-center justify-between">
+          {/* Replies icon - Chat bubble with notification badge */}
+          <div className="flex items-center gap-2 group relative text-brand-primary">
+            <div className="relative">
+              <svg
+                className="w-6 h-6 transition-all duration-200 group-hover:scale-110"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                {/* Yellow rounded chat bubble */}
+                <path
+                  d="M20 2H4C2.9 2 2 2.9 2 4V12C2 13.1 2.9 14 4 14H6L8 18L12 14H20C21.1 14 22 13.1 22 12V4C22 2.9 21.1 2 20 2Z"
+                  fill="currentColor"
+                  className="transition-colors"
+                />
+                {/* Chat bubble tail */}
+                <path
+                  d="M6 14L4 18L6 16H8V14H6Z"
+                  fill="currentColor"
+                  className="transition-colors"
+                />
+                {/* Three dots (typing indicator) */}
+                <circle cx="9" cy="7" r="1.2" fill="currentColor" className="text-card" />
+                <circle cx="12" cy="7" r="1.2" fill="currentColor" className="text-card" />
+                <circle cx="15" cy="7" r="1.2" fill="currentColor" className="text-card" />
+              </svg>
+              {/* Red notification badge with number - animated */}
+              {trace.replyCount > 0 && (
+                <div className="absolute -top-1 -right-1">
+                  <svg
+                    className="w-5 h-5 animate-pulse"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <circle cx="10" cy="10" r="9" fill="currentColor" />
+                    <text
+                      x="10"
+                      y="13.5"
+                      textAnchor="middle"
+                      fill="currentColor"
+                      className="text-card"
+                      fontSize="10"
+                      fontWeight="bold"
+                      fontFamily="system-ui, -apple-system, sans-serif"
+                    >
+                      {trace.replyCount > 9 ? "9+" : trace.replyCount}
+                    </text>
+                  </svg>
+                </div>
+              )}
+            </div>
+            {trace.replyCount > 0 && (
+              <span className="text-xs text-text-muted group-hover:text-text-secondary transition-colors font-medium">
+                {trace.replyCount}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 group relative">
+            <button
+              type="button"
+              className="group relative flex h-7 w-7 items-center justify-center rounded-full border border-transparent transition hover:scale-110 text-text-muted"
+              onClick={(event) => {
+                event.stopPropagation();
+                toggleLike(trace.id);
+              }}
+              aria-label="Toggle like"
+            >
+              <svg
+                className={`h-5 w-5 transition-colors ${
+                  trace.likedByMe ? "text-brand-primary" : "text-text-muted"
+                }`}
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M12 20.5c-5.05-3.62-8.5-6.7-8.5-10.6 0-2.3 1.74-4.1 4.06-4.1 1.62 0 3.18.9 4.44 2.38 1.26-1.48 2.82-2.38 4.44-2.38 2.32 0 4.06 1.8 4.06 4.1 0 3.9-3.45 6.98-8.5 10.6z"
+                  fill={trace.likedByMe ? "currentColor" : "none"}
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                />
+              </svg>
+              {(trace.likeCount ?? 0) > 0 && (
+                <div className="absolute -top-1 -right-1">
+                  <svg
+                    className="w-5 h-5"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <circle
+                      cx="10"
+                      cy="10"
+                      r="9"
+                      fill="currentColor"
+                      className="text-brand-primary"
+                    />
+                    <text
+                      x="10"
+                      y="13.5"
+                      textAnchor="middle"
+                      fill="currentColor"
+                      className="text-card"
+                      fontSize="10"
+                      fontWeight="bold"
+                      fontFamily="system-ui, -apple-system, sans-serif"
+                    >
+                      {(trace.likeCount ?? 0) > 9 ? "9+" : trace.likeCount}
+                    </text>
+                  </svg>
+                </div>
+              )}
+            </button>
+            {(trace.likeCount ?? 0) > 0 && (
+              <span className="text-xs text-text-muted group-hover:text-text-secondary transition-colors font-medium">
+                {trace.likeCount}
+              </span>
+            )}
+          </div>
+        </div>
+        {currentUserId &&
+          trace.author?.id &&
+          trace.author.role !== "OFFICIAL" &&
+          trace.author.id !== currentUserId && (
+            <button
+              type="button"
+              className="mt-3 w-full rounded-full border border-border-default px-3 py-2 text-[10px] font-semibold text-text-secondary"
+              onClick={(event) => {
+                event.stopPropagation();
+                startConversation(trace.author!.id);
+              }}
+            >
+              Start private
+            </button>
+          )}
+      </button>
+    );
+  };
+
   const postTraces = useMemo(
     () => (hall?.traces ?? []).filter((trace) => !trace.novelId),
     [hall]
   );
 
+  const feedItems = useMemo<HallFeedItem[]>(() => {
+    const novels = hall?.novels ?? [];
+    if (activeTab === "story") {
+      return novels.map((novel) => ({ kind: "novel", novel }));
+    }
+    if (activeTab === "post") {
+      return postTraces.map((trace) => ({ kind: "trace", trace }));
+    }
+    return [
+      ...novels.map((novel) => ({ kind: "novel", novel })),
+      ...postTraces.map((trace) => ({ kind: "trace", trace }))
+    ];
+  }, [activeTab, hall, postTraces]);
+
+  const feedColumns = useMemo(() => {
+    const columns = Array.from({ length: columnCount }, () => [] as HallFeedItem[]);
+    feedItems.forEach((item, index) => {
+      columns[index % columnCount].push(item);
+    });
+    return columns;
+  }, [columnCount, feedItems]);
+
   const stageContent = (
     <>
-      <div className="space-y-2 text-sm text-slate-200">
+      <div className="space-y-2 text-sm text-text-secondary">
         <p>People pass through.</p>
         <p>Some stay.</p>
         <p>Something might happen.</p>
       </div>
       {showWelcome && (
-        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+        <div className="mt-4 ui-surface p-4 text-sm text-text-secondary">
           <p>Welcome to HookedUp?</p>
           <p>This is the main hall of the castle.</p>
           <p>Look around. See what’s happening.</p>
           <p>Join when something catches your interest.</p>
           <button
             type="button"
-            className="mt-3 rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700"
+            className="mt-3 rounded-full border border-border-default px-3 py-1 text-xs font-semibold text-text-secondary"
             onClick={() => {
               localStorage.setItem("hallWelcomeSeen", "true");
               setShowWelcome(false);
@@ -831,322 +1186,71 @@ export default function HallPage() {
           </button>
         </div>
       )}
-      {status && <p className="mt-3 text-sm text-rose-600">{status}</p>}
-
-      <section className="mt-6 sticky top-20 z-20 rounded-3xl border border-white/10 bg-slate-950/90 p-4 shadow-[0_20px_50px_rgba(15,23,42,0.5)] backdrop-blur">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-100">Official Stories</h2>
-          <button
-            type="button"
-            className="text-xs font-semibold text-slate-300 hover:text-white"
-            onClick={() => router.push("/novels")}
-          >
-            View all stories
-          </button>
-        </div>
-        <div className="mt-4 overflow-x-auto">
-          <div className="flex gap-4 pb-2">
-            {(hall?.novels ?? []).slice(0, 3).map((novel) => {
-              const teaser = (novel.description ?? novel.title).split("\n")[0] ?? "";
-              return (
-                <div
-                  key={novel.id}
-                  className="min-w-[220px] max-w-[240px] rounded-2xl border border-amber-200/60 bg-amber-50/90 p-4 text-slate-900 shadow-[0_18px_40px_rgba(251,191,36,0.25)]"
-                >
-                  <button
-                    type="button"
-                    className="block w-full text-left"
-                    onClick={() => router.push(`/novels/${novel.id}`)}
-                  >
-                    <div className="overflow-hidden rounded-xl border border-amber-200/80 bg-slate-200">
-                      {novel.coverImageUrl ? (
-                        <img
-                          src={resolveMediaUrl(novel.coverImageUrl) ?? ""}
-                          alt={novel.title}
-                          className="w-full aspect-[3/4] object-cover"
-                        />
-                      ) : (
-                        <div className="flex aspect-[3/4] items-center justify-center text-xs text-slate-500">
-                          No cover
-                        </div>
-                      )}
-                    </div>
-                    <p className="mt-3 text-sm font-semibold line-clamp-1">
-                      {novel.title}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-600 line-clamp-1">
-                      {teaser}
-                    </p>
-                  </button>
-                  <button
-                    type="button"
-                    className="mt-3 w-full rounded-full bg-slate-900 px-3 py-2 text-xs font-semibold text-white"
-                    onClick={() => router.push(`/novels/${novel.id}`)}
-                  >
-                    Read story
-                  </button>
-                </div>
-              );
-            })}
-            {(!hall?.novels || hall.novels.length === 0) && (
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-xs text-slate-400">
-                No stories yet.
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
+      {status && <p className="mt-3 text-sm text-text-secondary">{status}</p>}
 
       <section className="mt-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-100">Community Feed</h2>
-            <p className="text-xs text-slate-400">
-              Join the discussion, share a thought, or meet someone new.
-            </p>
+            <h2 className="text-lg font-semibold text-text-primary">Hall Feed</h2>
+            <p className="text-xs text-text-muted">Stories and posts mingled together.</p>
+          </div>
+          <div className="flex items-center gap-2 rounded-full border border-border-default bg-card p-1 text-xs">
+            {hallTabs.map((tab) => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  className={`rounded-full px-4 py-2 font-semibold transition ${
+                    isActive
+                      ? "bg-brand-primary text-card"
+                      : "text-text-secondary hover:text-text-primary"
+                  }`}
+                  onClick={() => setActiveTab(tab.id)}
+                  aria-pressed={isActive}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
           </div>
         </div>
-        <div className="mt-4 columns-1 gap-4 sm:columns-2 lg:columns-3">
-        {postTraces.map((trace) => {
-          const isSelected = selectedTraceId === trace.id;
-          const isImageTrace = Boolean(trace.imageUrl);
-          const cardClasses = [
-            "block w-full break-inside-avoid mb-4 rounded-2xl border p-4 text-left transition duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60",
-            "bg-white/90 text-slate-900 border-slate-200/80 shadow-sm hover:border-slate-400",
-            isSelected
-              ? "ring-1 ring-slate-500/60 shadow-[0_25px_60px_rgba(15,23,42,0.7)]"
-              : ""
-          ]
-            .filter(Boolean)
-            .join(" ");
-          return (
-            <button
-              key={trace.id}
-              type="button"
-              className={cardClasses}
-              onClick={() => setSelectedTraceId(trace.id)}
-            >
-              <div className="flex items-center justify-between gap-3 text-[11px] uppercase tracking-[0.2em] text-slate-600">
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 overflow-hidden"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      if (trace.author?.id) {
-                        openProfileCard(trace.author.id);
-                      }
-                    }}
-                    aria-label="Open profile"
-                  >
-                    {trace.author?.maskAvatarUrl ? (
-                      <img
-                        src={trace.author.maskAvatarUrl}
-                        alt={renderTraceAuthor(trace.author)}
-                        className="h-8 w-8 rounded-full object-cover"
-                      />
-                    ) : (
-                      <span className="h-8 w-8 rounded-full bg-slate-200" />
-                    )}
-                  </button>
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-700">
-                    {renderTraceAuthor(trace.author)}
-                  </span>
-                </div>
-                <span className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
-                  {formatTraceTime(trace.createdAt)}
-                </span>
-              </div>
-              {isImageTrace && trace.imageUrl ? (
-                <>
-                  <div className="mt-4 overflow-hidden rounded-xl bg-slate-100">
-                    <img
-                      src={resolveMediaUrl(trace.imageUrl) ?? ""}
-                      alt={trace.content.slice(0, 40)}
-                      className="w-full object-contain"
-                      style={{
-                        aspectRatio:
-                          trace.imageWidth && trace.imageHeight
-                            ? `${trace.imageWidth} / ${trace.imageHeight}`
-                            : "4 / 5"
-                      }}
-                    />
-                  </div>
-                  <p
-                    className="mt-3 text-sm leading-relaxed text-slate-800"
-                    style={{
-                      display: "-webkit-box",
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: "vertical",
-                      overflow: "hidden"
-                    }}
-                  >
-                    {normalizeTraceContent(trace.content)}
-                  </p>
-                </>
-              ) : (
-                <p
-                  className="mt-4 text-base leading-relaxed text-slate-800"
-                  style={{
-                    display: "-webkit-box",
-                    WebkitLineClamp: 5,
-                    WebkitBoxOrient: "vertical",
-                    overflow: "hidden"
-                  }}
-                >
-                  {normalizeTraceContent(trace.content)}
-                </p>
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {feedColumns.map((column, columnIndex) => (
+            <div key={`feed-col-${columnIndex}`} className="flex flex-col gap-4">
+              {column.map((item) =>
+                item.kind === "novel"
+                  ? renderNovelCard(item.novel)
+                  : renderTraceCard(item.trace)
               )}
-              <div className="mt-4 flex items-center justify-between">
-                {/* Replies icon - Chat bubble with notification badge */}
-                <div className="flex items-center gap-2 group relative">
-                  <div className="relative">
-                    <svg
-                      className="w-6 h-6 transition-all duration-200 group-hover:scale-110"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      {/* Yellow rounded chat bubble */}
-                      <path
-                        d="M20 2H4C2.9 2 2 2.9 2 4V12C2 13.1 2.9 14 4 14H6L8 18L12 14H20C21.1 14 22 13.1 22 12V4C22 2.9 21.1 2 20 2Z"
-                        fill="#FCD34D"
-                        className="group-hover:fill-yellow-400 transition-colors"
-                      />
-                      {/* Chat bubble tail */}
-                      <path
-                        d="M6 14L4 18L6 16H8V14H6Z"
-                        fill="#FCD34D"
-                        className="group-hover:fill-yellow-400 transition-colors"
-                      />
-                      {/* Three dots (typing indicator) */}
-                      <circle cx="9" cy="7" r="1.2" fill="white" opacity="0.95" />
-                      <circle cx="12" cy="7" r="1.2" fill="white" opacity="0.95" />
-                      <circle cx="15" cy="7" r="1.2" fill="white" opacity="0.95" />
-                    </svg>
-                    {/* Red notification badge with number - animated */}
-                    {trace.replyCount > 0 && (
-                      <div className="absolute -top-1 -right-1">
-                        <svg
-                          className="w-5 h-5 animate-pulse"
-                          viewBox="0 0 20 20"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <circle cx="10" cy="10" r="9" fill="#EF4444" />
-                          <text
-                            x="10"
-                            y="13.5"
-                            textAnchor="middle"
-                            fill="white"
-                            fontSize="10"
-                            fontWeight="bold"
-                            fontFamily="system-ui, -apple-system, sans-serif"
-                          >
-                            {trace.replyCount > 9 ? "9+" : trace.replyCount}
-                          </text>
-                        </svg>
-                      </div>
-                    )}
-                  </div>
-                  {trace.replyCount > 0 && (
-                    <span className="text-xs text-slate-500 group-hover:text-slate-700 transition-colors font-medium">
-                      {trace.replyCount}
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 group relative">
-                  <button
-                    type="button"
-                    className="group relative flex h-7 w-7 items-center justify-center rounded-full border border-transparent transition hover:scale-110"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      toggleLike(trace.id);
-                    }}
-                    aria-label="Toggle like"
-                  >
-                    <svg
-                      className="h-5 w-5 transition-colors"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M12 20.5c-5.05-3.62-8.5-6.7-8.5-10.6 0-2.3 1.74-4.1 4.06-4.1 1.62 0 3.18.9 4.44 2.38 1.26-1.48 2.82-2.38 4.44-2.38 2.32 0 4.06 1.8 4.06 4.1 0 3.9-3.45 6.98-8.5 10.6z"
-                        fill={trace.likedByMe ? "#EF4444" : "none"}
-                        stroke={trace.likedByMe ? "#EF4444" : "#94a3b8"}
-                        strokeWidth="1.6"
-                      />
-                    </svg>
-                    {(trace.likeCount ?? 0) > 0 && (
-                      <div className="absolute -top-1 -right-1">
-                        <svg
-                          className="w-5 h-5"
-                          viewBox="0 0 20 20"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <circle cx="10" cy="10" r="9" fill="#EF4444" />
-                          <text
-                            x="10"
-                            y="13.5"
-                            textAnchor="middle"
-                            fill="white"
-                            fontSize="10"
-                            fontWeight="bold"
-                            fontFamily="system-ui, -apple-system, sans-serif"
-                          >
-                            {(trace.likeCount ?? 0) > 9 ? "9+" : trace.likeCount}
-                          </text>
-                        </svg>
-                      </div>
-                    )}
-                  </button>
-                  {(trace.likeCount ?? 0) > 0 && (
-                    <span className="text-xs text-slate-500 group-hover:text-slate-700 transition-colors font-medium">
-                      {trace.likeCount}
-                    </span>
-                  )}
-                </div>
-              </div>
-              {currentUserId &&
-                trace.author?.id &&
-                trace.author.role !== "OFFICIAL" &&
-                trace.author.id !== currentUserId && (
-                  <button
-                    type="button"
-                    className="mt-3 w-full rounded-full border border-slate-300 px-3 py-2 text-[10px] font-semibold text-slate-700"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      startConversation(trace.author!.id);
-                    }}
-                  >
-                    Start private
-                  </button>
-                )}
-            </button>
-          );
-        })}
-      </div>
-        {hall && postTraces.length === 0 && (
-          <p className="mt-4 text-sm text-slate-500">No traces in the Hall yet.</p>
+            </div>
+          ))}
+        </div>
+        {hall && feedItems.length === 0 && (
+          <p className="mt-4 text-sm text-text-muted">
+            {activeTab === "story"
+              ? "No stories in the Hall yet."
+              : activeTab === "post"
+                ? "No traces in the Hall yet."
+                : "The Hall is quiet for now."}
+          </p>
         )}
       </section>
 
       {traceDetail && (
         <div className="fixed inset-0 z-40 flex items-stretch" role="dialog" aria-modal="true">
           <div
-            className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm animate-trace-backdrop"
+            className="absolute inset-0 bg-text-primary/40 backdrop-blur-sm animate-trace-backdrop"
             onClick={() => setSelectedTraceId(null)}
           />
-          <div className="relative ml-auto flex h-full w-full max-w-[520px] flex-col overflow-hidden bg-white text-slate-900 shadow-[0_30px_60px_rgba(2,6,23,0.4)] animate-trace-drawer">
-            <header className="flex items-start justify-between border-b border-slate-200 px-6 py-4">
+          <div className="relative ml-auto flex h-full w-full max-w-[520px] flex-col overflow-hidden bg-card text-text-primary shadow-sm animate-trace-drawer">
+            <header className="flex items-start justify-between border-b border-border-default px-6 py-4">
               <div>
-                <h3 className="text-lg font-semibold text-slate-900">Trace details</h3>
-                <div className="mt-2 flex items-center gap-2 text-sm text-slate-600">
+                <h3 className="text-lg font-semibold text-text-primary">Trace details</h3>
+                <div className="mt-2 flex items-center gap-2 text-sm text-text-secondary">
                   <button
                     type="button"
-                    className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-200 overflow-hidden"
+                    className="flex h-6 w-6 items-center justify-center rounded-full bg-surface overflow-hidden"
                     onClick={() => {
                       if (traceDetail.trace.author?.id) {
                         openProfileCard(traceDetail.trace.author.id);
@@ -1161,7 +1265,7 @@ export default function HallPage() {
                         className="h-6 w-6 rounded-full object-cover"
                       />
                     ) : (
-                      <span className="h-6 w-6 rounded-full bg-slate-200" />
+                      <span className="h-6 w-6 rounded-full bg-surface" />
                     )}
                   </button>
                   <span>
@@ -1172,7 +1276,7 @@ export default function HallPage() {
               </div>
               <button
                 type="button"
-                className="text-xs text-slate-500"
+                className="text-xs text-text-muted"
                 onClick={() => setSelectedTraceId(null)}
               >
                 Close
@@ -1181,7 +1285,7 @@ export default function HallPage() {
 
             <div className="flex-1 overflow-y-auto px-6 py-5">
               {traceDetail.trace.imageUrl && (
-                <div className="overflow-hidden rounded-2xl bg-slate-100">
+                <div className="overflow-hidden rounded-2xl bg-surface">
                   <img
                     src={resolveMediaUrl(traceDetail.trace.imageUrl) ?? ""}
                     alt={traceDetail.trace.content.slice(0, 40)}
@@ -1195,13 +1299,13 @@ export default function HallPage() {
                   />
                 </div>
               )}
-              <p className="mt-4 text-sm text-slate-800 whitespace-pre-wrap">
+              <p className="mt-4 text-sm text-text-secondary whitespace-pre-wrap">
                 {normalizeTraceContent(traceDetail.trace.content)}
               </p>
               {traceDetail.trace.novelId && (
                 <button
                   type="button"
-                  className="mt-4 rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700"
+                  className="mt-4 rounded-full border border-border-default px-4 py-2 text-xs font-semibold text-text-secondary"
                   onClick={() => router.push(`/novels/${traceDetail.trace.novelId}`)}
                 >
                   Read full story
@@ -1212,24 +1316,24 @@ export default function HallPage() {
                 {traceDetail.replies.map((reply) => (
                   <div
                     key={reply.id}
-                    className="rounded-xl border border-slate-100 bg-slate-50 p-3"
+                    className="rounded-xl border border-border-default bg-surface p-3"
                   >
-                    <div className="flex items-center justify-between text-xs text-slate-500">
+                    <div className="flex items-center justify-between text-xs text-text-muted">
                       <span>{renderTraceAuthor(reply.author)}</span>
                       <span>{new Date(reply.createdAt).toLocaleString()}</span>
                     </div>
-                    <p className="mt-2 text-sm text-slate-700">{reply.content}</p>
+                    <p className="mt-2 text-sm text-text-secondary">{reply.content}</p>
                   </div>
                 ))}
                 {traceDetail.replies.length === 0 && (
-                  <p className="text-sm text-slate-500">No replies yet.</p>
+                  <p className="text-sm text-text-muted">No replies yet.</p>
                 )}
               </div>
 
               {traceDetail.nextCursor && (
                 <button
                   type="button"
-                  className="mt-4 rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700"
+                  className="mt-4 rounded-full border border-border-default px-4 py-2 text-xs font-semibold text-text-secondary"
                   onClick={loadMoreReplies}
                   disabled={loadingReplies}
                 >
@@ -1238,21 +1342,21 @@ export default function HallPage() {
               )}
             </div>
 
-            <div className="border-t border-slate-200 px-6 py-4">
-              <label className="text-xs font-semibold text-slate-600">Reply</label>
+            <div className="border-t border-border-default px-6 py-4">
+              <label className="text-xs font-semibold text-text-secondary">Reply</label>
               <textarea
-                className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400"
+                className="mt-2 w-full rounded-xl border border-border-default bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted"
                 rows={2}
                 maxLength={200}
                 placeholder="Write a reply (max 200)."
                 value={replyInput}
                 onChange={(event) => setReplyInput(event.target.value)}
               />
-              <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
+              <div className="mt-2 flex items-center justify-between text-xs text-text-muted">
                 <span>{replyInput.length}/200</span>
                 <button
                   type="button"
-                  className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white"
+                  className="rounded-full bg-brand-primary px-4 py-2 text-xs font-semibold text-card"
                   onClick={handlePostReply}
                   disabled={postingReply}
                 >
@@ -1270,14 +1374,14 @@ export default function HallPage() {
   const panelContent = (
     <div className="space-y-6">
       {!token || !isProfileComplete ? (
-        <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-slate-100">
+        <div className="ui-surface p-4 text-text-primary">
           <p className="text-sm font-semibold">Complete your profile</p>
-          <p className="mt-1 text-xs text-amber-100/80">
+          <p className="mt-1 text-xs text-text-secondary">
             Add a name, avatar, and tags so people can connect with you faster.
           </p>
           <button
             type="button"
-            className="mt-3 w-full rounded-full bg-amber-400 px-4 py-2 text-xs font-semibold text-slate-900"
+            className="mt-3 w-full rounded-full bg-brand-primary px-4 py-2 text-xs font-semibold text-card"
             onClick={() => {
               if (!token) {
                 router.push("/login");
@@ -1291,14 +1395,14 @@ export default function HallPage() {
         </div>
       ) : null}
       <div className="space-y-4">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-200">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-text-muted">
           Do something.
         </h3>
         <div className="space-y-4">
           <div className="space-y-3">
-            <label className="text-xs font-semibold text-slate-300">Add a trace</label>
+            <label className="text-xs font-semibold text-text-secondary">Add a trace</label>
             <textarea
-              className="mt-2 w-full rounded-xl border border-slate-700/60 bg-slate-950/50 px-3 py-2 text-sm text-white placeholder:text-slate-500"
+              className="mt-2 w-full rounded-xl border border-border-default bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted"
               rows={3}
               maxLength={1000}
               placeholder="Add a thought to the hall..."
@@ -1308,11 +1412,11 @@ export default function HallPage() {
             <div className="space-y-2">
               <button
                 type="button"
-                className="flex flex-col items-center gap-1 rounded-2xl border border-white/10 px-4 py-2 text-xs font-semibold text-white transition hover:border-slate-200"
+                className="flex flex-col items-center gap-1 rounded-2xl border border-border-default px-4 py-2 text-xs font-semibold text-text-primary transition hover:border-brand-primary/40"
                 onClick={() => fileInputRef.current?.click()}
               >
                 {selectedImageFile ? "Replace image" : "Attach image"}
-                <span className="text-[10px] text-slate-400">jpg/png/webp · max 5MB</span>
+                <span className="text-[10px] text-text-muted">jpg/png/webp · max 5MB</span>
               </button>
               <input
                 ref={fileInputRef}
@@ -1322,30 +1426,30 @@ export default function HallPage() {
                 onChange={handleImageSelect}
               />
               {selectedImageFile && imagePreview && (
-                <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-3">
-                  <div className="overflow-hidden rounded-2xl bg-slate-950 relative">
+                <div className="ui-surface p-3">
+                  <div className="overflow-hidden rounded-2xl bg-card relative">
                     <img
                       src={imagePreview?.startsWith("http") ? imagePreview : `${API_BASE}${imagePreview}`}
                       alt={selectedImageFile.name}
                       className="h-32 w-full object-cover"
                     />
                     {uploadingImage && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-slate-950/80">
-                        <p className="text-xs text-white">Uploading...</p>
+                      <div className="absolute inset-0 flex items-center justify-center bg-text-primary/30">
+                        <p className="text-xs text-text-primary">Uploading...</p>
                       </div>
                     )}
                     {uploadedImageData && !uploadingImage && (
-                      <div className="absolute top-2 right-2 rounded-full bg-green-500/90 px-2 py-1">
-                        <p className="text-[10px] text-white font-semibold">✓ Uploaded</p>
+                      <div className="absolute top-2 right-2 rounded-full bg-brand-secondary px-2 py-1">
+                        <p className="text-[10px] text-card font-semibold">✓ Uploaded</p>
                       </div>
                     )}
                   </div>
                   <div className="mt-3 flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-xs font-semibold text-white">
+                      <p className="text-xs font-semibold text-text-primary">
                         {selectedImageFile.name}
                       </p>
-                      <p className="text-[10px] text-slate-400">
+                      <p className="text-[10px] text-text-muted">
                         {formatBytes(selectedImageFile.size)}
                         {uploadedImageData && uploadedImageData.width && uploadedImageData.height && (
                           <span> · {uploadedImageData.width}×{uploadedImageData.height}</span>
@@ -1354,7 +1458,7 @@ export default function HallPage() {
                     </div>
                     <button
                       type="button"
-                      className="rounded-full border border-rose-400 px-2 py-1 text-[10px] text-rose-400"
+                      className="rounded-full border border-border-default px-2 py-1 text-[10px] text-text-secondary"
                       onClick={clearSelectedImage}
                       disabled={uploadingImage}
                     >
@@ -1363,13 +1467,13 @@ export default function HallPage() {
                   </div>
                 </div>
               )}
-              {imageError && <p className="text-xs text-rose-400">{imageError}</p>}
+              {imageError && <p className="text-xs text-text-secondary">{imageError}</p>}
             </div>
-            <div className="flex items-center justify-between text-xs text-slate-400">
+            <div className="flex items-center justify-between text-xs text-text-muted">
               <span>{traceInput.length}/1000</span>
               <button
                 type="button"
-                className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+                className="rounded-full bg-brand-primary px-4 py-2 text-xs font-semibold text-card transition hover:bg-brand-secondary"
                 onClick={handlePostTrace}
                 disabled={postingTrace || uploadingImage}
               >
@@ -1377,13 +1481,13 @@ export default function HallPage() {
               </button>
             </div>
           </div>
-          <div className="space-y-2 border-t border-white/10 pt-4 text-white">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-300">
+          <div className="space-y-2 border-t border-border-default pt-4 text-text-primary">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
               Start a Room
             </h4>
             <button
               type="button"
-              className="w-full rounded-full border border-slate-700/80 px-4 py-2 text-xs font-semibold text-white transition hover:border-slate-500"
+              className="w-full rounded-full border border-border-default px-4 py-2 text-xs font-semibold text-text-primary transition hover:border-brand-primary/40"
               onClick={() => router.push("/rooms")}
             >
               Start something
@@ -1392,11 +1496,11 @@ export default function HallPage() {
         </div>
       </div>
 
-      <div className="space-y-3 border-t border-white/10 pt-4">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-300">
+      <div className="space-y-3 border-t border-border-default pt-4">
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
           Quick Prompts
         </h4>
-        <ul className="space-y-2 text-sm text-slate-200">
+        <ul className="space-y-2 text-sm text-text-secondary">
           {QUICK_PROMPTS.map((prompt) => (
             <li key={prompt} className="text-xs leading-relaxed">
               {prompt}
@@ -1432,7 +1536,7 @@ export default function HallPage() {
         />
       )}
       {profileLoading && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center text-xs text-slate-200">
+        <div className="fixed inset-0 z-40 flex items-center justify-center text-xs text-text-secondary">
           Loading profile...
         </div>
       )}
