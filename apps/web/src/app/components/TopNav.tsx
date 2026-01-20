@@ -13,22 +13,6 @@ const NAV_ITEMS = [
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
-const DEFAULT_AVATAR =
-  "data:image/svg+xml;utf8," +
-  encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="0 0 72 72">
-      <defs>
-        <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#94a3b8"/>
-          <stop offset="100%" stop-color="#64748b"/>
-        </linearGradient>
-      </defs>
-      <rect width="72" height="72" rx="36" fill="url(#g)"/>
-      <circle cx="36" cy="30" r="12" fill="#0f172a"/>
-      <path d="M18 60c4-10 12-16 18-16s14 6 18 16" fill="#0f172a"/>
-    </svg>`
-  );
-
 export default function TopNav() {
   const pathname = usePathname() ?? "";
   const router = useRouter();
@@ -59,7 +43,7 @@ export default function TopNav() {
           (me.preference?.interests?.length ?? 0) > 0) &&
         (me.preference?.smPreference?.trim().length ?? 0) > 0)
   );
-  const sessionKey = me?.id ? `profile_onboarding_seen_session_${me.id}` : null;
+  const seenKey = me?.id ? `profile_onboarding_seen_${me.id}` : null;
 
   const hideNav =
     pathname.startsWith("/login") || pathname.startsWith("/register");
@@ -121,22 +105,28 @@ export default function TopNav() {
   }, [token, fetchUnreadTotal]);
 
   useEffect(() => {
-    if (!me || isProfileComplete) {
+    if (!me || isProfileComplete || typeof window === "undefined") {
       return;
     }
-    if (typeof window === "undefined") {
+    if (seenKey && localStorage.getItem(seenKey) === "1") {
       return;
-    }
-    if (sessionKey && sessionStorage.getItem(sessionKey) === "1") {
-      return;
-    }
-    if (sessionKey) {
-      sessionStorage.setItem(sessionKey, "1");
     }
     setShowOnboarding(true);
-  }, [me, isProfileComplete, sessionKey]);
+  }, [me, isProfileComplete, seenKey]);
+
+  useEffect(() => {
+    if (!me || !isProfileComplete || typeof window === "undefined") {
+      return;
+    }
+    if (seenKey) {
+      localStorage.setItem(seenKey, "1");
+    }
+  }, [me, isProfileComplete, seenKey]);
 
   const handleDismissOnboarding = () => {
+    if (typeof window !== "undefined" && seenKey) {
+      localStorage.setItem(seenKey, "1");
+    }
     setShowOnboarding(false);
   };
 
@@ -171,7 +161,7 @@ export default function TopNav() {
   }
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-white/10 bg-slate-900/90 backdrop-blur-lg">
+    <nav className="sticky top-0 z-50 border-b border-border-default bg-card/90 backdrop-blur-lg">
       <div className="mx-auto grid w-full max-w-7xl grid-cols-[1fr_auto_1fr] items-center px-6 py-3">
         <div />
         <div className="flex items-center justify-center gap-3">
@@ -186,14 +176,14 @@ export default function TopNav() {
                 href={item.href}
                 className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
                   isActive
-                    ? "bg-slate-100/10 text-white shadow-[0_0_25px_rgba(14,165,233,0.9)]"
-                    : "text-slate-300 hover:text-white"
+                    ? "bg-brand-primary/20 text-text-primary"
+                    : "text-text-secondary hover:text-text-primary"
                 }`}
               >
                 <span className="inline-flex items-center gap-2">
                   {item.label}
                   {showUnread && (
-                    <span className="rounded-full bg-sky-400/90 px-2 py-0.5 text-[10px] font-semibold text-slate-900">
+                    <span className="rounded-full bg-brand-primary px-2 py-0.5 text-[10px] font-semibold text-card">
                       {unreadTotal > 99 ? "99+" : unreadTotal}
                     </span>
                   )}
@@ -207,38 +197,44 @@ export default function TopNav() {
             <div className="relative" ref={menuRef}>
               <button
                 type="button"
-                className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-white/5 transition-transform duration-150 hover:scale-105 active:scale-95"
+                className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-border-default bg-surface transition-transform duration-150 hover:scale-105 active:scale-95"
                 onClick={() => setMenuOpen((prev) => !prev)}
                 aria-label="Open profile menu"
               >
-                <img
-                  src={me.maskAvatarUrl ?? DEFAULT_AVATAR}
-                  alt={me.maskName ?? "User avatar"}
-                  className="h-9 w-9 rounded-full object-cover"
-                />
+                {me.maskAvatarUrl ? (
+                  <img
+                    src={me.maskAvatarUrl}
+                    alt={me.maskName ?? "User avatar"}
+                    className="h-9 w-9 rounded-full object-cover"
+                  />
+                ) : (
+                  <span className="text-xs font-semibold text-text-secondary">
+                    {(me.maskName ?? "User").slice(0, 1).toUpperCase()}
+                  </span>
+                )}
               </button>
               {menuOpen && (
-                <div className="absolute right-0 mt-2 w-52 rounded-xl border border-white/10 bg-slate-800/95 p-3 text-xs text-slate-200 shadow-[0_20px_50px_rgba(2,6,23,0.7)] backdrop-blur">
-                  <p className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-400">
+                <div className="absolute right-0 mt-2 w-52 rounded-xl border border-border-default bg-surface p-3 text-xs text-text-secondary shadow-sm">
+                  <p className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-[0.3em] text-text-muted">
                     My profile
                   </p>
                   <button
                     type="button"
-                    className="block w-full rounded-lg px-3 py-2 text-left transition hover:bg-slate-700/50"
+                    className="block w-full rounded-lg px-3 py-2 text-left transition hover:bg-surface"
                     onClick={() => router.push("/me/posts")}
                   >
                     Posts management
                   </button>
                   <button
                     type="button"
-                    className="block w-full rounded-lg px-3 py-2 text-left transition hover:bg-slate-700/50"
+                    className="block w-full rounded-lg px-3 py-2 text-left transition hover:bg-surface"
                     onClick={() => router.push("/me")}
                   >
                     Personal profile
                   </button>
                   <button
                     type="button"
-                    className="block w-full rounded-lg px-3 py-2 text-left transition hover:bg-slate-700/50"
+                    className="block w-full rounded-lg px-3 py-2 text-left transition hover:bg-surface"
                     onClick={() => router.push("/me/account")}
                   >
                     Account settings

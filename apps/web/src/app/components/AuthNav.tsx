@@ -19,12 +19,12 @@ export default function AuthNav() {
   }
 
   return (
-    <nav className="sticky top-0 z-30 border-b border-slate-200 bg-white">
-      <div className="mx-auto flex w-full max-w-6xl items-center gap-3 p-4 text-sm">
+    <nav className="sticky top-0 z-30 border-b border-border-default bg-card/90 backdrop-blur">
+      <div className="mx-auto flex w-full max-w-6xl items-center gap-4 px-6 py-3 text-sm">
         {FF_WORLD_06 && (
           <Link
             href="/hall"
-            className="font-semibold text-slate-900"
+            className="font-semibold text-text-primary"
             title="Where everyone passes through."
           >
             Hall
@@ -32,7 +32,7 @@ export default function AuthNav() {
         )}
         <Link
           href="/rooms"
-          className="text-slate-600"
+          className="text-text-secondary hover:text-text-primary"
           title="Ongoing gatherings inside the castle."
         >
           Rooms
@@ -40,14 +40,14 @@ export default function AuthNav() {
         {FF_WORLD_06 && (
           <Link
             href="/private"
-            className="text-slate-600"
+            className="text-text-secondary hover:text-text-primary"
             title="Conversations that continued."
           >
             Private
           </Link>
         )}
         {FF_INTENT_12 ? (
-          <span className="text-xs text-slate-400">Intent</span>
+          <span className="text-xs text-text-muted">Intent</span>
         ) : null}
       </div>
     </nav>
