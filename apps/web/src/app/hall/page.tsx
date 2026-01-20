@@ -1142,14 +1142,14 @@ export default function HallPage() {
   const feedItems = useMemo<HallFeedItem[]>(() => {
     const novels = hall?.novels ?? [];
     if (activeTab === "story") {
-      return novels.map((novel) => ({ kind: "novel", novel }));
+      return novels.map((novel) => ({ kind: "novel" as const, novel }));
     }
     if (activeTab === "post") {
-      return postTraces.map((trace) => ({ kind: "trace", trace }));
+      return postTraces.map((trace) => ({ kind: "trace" as const, trace }));
     }
     return [
-      ...novels.map((novel) => ({ kind: "novel", novel })),
-      ...postTraces.map((trace) => ({ kind: "trace", trace }))
+      ...novels.map((novel) => ({ kind: "novel" as const, novel })),
+      ...postTraces.map((trace) => ({ kind: "trace" as const, trace }))
     ];
   }, [activeTab, hall, postTraces]);
 
