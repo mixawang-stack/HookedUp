@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 export const dynamic = "force-dynamic";
 
@@ -235,12 +235,12 @@ export default function RoomsPage() {
   const stageContent = (
     <>
       <div className="space-y-2">
-        <h1 className="text-2xl font-semibold text-white">Ongoing Gatherings</h1>
-        <p className="text-sm text-slate-300">
+        <h1 className="text-2xl font-semibold text-text-primary">Ongoing Gatherings</h1>
+        <p className="text-sm text-text-secondary">
           <span className="block">Each room carries its own tone.</span>
           <span className="block">Read the theme before stepping in.</span>
         </p>
-        {status && <p className="text-sm text-rose-400">{status}</p>}
+        {status && <p className="text-sm text-text-secondary">{status}</p>}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -250,13 +250,18 @@ export default function RoomsPage() {
               <Link
                 key={room.id}
                 href={`/rooms/${room.id}`}
-                className="group relative flex flex-col rounded-2xl border border-amber-200/70 bg-amber-50/90 p-4 shadow-[0_18px_40px_rgba(251,191,36,0.2)] transition hover:border-amber-300/80"
+                className="group ui-surface flex flex-col gap-3 p-4 transition hover:border-brand-primary/40"
               >
-                <span className="absolute left-3 top-3 rounded-full bg-amber-500 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-slate-900">
-                  Story room
-                </span>
-                <div className="mt-5 flex items-start gap-3">
-                  <div className="h-20 w-14 overflow-hidden rounded-lg border border-amber-200/80 bg-slate-200">
+                <div className="flex items-center justify-between">
+                  <span className="badge-premium text-[9px] uppercase tracking-[0.2em]">
+                    Story room
+                  </span>
+                  <span className="text-[10px] text-text-muted">
+                    {room.memberCount} discussing
+                  </span>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="h-20 w-14 overflow-hidden rounded-lg border border-border-default bg-card">
                     {room.novel.coverImageUrl ? (
                       <img
                         src={resolveMediaUrl(room.novel.coverImageUrl) ?? ""}
@@ -264,20 +269,17 @@ export default function RoomsPage() {
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-[9px] text-slate-500">
+                      <div className="flex h-full w-full items-center justify-center text-[9px] text-text-muted">
                         No cover
                       </div>
                     )}
                   </div>
                   <div className="flex-1">
-                    <h2 className="text-sm font-semibold text-amber-900 line-clamp-1">
+                    <h2 className="text-sm font-semibold text-text-primary line-clamp-1">
                       {room.novel.title}
                     </h2>
-                    <p className="mt-1 text-xs text-amber-800/80 line-clamp-2">
+                    <p className="mt-1 text-xs text-text-secondary line-clamp-2">
                       {room.description ?? "Join the official story discussion."}
-                    </p>
-                    <p className="mt-2 text-[10px] text-amber-700/70">
-                      {room.memberCount} discussing
                     </p>
                   </div>
                 </div>
@@ -289,61 +291,60 @@ export default function RoomsPage() {
             <Link
               key={room.id}
               href={`/rooms/${room.id}`}
-              className="group relative flex flex-col rounded-lg border border-amber-200/40 bg-gradient-to-br from-amber-50 via-amber-50/95 to-amber-100/80 p-5 shadow-[0_2px_8px_rgba(180,83,9,0.15),0_0_0_1px_rgba(251,191,36,0.1)] transition-all duration-200 hover:border-amber-300/60 hover:shadow-[0_4px_16px_rgba(180,83,9,0.25),0_0_0_1px_rgba(251,191,36,0.2)] hover:scale-[1.02]"
+              className="group ui-card flex flex-col gap-3 p-5 transition hover:border-brand-primary/40"
             >
-              <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-amber-100/20 via-transparent to-amber-50/30 opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
               <div className="relative z-10">
                 <div className="flex items-start justify-between gap-3">
-                  <h2 className="text-lg font-bold text-amber-900 leading-tight flex-1">
+                  <h2 className="text-lg font-bold text-text-primary leading-tight flex-1">
                     {room.title}
                   </h2>
                   {room.status === "LIVE" && (
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       <div className="relative">
-                        <div className="absolute inset-0 rounded-full bg-amber-400/40 blur-sm animate-pulse" />
-                        <div className="relative w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]" />
+                        <div className="absolute inset-0 rounded-full bg-brand-primary/40 blur-sm animate-pulse" />
+                        <div className="relative w-2 h-2 rounded-full bg-brand-primary" />
                       </div>
-                      <span className="rounded-full border border-amber-300/50 bg-amber-100/80 px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-amber-800 shadow-sm">
+                      <span className="rounded-full border border-border-default bg-surface px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-text-secondary shadow-sm">
                         LIVE
                       </span>
                     </div>
                   )}
                 </div>
-                <p className="mt-2 text-sm text-amber-800/90 leading-snug line-clamp-1">
+                <p className="mt-2 text-sm text-text-secondary leading-snug line-clamp-1">
                   {room.description ?? "-"}
                 </p>
-                <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-amber-700/80">
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-text-muted">
                   <span className="font-medium">
                     {room.memberCount}
                     {room.capacity ? `/${room.capacity}` : ""} guests
                   </span>
                   {room.capacity !== null && room.memberCount >= room.capacity ? (
-                    <span className="rounded-full border border-amber-300/60 bg-amber-50 px-2 py-0.5 text-[9px] font-medium text-amber-800">
+                    <span className="rounded-full border border-border-default bg-surface px-2 py-0.5 text-[9px] font-medium text-text-secondary">
                       Full
                     </span>
                   ) : room.status === "LIVE" ? (
-                    <span className="rounded-full border border-amber-300/60 bg-amber-50 px-2 py-0.5 text-[9px] font-medium text-amber-800">
+                    <span className="rounded-full border border-border-default bg-surface px-2 py-0.5 text-[9px] font-medium text-text-secondary">
                       Open
                     </span>
                   ) : (
-                    <span className="rounded-full border border-amber-300/60 bg-amber-50 px-2 py-0.5 text-[9px] font-medium text-amber-800">
+                    <span className="rounded-full border border-border-default bg-surface px-2 py-0.5 text-[9px] font-medium text-text-secondary">
                       Waiting
                     </span>
                   )}
                 </div>
                 <div className="mt-4 flex items-center gap-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
-                  <span className="rounded-full border border-amber-300/60 bg-amber-50 px-3 py-1.5 text-[10px] font-semibold text-amber-900 shadow-sm">
+                  <span className="rounded-full border border-border-default bg-surface px-3 py-1.5 text-[10px] font-semibold text-text-secondary shadow-sm">
                     Enter
                   </span>
                   {room.status === "LIVE" && (
-                    <span className="rounded-full border border-amber-300/40 bg-amber-50/60 px-3 py-1.5 text-[10px] font-medium text-amber-800/80">
+                    <span className="rounded-full border border-border-default bg-surface px-3 py-1.5 text-[10px] font-medium text-text-muted">
                       Peek
                     </span>
                   )}
                 </div>
                 {(room.status === "LIVE" && room.endsAt) ||
                 (room.startsAt && room.status !== "LIVE") ? (
-                  <p className="mt-2 text-[9px] text-amber-700/60">
+                  <p className="mt-2 text-[9px] text-text-muted">
                     {room.status === "LIVE" && room.endsAt
                       ? `Until ${new Date(room.endsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
                       : room.startsAt
@@ -358,13 +359,13 @@ export default function RoomsPage() {
       </div>
 
       {rooms.length === 0 && (
-        <p className="text-sm text-slate-500">No rooms yet.</p>
+        <p className="text-sm text-text-muted">No rooms yet.</p>
       )}
 
       {cursor && (
         <button
           type="button"
-          className="rounded-full border border-white/30 px-4 py-2 text-xs font-semibold text-white transition hover:border-white"
+          className="btn-secondary px-4 py-2 text-xs"
           onClick={() => loadRooms(cursor)}
           disabled={loading}
         >
@@ -373,71 +374,71 @@ export default function RoomsPage() {
       )}
 
       {showCreate && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/80 p-6">
-          <section className="w-full max-w-xl rounded-2xl border border-white/10 bg-slate-900/80 p-6 shadow-[0_35px_45px_rgba(15,23,42,0.8)] backdrop-blur">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-text-primary/40 p-6">
+          <section className="ui-surface w-full max-w-xl p-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white">Create Room</h2>
+              <h2 className="text-lg font-semibold text-text-primary">Create Room</h2>
               <button
                 type="button"
-                className="text-xs text-slate-300"
+                className="text-xs text-text-muted"
                 onClick={() => setShowCreate(false)}
               >
                 Close
               </button>
             </div>
-            <p className="mt-2 text-sm text-slate-300">
+            <p className="mt-2 text-sm text-text-secondary">
               Got a topic people should not talk about? Open a room and let us
               talk about it.
             </p>
             <div className="mt-4 grid gap-4">
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-300">
+                <label className="text-xs font-semibold text-text-secondary">
                   Room title
                 </label>
                 <input
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-sm text-white"
+                  className="mt-1 w-full rounded-xl border border-border-default bg-card px-3 py-2 text-sm text-text-primary"
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-300">
+                <label className="text-xs font-semibold text-text-secondary">
                   Room description
                 </label>
                 <textarea
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-sm text-white"
+                  className="mt-1 w-full rounded-xl border border-border-default bg-card px-3 py-2 text-sm text-text-primary"
                   rows={3}
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-300">
+                <label className="text-xs font-semibold text-text-secondary">
                   Capacity (min 3)
                 </label>
                 <input
                   type="number"
                   min={3}
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-sm text-white"
+                  className="mt-1 w-full rounded-xl border border-border-default bg-card px-3 py-2 text-sm text-text-primary"
                   value={capacity}
                   onChange={(event) => setCapacity(event.target.value)}
                 />
               </div>
             </div>
             {formStatus && (
-              <p className="mt-3 text-sm text-rose-400">{formStatus}</p>
+              <p className="mt-3 text-sm text-text-secondary">{formStatus}</p>
             )}
             <div className="mt-4 flex items-center justify-end gap-2">
               <button
                 type="button"
-                className="rounded-full border border-white/20 px-4 py-2 text-xs font-semibold text-white"
+                className="btn-secondary px-4 py-2 text-xs"
                 onClick={() => setShowCreate(false)}
               >
                 Cancel
               </button>
               <button
                 type="button"
-                className="rounded-full bg-amber-500 px-4 py-2 text-xs font-semibold text-slate-900"
+                className="btn-primary px-4 py-2 text-xs"
                 onClick={handleCreateRoom}
                 disabled={creating}
               >
@@ -453,14 +454,14 @@ export default function RoomsPage() {
   const panelContent = (
     <div className="space-y-6">
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-200">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-text-muted">
           Filters
         </h3>
         <div className="space-y-3">
           <select
             value={filterStatus}
             onChange={(event) => setFilterStatus(event.target.value)}
-            className="w-full rounded-full border border-white/20 bg-slate-950/60 px-4 py-2 text-xs text-slate-200"
+            className="w-full rounded-full border border-border-default bg-card px-4 py-2 text-xs text-text-secondary"
           >
             <option value="all">All statuses</option>
             <option value="live">Live</option>
@@ -468,13 +469,13 @@ export default function RoomsPage() {
             <option value="ended">Ended</option>
           </select>
           <input
-            className="w-full rounded-full border border-white/20 bg-slate-950/60 px-4 py-2 text-xs text-slate-200"
+            className="w-full rounded-full border border-border-default bg-card px-4 py-2 text-xs text-text-secondary"
             placeholder="Search title or description"
             value={filterQuery}
             onChange={(event) => setFilterQuery(event.target.value)}
           />
           <input
-            className="w-full rounded-full border border-white/20 bg-slate-950/60 px-4 py-2 text-xs text-slate-200"
+            className="w-full rounded-full border border-border-default bg-card px-4 py-2 text-xs text-text-secondary"
             placeholder="Tags (comma-separated)"
             value={filterTags}
             onChange={(event) => setFilterTags(event.target.value)}
@@ -483,7 +484,7 @@ export default function RoomsPage() {
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+            className="btn-primary px-4 py-2 text-xs"
             onClick={handleApplyFilters}
             disabled={loading}
           >
@@ -491,7 +492,7 @@ export default function RoomsPage() {
           </button>
           <button
             type="button"
-            className="rounded-full border border-white/20 px-4 py-2 text-xs font-semibold text-slate-200"
+            className="btn-secondary px-4 py-2 text-xs"
             onClick={handleClearFilters}
             disabled={loading}
           >
@@ -500,40 +501,39 @@ export default function RoomsPage() {
         </div>
       </div>
       {novels.length > 0 && (
-        <div className="border-t border-white/10 pt-4">
-          <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+        <div className="border-t border-border-default pt-4">
+          <p className="text-xs uppercase tracking-[0.3em] text-text-muted">
             Featured novels
           </p>
           <div className="mt-3 space-y-3">
             {novels.map((novel) => (
               <div
                 key={novel.id}
-                className="rounded-2xl border border-white/10 bg-slate-950/60 p-3 text-xs text-slate-200"
+                className="ui-card p-3 text-xs text-text-secondary"
               >
                 <p className="font-semibold">{novel.title}</p>
                 {novel.description && (
-                  <p className="mt-1 text-[11px] text-slate-400 line-clamp-2">
+                  <p className="mt-1 text-[11px] text-text-muted line-clamp-2">
                     {novel.description}
                   </p>
                 )}
                 <Link
                   href="/hall"
-                  className="mt-2 inline-flex text-[11px] font-semibold text-sky-200"
+                  className="mt-2 inline-flex text-[11px] font-semibold text-brand-primary"
                 >
-                  View in Hall →
-                </Link>
+                  View in Hall 鈫?                </Link>
               </div>
             ))}
           </div>
         </div>
       )}
-      <div className="border-t border-white/10 pt-4">
-        <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+      <div className="border-t border-border-default pt-4">
+        <p className="text-xs uppercase tracking-[0.3em] text-text-muted">
           Actions
         </p>
         <button
           type="button"
-          className="mt-3 w-full rounded-full bg-amber-500 px-4 py-2 text-xs font-semibold text-slate-900"
+          className="btn-primary mt-3 w-full px-4 py-2 text-xs"
           onClick={() => setShowCreate(true)}
         >
           Create Room
@@ -544,3 +544,5 @@ export default function RoomsPage() {
 
   return <PageShell stage={stageContent} panel={panelContent} />;
 }
+
+
