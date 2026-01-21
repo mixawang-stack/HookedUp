@@ -1,4 +1,4 @@
-"use client";
+ï»¿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -305,7 +305,7 @@ export default function PrivateConversationPage() {
         </div>
         {isMuted && (
           <p className="ui-surface px-3 py-2 text-xs text-brand-secondary">
-            This conversation is muted. New messages won¡¯t notify.
+            This conversation is muted. New messages wonâ€™t notify.
           </p>
         )}
         {FF_INTENT_12 && (
@@ -459,7 +459,7 @@ export default function PrivateConversationPage() {
         <textarea
           className="mt-2 w-full rounded-2xl border border-border-default bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/30"
           rows={3}
-          placeholder="Say something when it feels right¡­"
+          placeholder="Say something when it feels rightâ€¦"
           value={input}
           onChange={(event) => setInput(event.target.value)}
           onKeyDown={(event) => {
@@ -505,4 +505,5 @@ export default function PrivateConversationPage() {
 
   return <PageShell stage={stageContent} panel={panelContent} />;
 }
+
 

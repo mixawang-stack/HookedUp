@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -124,14 +124,14 @@ export default function AccountSettingsPage() {
           </p>
           <div className="mt-3 space-y-2 text-sm text-text-secondary">
             <p>
-              <span className="text-text-muted">Email:</span> {email ?? "�?}
+              <span className="text-text-muted">Email:</span> {email ?? "鈥?}
             </p>
             <p>
               <span className="text-text-muted">Birthday:</span>{" "}
-              {dob ? new Date(dob).toLocaleDateString() : "�?}
+              {dob ? new Date(dob).toLocaleDateString() : "鈥?}
             </p>
             <p>
-              <span className="text-text-muted">Password:</span> •••••••�?            </p>
+              <span className="text-text-muted">Password:</span> 鈥⑩€⑩€⑩€⑩€⑩€⑩€⑩€?            </p>
           </div>
           <button
             type="button"
@@ -205,4 +205,5 @@ export default function AccountSettingsPage() {
     </div>
   );
 }
+
 
