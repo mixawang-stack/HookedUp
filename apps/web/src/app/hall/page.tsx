@@ -734,7 +734,7 @@ export default function HallPage() {
 
   const normalizeTraceContent = (value: string) => {
     if (!value) return value;
-    const sanitized = value.replace(/鐐瑰嚮鐪嬪叏鏂?g, "Read full story");
+    const sanitized = value.replace(/\u70b9\u51fb\u770b\u5168\u6587/g, "Read full story");
     const lines = sanitized.split("\n").map((line) => line.trim());
     const filtered = lines.filter((line) => line.length > 0);
     if (filtered.length === 0) return sanitized;
