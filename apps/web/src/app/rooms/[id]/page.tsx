@@ -671,6 +671,11 @@ export default function RoomPage() {
     ? Number(rawMessageCount)
     : null;
   const messageLabel = messageCount === null ? "-" : String(messageCount);
+  const isLive =
+    (room as { status?: string }).status === "LIVE" ||
+    (room as { isLive?: boolean }).isLive === true ||
+    (room as { live?: boolean }).live === true ||
+    (room as { is_live?: boolean }).is_live === true;
   const guidelines = room.description
     ? [room.description]
     : ["Be respectful", "Stay on topic", "No spam"];
@@ -695,7 +700,7 @@ export default function RoomPage() {
                   </div>
                 </div>
               </div>
-              {room.status === "LIVE" && (
+              {isLive && (
                 <span className="ui-badge ui-badge-live">
                   <span className="mr-1 inline-flex h-1.5 w-1.5 rounded-full bg-brand-primary" />
                   Live
