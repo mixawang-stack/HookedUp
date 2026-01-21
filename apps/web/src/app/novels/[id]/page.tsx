@@ -136,76 +136,43 @@ export default function NovelDetailPage() {
     : "";
 
   return (
-    <main className="relative mx-auto w-full max-w-4xl px-4 py-10 text-slate-100">
+    <main className="ui-page relative mx-auto w-full max-w-4xl px-4 py-10 text-text-primary">
       <button
         type="button"
-        className="text-xs text-slate-400 hover:text-white"
+        className="btn-secondary px-3 py-1 text-xs"
         onClick={() => router.push("/hall")}
       >
-        ← Back
+        Back
       </button>
-      {status && <p className="mt-4 text-sm text-rose-400">{status}</p>}
+      {status && <p className="mt-4 text-sm text-text-secondary">{status}</p>}
       {novel && (
-        <>
-          <aside className="hidden lg:flex fixed left-6 top-1/3 z-30 flex-col gap-3">
-            <button
-              type="button"
-              className={`h-10 w-10 rounded-full border border-white/10 text-xs font-semibold ${
-                novel.myReaction === "LIKE"
-                  ? "bg-emerald-400 text-slate-900"
-                  : "bg-slate-900/80 text-white"
-              }`}
-              onClick={() => handleReaction("LIKE")}
-              disabled={reactionLoading}
-            >
-              Like
-            </button>
-            <button
-              type="button"
-              className={`h-10 w-10 rounded-full border border-white/10 text-xs font-semibold ${
-                novel.myReaction === "DISLIKE"
-                  ? "bg-rose-400 text-slate-900"
-                  : "bg-slate-900/80 text-white"
-              }`}
-              onClick={() => handleReaction("DISLIKE")}
-              disabled={reactionLoading}
-            >
-              Dislike
-            </button>
-            <button
-              type="button"
-              className="h-10 w-10 rounded-full border border-white/10 bg-slate-900/80 text-xs font-semibold text-white"
-              onClick={handleShare}
-            >
-              Share
-            </button>
-          </aside>
-          <div className="mt-6 space-y-6">
+        <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_220px]">
+          <div className="space-y-6">
             <header className="space-y-2">
               <h1 className="text-3xl font-semibold">{novel.title}</h1>
               {novel.description && (
-                <p className="text-base text-slate-300">{novel.description}</p>
+                <p className="text-base text-text-secondary">
+                  {novel.description}
+                </p>
               )}
             </header>
             <div className="mx-auto w-full max-w-2xl space-y-6">
               {readingText ? (
-                <div className="text-base leading-8 text-slate-100 whitespace-pre-wrap">
+                <div className="text-base leading-8 text-text-primary whitespace-pre-wrap">
                   {readingText}
                 </div>
               ) : (
-                <p className="text-sm text-slate-400">
-                  No story content yet.
-                </p>
+                <p className="text-sm text-text-muted">No story content yet.</p>
               )}
             </div>
-            <div className="mx-auto w-full max-w-2xl rounded-2xl border border-white/10 bg-white/5 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-300">
+            <div className="mx-auto w-full max-w-2xl ui-surface p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-text-secondary">
                 <span>{novel.viewCount ?? 0} reads</span>
                 <span>{novel.room?._count?.memberships ?? 0} discussing</span>
               </div>
               <button
                 type="button"
-                className="mt-4 w-full rounded-full bg-white px-4 py-2 text-xs font-semibold text-slate-900"
+                className="btn-primary mt-4 w-full px-4 py-2 text-xs"
                 onClick={() =>
                   novel.room?.id
                     ? router.push(`/rooms/${novel.room.id}`)
@@ -216,7 +183,41 @@ export default function NovelDetailPage() {
               </button>
             </div>
           </div>
-        </>
+
+          <aside className="hidden lg:flex flex-col gap-3 lg:sticky lg:top-24">
+            <button
+              type="button"
+              className={`w-full rounded-full border border-border-default px-3 py-2 text-xs font-semibold transition ${
+                novel.myReaction === "LIKE"
+                  ? "bg-brand-primary text-card"
+                  : "bg-card text-text-secondary"
+              }`}
+              onClick={() => handleReaction("LIKE")}
+              disabled={reactionLoading}
+            >
+              Like
+            </button>
+            <button
+              type="button"
+              className={`w-full rounded-full border border-border-default px-3 py-2 text-xs font-semibold transition ${
+                novel.myReaction === "DISLIKE"
+                  ? "bg-brand-secondary text-card"
+                  : "bg-card text-text-secondary"
+              }`}
+              onClick={() => handleReaction("DISLIKE")}
+              disabled={reactionLoading}
+            >
+              Dislike
+            </button>
+            <button
+              type="button"
+              className="btn-secondary px-3 py-2 text-xs"
+              onClick={handleShare}
+            >
+              Share
+            </button>
+          </aside>
+        </div>
       )}
     </main>
   );

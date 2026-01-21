@@ -1,11 +1,11 @@
-﻿"use client";
+"use client";
 
 export default function RoomRules() {
   return (
-    <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+    <div className="rounded-2xl border border-dashed border-border-default bg-surface p-4 text-sm text-text-secondary">
       <p>This room welcomes open discussion.</p>
       <p>Participation is voluntary.</p>
-      <p>Respect boundaries — yours and others’.</p>
+      <p>Respect boundaries - yours and others'.</p>
     </div>
   );
 }

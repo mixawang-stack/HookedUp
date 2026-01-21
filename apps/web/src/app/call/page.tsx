@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { io, Socket } from "socket.io-client";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -285,10 +285,10 @@ export default function CallPage() {
     : null;
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl gap-6 p-6">
-      <section className="w-full max-w-xs rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h1 className="text-lg font-semibold text-slate-900">Calls</h1>
-        <p className="mt-1 text-xs text-slate-500">
+    <main className="ui-page mx-auto grid min-h-screen w-full max-w-6xl gap-6 px-4 py-8 lg:grid-cols-[260px_1fr]">
+      <section className="ui-card p-4">
+        <h1 className="text-lg font-semibold text-text-primary">Calls</h1>
+        <p className="mt-1 text-xs text-text-secondary">
           Select a private thread to start a call.
         </p>
         <div className="mt-4 space-y-2">
@@ -298,10 +298,10 @@ export default function CallPage() {
               <button
                 key={match.id}
                 type="button"
-                className={`w-full rounded-lg border px-3 py-2 text-left text-sm ${
+                className={`w-full rounded-2xl border px-3 py-2 text-left text-sm font-semibold transition ${
                   activeMatch?.id === match.id
-                    ? "border-slate-900 bg-slate-900 text-white"
-                    : "border-slate-200 text-slate-700"
+                    ? "border-brand-primary bg-brand-primary text-card"
+                    : "border-border-default bg-card text-text-secondary hover:border-brand-primary/40 hover:text-text-primary"
                 }`}
                 onClick={() => handleSelect(match)}
               >
@@ -310,71 +310,67 @@ export default function CallPage() {
             );
           })}
           {matches.length === 0 && (
-            <p className="text-xs text-slate-500">No threads yet.</p>
+            <p className="text-xs text-text-secondary">No threads yet.</p>
           )}
         </div>
       </section>
 
-      <section className="flex w-full flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+      <section className="ui-card flex flex-col p-4">
+        <div className="flex items-center justify-between border-b border-border-default pb-3">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">
+            <h2 className="text-lg font-semibold text-text-primary">
               {activeMatch ? "Call" : "Select a thread"}
             </h2>
             {activeOther && (
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-text-secondary">
                 Calling: {activeOther.maskName ?? "Anonymous"}
               </p>
             )}
-            {status && <p className="text-xs text-slate-500">{status}</p>}
+            {status && <p className="text-xs text-text-secondary">{status}</p>}
           </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white"
+              className="btn-primary"
               onClick={startCall}
               disabled={!activeMatch}
             >
               Start call
             </button>
-            <button
-              type="button"
-              className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700"
-              onClick={endCall}
-            >
+            <button type="button" className="btn-secondary" onClick={endCall}>
               End
             </button>
           </div>
         </div>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-            <p className="text-xs text-slate-500">You</p>
+          <div className="ui-surface p-3">
+            <p className="text-xs text-text-secondary">You</p>
             <video
               ref={localVideoRef}
               autoPlay
               muted
               playsInline
-              className="mt-2 aspect-video w-full rounded-lg bg-black"
+              className="mt-2 aspect-video w-full rounded-xl border border-border-default bg-card"
             />
           </div>
-          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-            <p className="text-xs text-slate-500">Thread</p>
+          <div className="ui-surface p-3">
+            <p className="text-xs text-text-secondary">Thread</p>
             <video
               ref={remoteVideoRef}
               autoPlay
               playsInline
-              className="mt-2 aspect-video w-full rounded-lg bg-black"
+              className="mt-2 aspect-video w-full rounded-xl border border-border-default bg-card"
             />
           </div>
         </div>
 
         {activeMatch && (
-          <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50 p-4">
-            <p className="text-sm font-semibold text-slate-800">
+          <div className="ui-surface mt-4 p-4">
+            <p className="text-sm font-semibold text-text-primary">
               Call agreement
             </p>
-            <label className="mt-3 flex items-start gap-2 text-sm text-slate-700">
+            <label className="mt-3 flex items-start gap-2 text-sm text-text-secondary">
               <input
                 type="checkbox"
                 className="mt-1"
@@ -385,13 +381,13 @@ export default function CallPage() {
             </label>
             <button
               type="button"
-              className="mt-3 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+              className="btn-primary mt-3"
               onClick={confirmConsent}
             >
               Confirm
             </button>
             {consent && (
-              <p className="mt-2 text-xs text-slate-500">
+              <p className="mt-2 text-xs text-text-secondary">
                 Agreement status: {consent.status}
               </p>
             )}

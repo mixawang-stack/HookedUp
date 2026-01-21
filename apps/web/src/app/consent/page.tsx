@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 export const dynamic = "force-dynamic";
 
 import { useEffect, useMemo, useState } from "react";
@@ -175,10 +175,10 @@ export default function ConsentPage() {
   };
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-5xl gap-6 p-6">
-      <section className="w-full max-w-xs rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h1 className="text-lg font-semibold text-slate-900">Agreements</h1>
-        <p className="mt-1 text-xs text-slate-500">
+    <main className="ui-page mx-auto grid min-h-screen w-full max-w-5xl gap-6 px-4 py-8 lg:grid-cols-[260px_1fr]">
+      <section className="ui-card p-4">
+        <h1 className="text-lg font-semibold text-text-primary">Agreements</h1>
+        <p className="mt-1 text-xs text-text-secondary">
           Select a private thread to record an agreement.
         </p>
         <div className="mt-4 space-y-2">
@@ -188,10 +188,10 @@ export default function ConsentPage() {
               <button
                 key={match.id}
                 type="button"
-                className={`w-full rounded-lg border px-3 py-2 text-left text-sm ${
+                className={`w-full rounded-2xl border px-3 py-2 text-left text-sm font-semibold transition ${
                   activeMatch?.id === match.id
-                    ? "border-slate-900 bg-slate-900 text-white"
-                    : "border-slate-200 text-slate-700"
+                    ? "border-brand-primary bg-brand-primary text-card"
+                    : "border-border-default bg-card text-text-secondary hover:border-brand-primary/40 hover:text-text-primary"
                 }`}
                 onClick={() => handleSelect(match)}
               >
@@ -200,23 +200,23 @@ export default function ConsentPage() {
             );
           })}
           {matches.length === 0 && (
-            <p className="text-xs text-slate-500">No threads yet.</p>
+            <p className="text-xs text-text-secondary">No threads yet.</p>
           )}
         </div>
       </section>
 
-      <section className="flex w-full flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+      <section className="ui-card flex flex-col p-4">
+        <div className="flex items-center justify-between border-b border-border-default pb-3">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">
+            <h2 className="text-lg font-semibold text-text-primary">
               {activeMatch ? "Agreement" : "Select a thread"}
             </h2>
-            {status && <p className="text-xs text-slate-500">{status}</p>}
+            {status && <p className="text-xs text-text-secondary">{status}</p>}
           </div>
           {activeMatch && (
             <button
               type="button"
-              className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700"
+              className="btn-secondary"
               onClick={loadConsent.bind(null, activeMatch.id)}
             >
               Refresh
@@ -227,15 +227,15 @@ export default function ConsentPage() {
         {activeMatch ? (
           <div className="mt-4 space-y-3">
             {consent ? (
-              <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                <p className="text-sm font-semibold text-slate-800">
+              <div className="ui-surface p-4">
+                <p className="text-sm font-semibold text-text-primary">
                   Agreement status: {getConsentStatus()}
                 </p>
-                <p className="mt-2 text-xs text-slate-500">
+                <p className="mt-2 text-xs text-text-secondary">
                   Both parties confirm before proceeding further.
                 </p>
                 {consent?.hash && (
-                  <p className="mt-3 text-xs text-slate-500">
+                  <p className="mt-3 text-xs text-text-secondary">
                     Hash: {consent.hash}
                   </p>
                 )}
@@ -243,7 +243,7 @@ export default function ConsentPage() {
                   {canConfirm() && (
                     <button
                       type="button"
-                      className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white"
+                      className="btn-primary"
                       onClick={confirmConsent}
                     >
                       Confirm
@@ -252,13 +252,13 @@ export default function ConsentPage() {
                 </div>
               </div>
             ) : (
-              <div className="rounded-xl border border-dashed border-slate-200 p-4">
-                <p className="text-sm text-slate-600">
+              <div className="rounded-2xl border border-dashed border-border-default bg-surface p-4">
+                <p className="text-sm text-text-secondary">
                   Start a new agreement for this thread.
                 </p>
                 <button
                   type="button"
-                  className="mt-3 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white"
+                  className="btn-primary mt-3"
                   onClick={initConsent}
                 >
                   Start agreement
@@ -267,7 +267,7 @@ export default function ConsentPage() {
             )}
           </div>
         ) : (
-          <p className="mt-4 text-sm text-slate-500">
+          <p className="mt-4 text-sm text-text-secondary">
             Select a thread to continue.
           </p>
         )}

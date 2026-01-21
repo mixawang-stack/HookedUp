@@ -61,20 +61,20 @@ export default function PublicProfilePage() {
   ].filter(Boolean);
   const locationLine = [profile?.city, profile?.country]
     .filter((item) => item && item.trim().length > 0)
-    .join(" ¬∑ ");
+    .join(" °§ ");
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-10 text-slate-100">
+    <main className="ui-page mx-auto w-full max-w-3xl px-4 py-10 text-text-primary">
       <button
         type="button"
-        className="text-xs text-slate-400 hover:text-white"
+        className="btn-secondary px-3 py-1 text-xs"
         onClick={() => router.back()}
       >
-        ‚Üê Back
+        Back
       </button>
-      {status && <p className="mt-4 text-sm text-rose-300">{status}</p>}
+      {status && <p className="mt-4 text-sm text-brand-secondary">{status}</p>}
       {profile && (
-        <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-6">
+        <div className="mt-6 ui-card p-6">
           <div className="flex items-center gap-4">
             {profile.maskAvatarUrl ? (
               <img
@@ -83,32 +83,32 @@ export default function PublicProfilePage() {
                 className="h-16 w-16 rounded-full object-cover"
               />
             ) : (
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/10 text-lg font-semibold">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-surface text-lg font-semibold text-text-secondary">
                 {(profile.maskName ?? "A").slice(0, 1).toUpperCase()}
               </div>
             )}
             <div>
-              <p className="text-lg font-semibold text-white">
+              <p className="text-lg font-semibold text-text-primary">
                 {profile.maskName ?? "Anonymous"}
               </p>
               {locationLine && (
-                <p className="text-xs text-slate-400">{locationLine}</p>
+                <p className="text-xs text-text-muted">{locationLine}</p>
               )}
             </div>
           </div>
           {profile.bio && (
-            <p className="mt-4 text-sm text-slate-200">{profile.bio}</p>
+            <p className="mt-4 text-sm text-text-secondary">{profile.bio}</p>
           )}
           {tags.length > 0 && (
             <div className="mt-4">
-              <p className="text-[10px] uppercase tracking-wide text-slate-400">
+              <p className="text-[10px] uppercase tracking-wide text-text-muted">
                 Tags
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {tags.map((tag) => (
                   <span
                     key={tag}
-                    className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-slate-200"
+                    className="rounded-full border border-border-default px-2 py-0.5 text-[10px] text-text-secondary"
                   >
                     {tag}
                   </span>
@@ -119,7 +119,7 @@ export default function PublicProfilePage() {
         </div>
       )}
       {!token && (
-        <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-slate-300">
+        <div className="mt-6 ui-surface p-6 text-sm text-text-secondary">
           Sign in to view full profiles.
         </div>
       )}

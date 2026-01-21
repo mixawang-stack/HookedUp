@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -9,7 +9,8 @@ const API_BASE =
 export default function ShareLinkPage() {
   const params = useParams();
   const router = useRouter();
-  const tokenParam = typeof params.token === "string" ? params.token : params.token?.[0];
+  const tokenParam =
+    typeof params.token === "string" ? params.token : params.token?.[0];
 
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [status, setStatus] = useState("Resolving share link...");
@@ -74,8 +75,8 @@ export default function ShareLinkPage() {
   }, [accessToken, authHeader, router, tokenParam]);
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-6">
-      <p className="text-sm text-slate-600">{status}</p>
+    <main className="ui-page flex min-h-screen items-center justify-center px-4 py-8">
+      <p className="text-sm text-text-secondary">{status}</p>
     </main>
   );
 }

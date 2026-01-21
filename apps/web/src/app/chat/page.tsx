@@ -226,10 +226,10 @@ function ChatPageContent() {
     : null;
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-5xl gap-6 p-6">
-      <section className="w-full max-w-xs rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h1 className="text-lg font-semibold text-slate-900">Private</h1>
-        <p className="mt-1 text-xs text-slate-500">
+    <main className="ui-page mx-auto grid min-h-screen w-full max-w-6xl gap-6 px-4 py-8 lg:grid-cols-[260px_1fr]">
+      <section className="ui-card p-4">
+        <h1 className="text-lg font-semibold text-text-primary">Private</h1>
+        <p className="mt-1 text-xs text-text-secondary">
           Choose a private thread to start talking.
         </p>
         <div className="mt-4 space-y-2">
@@ -239,10 +239,10 @@ function ChatPageContent() {
               <button
                 key={match.id}
                 type="button"
-                className={`w-full rounded-lg border px-3 py-2 text-left text-sm ${
+                className={`w-full rounded-2xl border px-3 py-2 text-left text-sm font-semibold transition ${
                   activeMatch?.id === match.id
-                    ? "border-slate-900 bg-slate-900 text-white"
-                    : "border-slate-200 text-slate-700"
+                    ? "border-brand-primary bg-brand-primary text-card"
+                    : "border-border-default bg-card text-text-secondary hover:border-brand-primary/40 hover:text-text-primary"
                 }`}
                 onClick={() => joinMatch(match)}
               >
@@ -251,12 +251,9 @@ function ChatPageContent() {
             );
           })}
           {matches.length === 0 && (
-            <div className="rounded-lg border border-dashed border-slate-200 p-3 text-xs text-slate-500">
+            <div className="rounded-2xl border border-dashed border-border-default bg-surface p-3 text-xs text-text-secondary">
               <p>No traces to start a private conversation yet.</p>
-              <Link
-                href="/hall"
-                className="mt-2 inline-flex rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white"
-              >
+              <Link href="/hall" className="btn-primary mt-2">
                 Hall
               </Link>
             </div>
@@ -264,28 +261,24 @@ function ChatPageContent() {
         </div>
       </section>
 
-      <section className="flex w-full flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+      <section className="ui-card flex flex-col p-4">
+        <div className="flex items-center justify-between border-b border-border-default pb-3">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">
+            <h2 className="text-lg font-semibold text-text-primary">
               {activeMatch ? "Conversation" : "Select a thread"}
             </h2>
-            {status && <p className="text-xs text-slate-500">{status}</p>}
+            {status && <p className="text-xs text-text-secondary">{status}</p>}
           </div>
           <div className="flex items-center gap-2">
             {cursor && (
-              <button
-                type="button"
-                className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700"
-                onClick={loadMore}
-              >
+              <button type="button" className="btn-secondary" onClick={loadMore}>
                 Load history
               </button>
             )}
             {activeOther && (
               <button
                 type="button"
-                className="rounded-full border border-rose-300 px-3 py-1 text-xs font-semibold text-rose-600"
+                className="btn-secondary text-brand-secondary"
                 onClick={() => report("user", activeOther.id)}
               >
                 Report user
@@ -296,7 +289,7 @@ function ChatPageContent() {
 
         <div className="flex-1 space-y-3 overflow-y-auto py-4">
           {messages.length === 0 && (
-            <p className="text-sm text-slate-500">No messages yet.</p>
+            <p className="text-sm text-text-secondary">No messages yet.</p>
           )}
           {messages.map((msg) => (
             <div
@@ -308,8 +301,8 @@ function ChatPageContent() {
               <div
                 className={`max-w-xs rounded-2xl px-3 py-2 text-sm ${
                   msg.senderId === userId
-                    ? "bg-slate-900 text-white"
-                    : "bg-slate-100 text-slate-800"
+                    ? "bg-brand-primary text-card"
+                    : "bg-surface text-text-primary"
                 }`}
               >
                 {msg.ciphertext}
@@ -317,7 +310,7 @@ function ChatPageContent() {
               {msg.senderId !== userId && (
                 <button
                   type="button"
-                  className="text-xs text-rose-500"
+                  className="text-xs text-brand-secondary"
                   onClick={() => report("message", msg.id)}
                 >
                   Report
@@ -327,9 +320,9 @@ function ChatPageContent() {
           ))}
         </div>
 
-        <div className="mt-auto flex gap-2 border-t border-slate-100 pt-3">
+        <div className="mt-auto flex gap-2 border-t border-border-default pt-3">
           <input
-            className="flex-1 rounded-full border border-slate-200 px-3 py-2 text-sm"
+            className="flex-1 rounded-full border border-border-default bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
             placeholder="Type a message"
             value={input}
             onChange={(event) => setInput(event.target.value)}
@@ -343,7 +336,7 @@ function ChatPageContent() {
           />
           <button
             type="button"
-            className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+            className="btn-primary text-sm"
             onClick={sendMessage}
             disabled={!activeMatch}
           >

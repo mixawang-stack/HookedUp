@@ -51,32 +51,29 @@ export default function StoriesPage() {
   }, []);
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-10 text-slate-100">
+    <main className="ui-page mx-auto w-full max-w-6xl px-4 py-10 text-text-primary">
       <button
         type="button"
-        className="text-xs text-slate-400 hover:text-white"
+        className="btn-secondary px-3 py-1 text-xs"
         onClick={() => router.push("/hall")}
       >
-        ← Back
+        Back
       </button>
       <div className="mt-4 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Stories</h1>
       </div>
-      {status && <p className="mt-3 text-sm text-rose-400">{status}</p>}
+      {status && <p className="mt-3 text-sm text-brand-secondary">{status}</p>}
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {novels.map((novel) => {
           const teaser = (novel.description ?? novel.title).split("\n")[0] ?? "";
           return (
-            <div
-              key={novel.id}
-              className="rounded-2xl border border-amber-200/60 bg-amber-50/90 p-4 text-slate-900 shadow-[0_18px_40px_rgba(251,191,36,0.2)]"
-            >
+            <div key={novel.id} className="ui-card p-4 text-text-primary">
               <button
                 type="button"
                 className="block w-full text-left"
                 onClick={() => router.push(`/novels/${novel.id}`)}
               >
-                <div className="overflow-hidden rounded-xl border border-amber-200/80 bg-slate-200">
+                <div className="overflow-hidden rounded-xl border border-border-default bg-card">
                   {novel.coverImageUrl ? (
                     <img
                       src={resolveMediaUrl(novel.coverImageUrl) ?? ""}
@@ -84,7 +81,7 @@ export default function StoriesPage() {
                       className="w-full aspect-[3/4] object-cover"
                     />
                   ) : (
-                    <div className="flex aspect-[3/4] items-center justify-center text-xs text-slate-500">
+                    <div className="flex aspect-[3/4] items-center justify-center text-xs text-text-muted">
                       No cover
                     </div>
                   )}
@@ -92,13 +89,13 @@ export default function StoriesPage() {
                 <p className="mt-3 text-sm font-semibold line-clamp-1">
                   {novel.title}
                 </p>
-                <p className="mt-1 text-xs text-slate-600 line-clamp-1">
+                <p className="mt-1 text-xs text-text-secondary line-clamp-1">
                   {teaser}
                 </p>
               </button>
               <button
                 type="button"
-                className="mt-3 w-full rounded-full bg-slate-900 px-3 py-2 text-xs font-semibold text-white"
+                className="btn-primary mt-3 w-full px-3 py-2 text-xs"
                 onClick={() => router.push(`/novels/${novel.id}`)}
               >
                 Read story
@@ -107,7 +104,7 @@ export default function StoriesPage() {
           );
         })}
         {novels.length === 0 && (
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-xs text-slate-400">
+          <div className="ui-surface p-6 text-xs text-text-muted">
             No stories yet.
           </div>
         )}

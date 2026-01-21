@@ -20,7 +20,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="min-h-screen antialiased bg-slate-950 text-slate-100" suppressHydrationWarning>
+      <body className="min-h-screen antialiased" suppressHydrationWarning>
         <Suspense fallback={null}>
           <AuthGate />
         </Suspense>

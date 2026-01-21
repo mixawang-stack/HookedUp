@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -154,38 +154,34 @@ export default function ActiveRoomPanel() {
   }
 
   return (
-    <aside className="fixed bottom-6 right-6 z-50 w-72 rounded-2xl border border-slate-200 bg-white p-4 shadow-lg">
+    <aside className="fixed bottom-6 right-6 z-50 w-72 ui-card p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
             In room
           </p>
-          <p className="mt-1 text-sm font-semibold text-slate-900">
+          <p className="mt-1 text-sm font-semibold text-text-primary">
             {room.title}
           </p>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-text-secondary">
             Members: {room.memberCount}
           </p>
         </div>
       </div>
       <div className="mt-3 flex items-center gap-2">
-        <button
-          type="button"
-          className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700"
-          onClick={handleOpen}
-        >
+        <button type="button" className="btn-secondary" onClick={handleOpen}>
           Open
         </button>
         <button
           type="button"
-          className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700"
+          className="btn-secondary"
           onClick={handleLeave}
           aria-label="Close room overlay"
         >
           Close
         </button>
       </div>
-      {status && <p className="mt-2 text-xs text-rose-600">{status}</p>}
+      {status && <p className="mt-2 text-xs text-brand-secondary">{status}</p>}
     </aside>
   );
 }

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -123,8 +123,8 @@ export default function MatchPage() {
     }
 
     const res = await fetch(`${API_BASE}/match/list?${params}`, {
-      headers: { ...authHeader } }
-    );
+      headers: { ...authHeader }
+    });
 
     if (!res.ok) {
       setMessage("Failed to load traces.");
@@ -189,28 +189,25 @@ export default function MatchPage() {
     : null;
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-6 p-6">
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h1 className="text-2xl font-semibold text-slate-900">Grand Hall</h1>
-        <p className="mt-2 text-sm text-slate-500">
+    <main className="ui-page mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-6 px-4 py-8">
+      <section className="ui-card p-6">
+        <h1 className="text-2xl font-semibold text-text-primary">Grand Hall</h1>
+        <p className="mt-2 text-sm text-text-secondary">
           Walk the hall, leave a trace, and see who echoes back.
         </p>
-        {message && <p className="mt-2 text-sm text-slate-500">{message}</p>}
+        {message && <p className="mt-2 text-sm text-text-secondary">{message}</p>}
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-800">Hall Guests</h2>
+      <section className="ui-card p-6">
+        <h2 className="text-lg font-semibold text-text-primary">Hall Guests</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           {recommendations.length === 0 && (
-            <p className="text-sm text-slate-500">The hall is quiet for now.</p>
+            <p className="text-sm text-text-secondary">The hall is quiet for now.</p>
           )}
           {recommendations.map((rec) => (
-            <div
-              key={rec.id}
-              className="rounded-xl border border-slate-100 p-4"
-            >
+            <div key={rec.id} className="ui-surface flex flex-col gap-4 p-4">
               <div className="flex items-center gap-3">
-                <div className="h-12 w-12 overflow-hidden rounded-full bg-slate-200">
+                <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-border-default bg-card">
                   {rec.maskAvatarUrl ? (
                     <img
                       src={rec.maskAvatarUrl}
@@ -220,23 +217,23 @@ export default function MatchPage() {
                   ) : null}
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-slate-800">
+                  <p className="text-sm font-semibold text-text-primary">
                     {rec.maskName ?? "Anonymous"}
                   </p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-text-secondary">
                     {rec.preference?.gender ?? ""} {rec.country ?? ""}
                   </p>
                 </div>
               </div>
-              <div className="mt-4 flex gap-2">
+              <div className="flex gap-2">
                 <button
-                  className="rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white"
+                  className="btn-primary"
                   onClick={() => swipe(rec.id, "LIKE")}
                 >
                   Leave a trace
                 </button>
                 <button
-                  className="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700"
+                  className="btn-secondary"
                   onClick={() => swipe(rec.id, "PASS")}
                 >
                   Move on
@@ -248,7 +245,7 @@ export default function MatchPage() {
         {recCursor && (
           <button
             type="button"
-            className="mt-4 rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700"
+            className="btn-secondary mt-4"
             onClick={() => loadRecommendations(recCursor)}
           >
             Load more
@@ -256,11 +253,11 @@ export default function MatchPage() {
         )}
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-800">Your traces</h2>
+      <section className="ui-card p-6">
+        <h2 className="text-lg font-semibold text-text-primary">Your traces</h2>
         <div className="mt-4 space-y-3">
           {matches.length === 0 && (
-            <p className="text-sm text-slate-500">No traces yet.</p>
+            <p className="text-sm text-text-secondary">No traces yet.</p>
           )}
           {matches.map((match) => {
             const other =
@@ -268,13 +265,13 @@ export default function MatchPage() {
             return (
               <div
                 key={match.id}
-                className="flex items-center justify-between rounded-xl border border-slate-100 p-4"
+                className="ui-surface flex items-center justify-between p-4"
               >
                 <div>
-                  <p className="text-sm font-semibold text-slate-800">
+                  <p className="text-sm font-semibold text-text-primary">
                     {other.maskName ?? "Anonymous"}
                   </p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-text-secondary">
                     Trace at {new Date(match.matchedAt).toLocaleString()}
                   </p>
                 </div>
@@ -285,7 +282,7 @@ export default function MatchPage() {
         {matchCursor && (
           <button
             type="button"
-            className="mt-4 rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700"
+            className="btn-secondary mt-4"
             onClick={() => loadMatches(matchCursor)}
           >
             Load more
@@ -294,24 +291,24 @@ export default function MatchPage() {
       </section>
 
       {matchPrompt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-6">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-slate-900">Hall echo</h3>
-            <p className="mt-2 text-sm text-slate-600">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-text-primary/20 p-6 backdrop-blur-sm">
+          <div className="ui-card w-full max-w-sm p-6">
+            <h3 className="text-lg font-semibold text-text-primary">Hall echo</h3>
+            <p className="mt-2 text-sm text-text-secondary">
               You and {promptOther?.maskName ?? "a guest"} noticed each other.
               Start a private thread?
             </p>
             <div className="mt-6 flex gap-3">
               <button
                 type="button"
-                className="flex-1 rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700"
+                className="btn-secondary flex-1"
                 onClick={handleContinueHall}
               >
                 Keep wandering
               </button>
               <button
                 type="button"
-                className="flex-1 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+                className="btn-primary flex-1"
                 onClick={handleStartChat}
               >
                 Start private

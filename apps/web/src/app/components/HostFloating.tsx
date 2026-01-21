@@ -37,7 +37,7 @@ const menuItems = [
 
 const PAGE_PROMPTS: Record<HostPageType, string[]> = {
   hall: [
-    "The hall feels wide — maybe drop a trace?",
+    "The hall feels wide - maybe drop a trace?",
     "I hear footsteps echoing somewhere in the hall.",
     "A question in the hall might wake a new face."
   ],
@@ -65,12 +65,12 @@ const PAGE_PROMPTS: Record<HostPageType, string[]> = {
 
 const COLD_PROMPTS: Partial<Record<HostPageType, string[]>> = {
   hall: [
-    "No traces yet — maybe add a thought for others.",
+    "No traces yet - maybe add a thought for others.",
     "The hall is empty right now. Drop a surprise anyway?"
   ],
   private: [
     "Nothing private yet; the next hello could change that.",
-    "It is calm here — perhaps start a new thread?"
+    "It is calm here - perhaps start a new thread?"
   ],
   room: [
     "No messages inside yet. You could be first.",
@@ -102,11 +102,7 @@ const isTypingElement = (target: EventTarget | null) => {
     return false;
   }
   const tag = target.tagName.toLowerCase();
-  return (
-    tag === "input" ||
-    tag === "textarea" ||
-    target.isContentEditable
-  );
+  return tag === "input" || tag === "textarea" || target.isContentEditable;
 };
 
 export default function HostFloating() {
@@ -140,18 +136,21 @@ export default function HostFloating() {
     }
   }, []);
 
-  const showBubble = useCallback((text: string) => {
-    if (!text) {
-      return;
-    }
-    setBubble(text);
-    clearBubbleTimer();
-    const duration = 4000 + Math.random() * 2000;
-    bubbleTimerRef.current = setTimeout(() => {
-      setBubble(null);
-      bubbleTimerRef.current = null;
-    }, duration);
-  }, [clearBubbleTimer]);
+  const showBubble = useCallback(
+    (text: string) => {
+      if (!text) {
+        return;
+      }
+      setBubble(text);
+      clearBubbleTimer();
+      const duration = 4000 + Math.random() * 2000;
+      bubbleTimerRef.current = setTimeout(() => {
+        setBubble(null);
+        bubbleTimerRef.current = null;
+      }, duration);
+    },
+    [clearBubbleTimer]
+  );
 
   useEffect(() => {
     return () => {
@@ -351,14 +350,14 @@ export default function HostFloating() {
     >
       {bubble && (
         <div
-          className="pointer-events-none max-w-xs rounded-2xl border border-white/20 bg-slate-900/90 px-3 py-2 text-xs text-white shadow-lg backdrop-blur"
+          className="pointer-events-none ui-card max-w-xs px-3 py-2 text-xs text-text-secondary"
           aria-live="polite"
         >
           {bubble}
         </div>
       )}
       <div
-        className="flex cursor-grab items-center justify-center rounded-full border border-white/30 bg-white/5 p-2 shadow-[0_0_25px_rgba(244,114,182,0.35)] transition hover:bg-white/10"
+        className="flex cursor-grab items-center justify-center rounded-full border border-border-default bg-card p-2 shadow-lg transition hover:bg-surface"
         onPointerDown={onPointerDown}
         onClick={handleMenuToggle}
         title="Host"
@@ -374,12 +373,12 @@ export default function HostFloating() {
         />
       </div>
       {menuOpen && (
-        <div className="rounded-xl border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-white shadow-lg backdrop-blur">
+        <div className="ui-card px-3 py-2 text-sm text-text-secondary">
           {menuItems.map((item) => (
             <button
               key={item.label}
               type="button"
-              className="block w-full px-2 py-1 text-left text-xs hover:text-sky-300"
+              className="block w-full px-2 py-1 text-left text-xs text-text-secondary hover:text-text-primary"
               onClick={() => {
                 item.action();
                 handleMenuSelect();
