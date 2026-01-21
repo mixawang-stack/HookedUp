@@ -1,4 +1,4 @@
-ï»¿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -288,15 +288,15 @@ export default function PrivateConversationPage() {
       <div className="space-y-4">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-white">Private</h1>
-            <p className="text-xs text-slate-300">
+            <h1 className="text-2xl font-semibold text-text-primary">Private</h1>
+            <p className="text-xs text-text-secondary">
               <span className="block">This conversation is yours.</span>
               <span className="block">Take it at your own pace.</span>
             </p>
           </div>
           <button
             type="button"
-            className="self-start rounded-full border border-slate-500 px-3 py-1 text-xs font-semibold text-white"
+            className="btn-secondary px-3 py-1 text-xs"
             onClick={() => loadMessages(null)}
             disabled={loading}
           >
@@ -304,22 +304,22 @@ export default function PrivateConversationPage() {
           </button>
         </div>
         {isMuted && (
-          <p className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-100">
-            This conversation is muted. New messages wonâ€™t notify.
+          <p className="ui-surface px-3 py-2 text-xs text-brand-secondary">
+            This conversation is muted. New messages won¡¯t notify.
           </p>
         )}
         {FF_INTENT_12 && (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <div className="ui-surface p-3 text-sm text-text-secondary">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <p className="font-semibold">Take this offline</p>
-                <p className="mt-1 text-xs text-amber-700">
+                <p className="mt-1 text-xs text-text-muted">
                   Safety Pack shows only after both confirm. No auto-push.
                 </p>
               </div>
               <button
                 type="button"
-                className="rounded-full border border-amber-300 bg-white px-4 py-1 text-xs font-semibold text-amber-900"
+                className="btn-secondary px-4 py-1 text-xs"
                 onClick={() => setShowIntentPanel(true)}
                 disabled={intentLoading}
               >
@@ -327,12 +327,12 @@ export default function PrivateConversationPage() {
               </button>
             </div>
             {showIntentPanel && (
-              <div className="mt-3 rounded-2xl border border-amber-200 bg-white p-3 text-xs text-amber-800">
+              <div className="mt-3 ui-card p-3 text-xs text-text-secondary">
                 <p>Confirming sends a request. The other person must confirm.</p>
                 <div className="mt-3 flex gap-2">
                   <button
                     type="button"
-                    className="rounded-full border border-amber-200 px-3 py-1"
+                    className="btn-secondary px-3 py-1 text-xs"
                     onClick={() => setShowIntentPanel(false)}
                     disabled={intentLoading}
                   >
@@ -340,7 +340,7 @@ export default function PrivateConversationPage() {
                   </button>
                   <button
                     type="button"
-                    className="rounded-full bg-amber-600 px-3 py-1 font-semibold text-white"
+                    className="btn-primary px-3 py-1 text-xs"
                     onClick={requestIntent}
                     disabled={intentLoading}
                   >
@@ -350,7 +350,7 @@ export default function PrivateConversationPage() {
               </div>
             )}
             {intentData && (
-              <div className="mt-3 rounded-2xl border border-amber-200 bg-white p-3 text-xs text-amber-800">
+              <div className="mt-3 ui-card p-3 text-xs text-text-secondary">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p>
                     Status:
@@ -360,7 +360,7 @@ export default function PrivateConversationPage() {
                   </p>
                   <button
                     type="button"
-                    className="rounded-full border border-amber-200 px-3 py-1"
+                    className="btn-secondary px-3 py-1 text-xs"
                     onClick={requestIntent}
                     disabled={intentLoading}
                   >
@@ -371,7 +371,7 @@ export default function PrivateConversationPage() {
                   intentData.intent.responderId === intentData.intent.viewerId && (
                     <button
                       type="button"
-                      className="mt-2 rounded-full bg-amber-600 px-3 py-1 font-semibold text-white"
+                      className="mt-2 btn-primary px-3 py-1 text-xs"
                       onClick={confirmIntent}
                       disabled={intentLoading}
                     >
@@ -380,9 +380,9 @@ export default function PrivateConversationPage() {
                   )}
                 {intentData.intent.status === "CONFIRMED" &&
                   intentData.safetyPack && (
-                    <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                    <div className="mt-3 ui-surface p-3 text-xs text-text-secondary">
                       <p className="font-semibold">Safety Pack</p>
-                      <p className="mt-1 text-xs text-amber-700">
+                      <p className="mt-1 text-xs text-text-muted">
                         Country: {intentData.safetyPack.country}
                       </p>
                       <div className="mt-2">
@@ -407,18 +407,18 @@ export default function PrivateConversationPage() {
               </div>
             )}
             {intentError && (
-              <p className="mt-2 text-xs text-rose-600">{intentError}</p>
+              <p className="mt-2 text-xs text-brand-secondary">{intentError}</p>
             )}
           </div>
         )}
-        {status && <p className="text-sm text-rose-400">{status}</p>}
+        {status && <p className="text-sm text-brand-secondary">{status}</p>}
       </div>
       <div className="space-y-4">
         {cursor && (
           <div className="flex justify-end">
             <button
               type="button"
-              className="rounded-full border border-slate-500/70 px-3 py-1 text-xs font-semibold text-white"
+              className="btn-secondary px-3 py-1 text-xs"
               onClick={() => loadMessages(cursor)}
               disabled={loading}
             >
@@ -427,7 +427,7 @@ export default function PrivateConversationPage() {
           </div>
         )}
         {sortedMessages.length === 0 ? (
-          <p className="text-sm text-slate-400">No messages yet.</p>
+          <p className="text-sm text-text-muted">No messages yet.</p>
         ) : (
           <div className="flex flex-col gap-3">
             {sortedMessages.map((msg, index) => {
@@ -452,14 +452,14 @@ export default function PrivateConversationPage() {
 
   const panelContent = (
     <div className="space-y-5">
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200 shadow-sm backdrop-blur">
-        <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+      <div className="ui-card p-4 text-sm text-text-secondary">
+        <label className="text-xs font-semibold uppercase tracking-wide text-text-muted">
           Say something
         </label>
         <textarea
-          className="mt-2 w-full rounded-2xl border border-slate-600/80 bg-slate-950/30 px-3 py-2 text-sm text-white placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500"
+          className="mt-2 w-full rounded-2xl border border-border-default bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/30"
           rows={3}
-          placeholder="Say something when it feels rightâ€¦"
+          placeholder="Say something when it feels right¡­"
           value={input}
           onChange={(event) => setInput(event.target.value)}
           onKeyDown={(event) => {
@@ -469,11 +469,11 @@ export default function PrivateConversationPage() {
             }
           }}
         />
-        <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
+        <div className="mt-3 flex items-center justify-between text-xs text-text-muted">
           <span>{input.length} chars</span>
           <button
             type="button"
-            className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
+            className="btn-primary px-4 py-2 text-xs"
             onClick={sendMessage}
             disabled={sending}
           >
@@ -481,20 +481,20 @@ export default function PrivateConversationPage() {
           </button>
         </div>
       </div>
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200 shadow-sm backdrop-blur">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+      <div className="ui-card p-4 text-sm text-text-secondary">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
           Controls
         </h3>
         <div className="mt-3 space-y-2">
           <button
             type="button"
-            className="w-full rounded-full border border-slate-500/70 px-3 py-2 text-xs font-semibold text-white"
+            className="btn-secondary w-full px-3 py-2 text-xs"
           >
             Pause conversation
           </button>
           <button
             type="button"
-            className="w-full rounded-full border border-slate-500/70 px-3 py-2 text-xs font-semibold text-white"
+            className="btn-secondary w-full px-3 py-2 text-xs"
           >
             Mute conversation
           </button>
@@ -505,3 +505,4 @@ export default function PrivateConversationPage() {
 
   return <PageShell stage={stageContent} panel={panelContent} />;
 }
+
