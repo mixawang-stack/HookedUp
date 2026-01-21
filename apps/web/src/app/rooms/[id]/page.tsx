@@ -864,4 +864,5 @@ export default function RoomPage() {
         </div>
       )}
     </>
-  );\n}
+  );
+}
