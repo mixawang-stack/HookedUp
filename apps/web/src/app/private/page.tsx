@@ -363,28 +363,26 @@ function PrivateConversationDrawer({
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
-    const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(
-        null
-    );
+  const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(null);
   const [me, setMe] = useState<SenderProfile | null>(null);
   const [isMuted, setIsMuted] = useState(false);
-    const otherUserId = conversation.otherUser?.id ?? null;
-    const isRequestOnly = conversation.otherUser?.allowStrangerPrivate === false;
+  const otherUserId = conversation.otherUser?.id ?? null;
+  const isRequestOnly = conversation.otherUser?.allowStrangerPrivate === false;
 
-    const otherReplied = useMemo(() => {
-        if (!otherUserId) return false;
-        return messages.some((message) => message.senderId === otherUserId);
-    }, [messages, otherUserId]);
+  const otherReplied = useMemo(() => {
+    if (!otherUserId) return false;
+    return messages.some((message) => message.senderId === otherUserId);
+  }, [messages, otherUserId]);
 
-    const hasSentRequest = useMemo(() => {
-        if (!me?.id) return false;
-        return messages.some((message) => message.senderId === me.id);
-    }, [messages, me?.id]);
+  const hasSentRequest = useMemo(() => {
+    if (!me?.id) return false;
+    return messages.some((message) => message.senderId === me.id);
+  }, [messages, me?.id]);
 
-    const requestPending = isRequestOnly && hasSentRequest && !otherReplied;
+  const requestPending = isRequestOnly && hasSentRequest && !otherReplied;
 
   const authHeader = useMemo(() => {
-        if (!token) return null;
+    if (!token) return null;
     return { Authorization: `Bearer ${token}` };
   }, [token]);
 
@@ -407,11 +405,11 @@ function PrivateConversationDrawer({
         const res = await fetch(`${API_BASE}/me`, {
           headers: { ...authHeader }
         });
-                if (!res.ok) throw new Error("Failed to load profile");
+        if (!res.ok) throw new Error("Failed to load profile");
         const data = await res.json();
-                if (isMounted) setMe(data);
+        if (isMounted) setMe(data);
       } catch {
-                if (isMounted) setMe(null);
+        if (isMounted) setMe(null);
       }
     })();
 
@@ -421,12 +419,12 @@ function PrivateConversationDrawer({
   }, [authHeader]);
 
   const loadMessages = async (nextCursor?: string | null) => {
-        if (!authHeader) return;
+    if (!authHeader) return;
 
     setLoading(true);
     try {
       const params = new URLSearchParams();
-            if (nextCursor) params.set("cursor", nextCursor);
+      if (nextCursor) params.set("cursor", nextCursor);
 
       const res = await fetch(
         `${API_BASE}/private/conversations/${conversation.id}/messages?${params}`,
@@ -443,28 +441,26 @@ function PrivateConversationDrawer({
           redirectToLogin("Session expired. Please sign in again.");
           return;
         }
-                if (String(errorMessage).includes("PRIVATE_REPLY_REQUIRED")) {
-                    throw new Error(
-                        isRequestOnly
-                            ? "This user only accepts a single request until they reply."
-                            : "You can send up to 3 messages until they reply."
-                    );
-                }
-                if (String(errorMessage).includes("USER_BLOCKED")) {
-                    throw new Error("You can't message this user.");
-                }
+        if (String(errorMessage).includes("PRIVATE_REPLY_REQUIRED")) {
+          throw new Error(
+            isRequestOnly
+              ? "This user only accepts a single request until they reply."
+              : "You can send up to 3 messages until they reply."
+          );
+        }
+        if (String(errorMessage).includes("USER_BLOCKED")) {
+          throw new Error("You can't message this user.");
+        }
         throw new Error(errorMessage);
       }
 
       const data = (await res.json()) as MessagesResponse;
-            const incoming = data.items.slice().reverse();
+      const incoming = data.items.slice().reverse();
 
-      setMessages((prev) =>
-                nextCursor ? [...incoming, ...prev] : incoming
-      );
+      setMessages((prev) => (nextCursor ? [...incoming, ...prev] : incoming));
       setCursor(data.nextCursor);
       setIsMuted(Boolean(data.isMuted));
-            setStatus(null);
+      setStatus(null);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to load.";
       setStatus(message);
@@ -473,9 +469,9 @@ function PrivateConversationDrawer({
     }
   };
 
-    const sortedMessages = useMemo(() => {
-        return [...messages].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-    }, [messages]);
+  const sortedMessages = useMemo(() => {
+    return [...messages].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }, [messages]);
 
   useEffect(() => {
     emitHostStatus({ page: "private", cold: sortedMessages.length === 0 });
@@ -483,16 +479,16 @@ function PrivateConversationDrawer({
 
   useEffect(() => {
     loadMessages(null);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authHeader, conversation.id]);
 
-    const sendMessage = async (overrideContent?: string) => {
+  const sendMessage = async (overrideContent?: string) => {
     if (!authHeader) {
       setStatus("Please sign in to send messages.");
       return;
     }
-        const content = (overrideContent ?? input).trim();
-        if (!content) return;
+    const content = (overrideContent ?? input).trim();
+    if (!content) return;
 
     setSending(true);
     setStatus(null);
@@ -506,7 +502,7 @@ function PrivateConversationDrawer({
             "Content-Type": "application/json",
             ...authHeader
           },
-                    body: JSON.stringify({ content })
+          body: JSON.stringify({ content })
         }
       );
 
@@ -525,54 +521,52 @@ function PrivateConversationDrawer({
 
       const message = (await res.json()) as MessageItem;
       setMessages((prev) => [...prev, message]);
-            if (!overrideContent || content === input.trim()) {
-      setInput("");
-            }
-            setLastFailedMessage(null);
+      if (!overrideContent || content === input.trim()) {
+        setInput("");
+      }
+      setLastFailedMessage(null);
     } catch (error) {
-            const rawMessage = error instanceof Error ? error.message : "Failed to send.";
-            const normalized = rawMessage.toLowerCase();
-            if (normalized.includes("private_reply_required")) {
-                setStatus(
-                    isRequestOnly
-                        ? "This user only accepts a single request until they reply."
-                        : "You can send up to 3 messages until they reply."
-                );
-                setLastFailedMessage(null);
-                return;
-            }
-            const isNetwork =
-                error instanceof TypeError ||
-                normalized.includes("network") ||
-                normalized.includes("fetch");
-            setStatus(
-                isNetwork
-                    ? "Network issue. Check your connection and retry."
-                    : rawMessage
-            );
-            setLastFailedMessage(content);
+      const rawMessage = error instanceof Error ? error.message : "Failed to send.";
+      const normalized = rawMessage.toLowerCase();
+      if (normalized.includes("private_reply_required")) {
+        setStatus(
+          isRequestOnly
+            ? "This user only accepts a single request until they reply."
+            : "You can send up to 3 messages until they reply."
+        );
+        setLastFailedMessage(null);
+        return;
+      }
+      const isNetwork =
+        error instanceof TypeError ||
+        normalized.includes("network") ||
+        normalized.includes("fetch");
+      setStatus(
+        isNetwork ? "Network issue. Check your connection and retry." : rawMessage
+      );
+      setLastFailedMessage(content);
     } finally {
       setSending(false);
     }
   };
 
-    const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       sendMessage();
     }
   };
 
-    useEffect(() => {
-        const handleEscape = (e: any) => {
-            if (e.key === "Escape") onClose();
-        };
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
 
-        window.addEventListener("keydown", handleEscape);
-        return () => {
-            window.removeEventListener("keydown", handleEscape);
-        };
-    }, [onClose]);
+    window.addEventListener("keydown", handleEscape);
+    return () => {
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [onClose]);
 
   return (
     <div className="flex h-full flex-col" role="region" aria-label="Private chat">
