@@ -161,31 +161,31 @@ export default function MyPostsPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-10 text-slate-100">
+    <div className="ui-page mx-auto w-full max-w-4xl px-4 py-10 text-text-primary">
       <div className="flex items-center gap-3">
         <button
           type="button"
-          className="rounded-full border border-white/20 px-3 py-1 text-xs text-slate-200"
+          className="btn-secondary px-3 py-1 text-xs"
           onClick={() => router.back()}
         >
           Back
         </button>
         <div>
           <h1 className="text-2xl font-semibold">Posts management</h1>
-          <p className="mt-1 text-sm text-slate-400">
+          <p className="mt-1 text-sm text-text-secondary">
             Review, edit, and remove your Hall posts.
           </p>
         </div>
       </div>
 
-      <div className="mt-6 space-y-4 rounded-2xl border border-white/10 bg-slate-950/80 p-6">
+      <div className="mt-6 space-y-4 ui-card p-6">
         <div className="flex items-center justify-between">
-          <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+          <p className="text-xs uppercase tracking-[0.3em] text-text-muted">
             Your posts
           </p>
           <button
             type="button"
-            className="rounded-full border border-white/20 px-3 py-1 text-xs text-slate-200"
+            className="btn-secondary px-3 py-1 text-xs"
             onClick={() => loadMyTraces(null)}
             disabled={loadingTraces}
           >
@@ -193,10 +193,10 @@ export default function MyPostsPage() {
           </button>
         </div>
 
-        {traceStatus && <p className="text-xs text-rose-300">{traceStatus}</p>}
+        {traceStatus && <p className="text-xs text-brand-secondary">{traceStatus}</p>}
 
         {traces.length === 0 && !loadingTraces ? (
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-text-secondary">
             You have not posted in the Hall yet.
           </p>
         ) : (
@@ -204,14 +204,14 @@ export default function MyPostsPage() {
             {traces.map((trace) => (
               <div
                 key={trace.id}
-                className="rounded-xl border border-white/10 bg-slate-950/60 p-4"
+                className="ui-card p-4"
               >
-                <div className="flex items-center justify-between text-xs text-slate-400">
+                <div className="flex items-center justify-between text-xs text-text-muted">
                   <span>{new Date(trace.createdAt).toLocaleString()}</span>
                   <span>{trace.replyCount} replies</span>
                 </div>
                 {trace.imageUrl && (
-                  <div className="mt-3 overflow-hidden rounded-xl bg-slate-900">
+                  <div className="mt-3 overflow-hidden rounded-xl bg-surface">
                     <img
                       src={
                         trace.imageUrl.startsWith("http")
@@ -227,7 +227,7 @@ export default function MyPostsPage() {
                 {editingTraceId === trace.id ? (
                   <div className="mt-3 space-y-3">
                     <textarea
-                      className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
+                      className="w-full rounded-xl border border-border-default bg-card px-3 py-2 text-sm text-text-primary"
                       rows={3}
                       value={editingContent}
                       onChange={(event) => setEditingContent(event.target.value)}
@@ -235,7 +235,7 @@ export default function MyPostsPage() {
                     <div className="flex items-center justify-end gap-2">
                       <button
                         type="button"
-                        className="rounded-full border border-white/20 px-3 py-1 text-xs text-slate-200"
+                        className="btn-secondary px-3 py-1 text-xs"
                         onClick={() => {
                           setEditingTraceId(null);
                           setEditingContent("");
@@ -245,7 +245,7 @@ export default function MyPostsPage() {
                       </button>
                       <button
                         type="button"
-                        className="rounded-full bg-white px-4 py-1 text-xs font-semibold text-slate-900"
+                        className="btn-primary px-4 py-1 text-xs"
                         onClick={() => handleUpdateTrace(trace.id)}
                         disabled={savingTraceId === trace.id}
                       >
@@ -254,21 +254,21 @@ export default function MyPostsPage() {
                     </div>
                   </div>
                 ) : (
-                  <p className="mt-3 text-sm text-slate-100">{trace.content}</p>
+                  <p className="mt-3 text-sm text-text-primary">{trace.content}</p>
                 )}
 
                 {editingTraceId !== trace.id && (
                   <div className="mt-3 flex items-center justify-end gap-2">
                     <button
                       type="button"
-                      className="rounded-full border border-white/20 px-3 py-1 text-xs text-slate-200"
+                      className="btn-secondary px-3 py-1 text-xs"
                       onClick={() => startEdit(trace)}
                     >
                       Edit
                     </button>
                     <button
                       type="button"
-                      className="rounded-full border border-rose-400/60 px-3 py-1 text-xs text-rose-200"
+                      className="btn-secondary px-3 py-1 text-xs text-brand-secondary"
                       onClick={() => handleDeleteTrace(trace.id)}
                       disabled={deletingTraceId === trace.id}
                     >
@@ -284,7 +284,7 @@ export default function MyPostsPage() {
         {traceCursor && (
           <button
             type="button"
-            className="rounded-full border border-white/20 px-4 py-2 text-xs text-slate-200"
+            className="btn-secondary px-4 py-2 text-xs"
             onClick={() => loadMyTraces(traceCursor)}
             disabled={loadingTraces}
           >
@@ -295,3 +295,4 @@ export default function MyPostsPage() {
     </div>
   );
 }
+
