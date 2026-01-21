@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMemo, useRef, useState, useEffect } from "react";
@@ -251,38 +251,38 @@ export default function OnboardingPage() {
   };
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-6 p-6">
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h1 className="text-2xl font-semibold text-slate-900">Profile setup</h1>
-        <p className="mt-2 text-sm text-slate-500">
+    <main className="ui-page mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-6 p-6">
+      <section className="ui-card p-6">
+        <h1 className="text-2xl font-semibold text-text-primary">Profile setup</h1>
+        <p className="mt-2 text-sm text-text-secondary">
           Complete these two steps to enter the Hall.
         </p>
-        <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-500">
-          <span className={step === 1 ? "font-semibold text-slate-900" : ""}>
+        <div className="mt-4 flex flex-wrap gap-2 text-xs text-text-muted">
+          <span className={step === 1 ? "font-semibold text-text-primary" : ""}>
             1. Your profile
           </span>
           <span>-</span>
-          <span className={step === 2 ? "font-semibold text-slate-900" : ""}>
+          <span className={step === 2 ? "font-semibold text-text-primary" : ""}>
             2. Preferences
           </span>
         </div>
       </section>
 
       {step === 1 && (
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-800">Your profile</h2>
-          <p className="mt-2 text-sm text-slate-500">
+        <section className="ui-card p-6">
+          <h2 className="text-lg font-semibold text-text-primary">Your profile</h2>
+          <p className="mt-2 text-sm text-text-secondary">
             Upload an avatar and basic info.
           </p>
           <div className="mt-4 flex flex-col gap-6">
             <div>
-              <label className="text-xs font-semibold text-slate-600">
+              <label className="text-xs font-semibold text-text-secondary">
                 Avatar
               </label>
               <div className="mt-2 flex items-center gap-4">
                 <button
                   type="button"
-                  className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-2xl border border-dashed border-slate-300 text-xs text-slate-500"
+                  className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-2xl border border-dashed border-border-default bg-surface text-xs text-text-muted"
                   onClick={triggerAvatarSelect}
                 >
                   {avatarPreview ? (
@@ -304,39 +304,39 @@ export default function OnboardingPage() {
                     setAvatarFile(event.target.files?.[0] ?? null)
                   }
                 />
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-text-muted">
                   JPG/PNG supported. Click the avatar box to choose a file.
                 </p>
               </div>
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-600">
+              <label className="text-xs font-semibold text-text-secondary">
                 Display name
               </label>
               <input
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-border-default bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted"
                 placeholder="Enter a display name"
                 {...profileForm.register("maskName")}
               />
               {profileForm.formState.errors.maskName && (
-                <p className="mt-1 text-xs text-red-500">
+                <p className="mt-1 text-xs text-brand-secondary">
                   {profileForm.formState.errors.maskName.message}
                 </p>
               )}
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-600">
+              <label className="text-xs font-semibold text-text-secondary">
                 Gender
               </label>
               <input
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-border-default bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted"
                 placeholder="e.g. woman / man / other"
                 {...profileForm.register("gender")}
               />
               {profileForm.formState.errors.gender && (
-                <p className="mt-1 text-xs text-red-500">
+                <p className="mt-1 text-xs text-brand-secondary">
                   {profileForm.formState.errors.gender.message}
                 </p>
               )}
@@ -346,38 +346,38 @@ export default function OnboardingPage() {
       )}
 
       {step === 2 && (
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-800">Preferences</h2>
-          <p className="mt-2 text-sm text-slate-500">
+        <section className="ui-card p-6">
+          <h2 className="text-lg font-semibold text-text-primary">Preferences</h2>
+          <p className="mt-2 text-sm text-text-secondary">
             Share who you hope to meet in the Hall.
           </p>
           <div className="mt-4 grid gap-4">
             <div>
-              <label className="text-xs font-semibold text-slate-600">
+              <label className="text-xs font-semibold text-text-secondary">
                 Conversation preference
               </label>
               <input
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-border-default bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted"
                 placeholder="e.g. woman"
                 {...preferenceForm.register("lookingForGender")}
               />
             </div>
             <div>
-              <label className="text-xs font-semibold text-slate-600">
+              <label className="text-xs font-semibold text-text-secondary">
                 Special interests
               </label>
               <input
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-border-default bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted"
                 placeholder="e.g. roleplay"
                 {...preferenceForm.register("smPreference")}
               />
             </div>
             <div>
-              <label className="text-xs font-semibold text-slate-600">
+              <label className="text-xs font-semibold text-text-secondary">
                 Personal tags
               </label>
               <input
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-border-default bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted"
                 placeholder="e.g. travel, photography"
                 {...preferenceForm.register("tags")}
               />
@@ -390,7 +390,7 @@ export default function OnboardingPage() {
         <div className="flex gap-2">
           <button
             type="button"
-            className="rounded-full border border-slate-300 px-5 py-2 text-sm font-semibold text-slate-700"
+            className="btn-secondary px-5 py-2 text-sm"
             onClick={() => setStep((prev) => Math.max(1, prev - 1))}
             disabled={step === 1}
           >
@@ -399,7 +399,7 @@ export default function OnboardingPage() {
           {step < 2 && (
             <button
               type="button"
-              className="rounded-full border border-slate-300 px-5 py-2 text-sm font-semibold text-slate-700"
+              className="btn-secondary px-5 py-2 text-sm"
               onClick={() => setStep((prev) => Math.min(2, prev + 1))}
             >
               Next
@@ -410,7 +410,7 @@ export default function OnboardingPage() {
         {step === 2 && (
           <button
             type="button"
-            className="rounded-full bg-slate-900 px-6 py-2 text-sm font-semibold text-white"
+            className="btn-primary px-6 py-2 text-sm"
             onClick={handleSubmitAll}
             disabled={submitting}
           >
@@ -420,7 +420,7 @@ export default function OnboardingPage() {
       </section>
 
       {submitStatus && (
-        <p className="text-sm text-slate-600">{submitStatus}</p>
+        <p className="text-sm text-text-secondary">{submitStatus}</p>
       )}
     </main>
   );
