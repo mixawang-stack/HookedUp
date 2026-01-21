@@ -8,7 +8,8 @@ import ProfileOnboardingModal from "./ProfileOnboardingModal";
 const NAV_ITEMS = [
   { href: "/hall", label: "Hall" },
   { href: "/rooms", label: "Rooms" },
-  { href: "/private", label: "Private" }
+  { href: "/private", label: "Private" },
+  { href: "/novels", label: "Bookstore" }
 ];
 
 const API_BASE =
@@ -162,9 +163,17 @@ export default function TopNav() {
 
   return (
     <nav className="sticky top-0 z-50 border-b border-border-default bg-card/90 backdrop-blur-lg">
-      <div className="mx-auto grid w-full max-w-7xl grid-cols-[1fr_auto_1fr] items-center px-6 py-3">
-        <div />
+      <div className="ui-container grid grid-cols-[1fr_auto_1fr] items-center py-3">
+        <div className="flex items-center gap-3 text-text-primary">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full border border-border-default bg-surface text-sm font-semibold">
+            S
+          </div>
+          <div className="text-sm font-semibold tracking-tight">
+            Stories &amp; Spaces
+          </div>
+        </div>
         <div className="flex items-center justify-center gap-3">
+          <div className="ui-tab-list">
           {NAV_ITEMS.map((item) => {
             const isActive =
               pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -174,11 +183,7 @@ export default function TopNav() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                  isActive
-                    ? "bg-brand-primary/20 text-text-primary"
-                    : "text-text-secondary hover:text-text-primary"
-                }`}
+                className={`ui-tab ${isActive ? "ui-tab-active" : ""}`}
               >
                 <span className="inline-flex items-center gap-2">
                   {item.label}
@@ -191,6 +196,7 @@ export default function TopNav() {
               </Link>
             );
           })}
+          </div>
         </div>
         {me && (
           <div className="flex items-center justify-end gap-3 pr-1">

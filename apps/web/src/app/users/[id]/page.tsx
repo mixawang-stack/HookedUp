@@ -1,4 +1,4 @@
-"use client";
+ï»¿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -61,7 +61,7 @@ export default function PublicProfilePage() {
   ].filter(Boolean);
   const locationLine = [profile?.city, profile?.country]
     .filter((item) => item && item.trim().length > 0)
-    .join(" ¡¤ ");
+    .join(" Â· ");
 
   return (
     <main className="ui-page mx-auto w-full max-w-3xl px-4 py-10 text-text-primary">
@@ -126,3 +126,4 @@ export default function PublicProfilePage() {
     </main>
   );
 }
+

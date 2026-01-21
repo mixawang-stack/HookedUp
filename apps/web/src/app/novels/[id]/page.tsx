@@ -55,6 +55,10 @@ export default function NovelDetailPage() {
   const [novel, setNovel] = useState<NovelPreview | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [reactionLoading, setReactionLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<"about" | "chapters" | "reviews">(
+    "about"
+  );
+  const [showPremiumPrompt, setShowPremiumPrompt] = useState(false);
 
   const authHeader = useMemo(
     () => (token ? { Authorization: `Bearer ${token}` } : null),
@@ -136,89 +140,172 @@ export default function NovelDetailPage() {
     : "";
 
   return (
-    <main className="ui-page relative mx-auto w-full max-w-4xl px-4 py-10 text-text-primary">
-      <button
-        type="button"
-        className="btn-secondary px-3 py-1 text-xs"
-        onClick={() => router.push("/hall")}
-      >
-        Back
-      </button>
-      {status && <p className="mt-4 text-sm text-text-secondary">{status}</p>}
-      {novel && (
-        <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_220px]">
-          <div className="space-y-6">
-            <header className="space-y-2">
-              <h1 className="text-3xl font-semibold">{novel.title}</h1>
-              {novel.description && (
-                <p className="text-base text-text-secondary">
-                  {novel.description}
-                </p>
-              )}
-            </header>
-            <div className="mx-auto w-full max-w-2xl space-y-6">
-              {readingText ? (
-                <div className="text-base leading-8 text-text-primary whitespace-pre-wrap">
-                  {readingText}
-                </div>
-              ) : (
-                <p className="text-sm text-text-muted">No story content yet.</p>
-              )}
-            </div>
-            <div className="mx-auto w-full max-w-2xl ui-surface p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-text-secondary">
-                <span>{novel.viewCount ?? 0} reads</span>
-                <span>{novel.room?._count?.memberships ?? 0} discussing</span>
+    <main className="ui-page">
+      <div className="ui-container py-10 text-text-primary">
+        <button
+          type="button"
+          className="btn-secondary px-3 py-1 text-xs"
+          onClick={() => router.push("/hall")}
+        >
+          Back
+        </button>
+        {status && <p className="mt-4 text-sm text-text-secondary">{status}</p>}
+        {novel && (
+          <div className="mt-6 space-y-6">
+            <section className="ui-card grid gap-6 p-6 md:grid-cols-[160px_1fr]">
+              <div className="overflow-hidden rounded-2xl border border-border-default bg-surface">
+                {novel.coverImageUrl ? (
+                  <img
+                    src={resolveMediaUrl(novel.coverImageUrl) ?? ""}
+                    alt={novel.title}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full min-h-[200px] items-center justify-center text-xs text-text-muted">
+                    No cover
+                  </div>
+                )}
               </div>
+              <div className="space-y-3">
+                <h1 className="text-3xl font-semibold text-text-primary">
+                  {novel.title}
+                </h1>
+                <p className="text-sm text-text-secondary">Author: -</p>
+                <div className="flex flex-wrap items-center gap-4 text-sm text-text-secondary">
+                  <span>Rating -</span>
+                  <span>{novel.viewCount ?? 0} reads</span>
+                  <span>{novel.favoriteCount ?? 0} likes</span>
+                </div>
+              </div>
+            </section>
+
+            <div className="ui-tab-list">
               <button
                 type="button"
-                className="btn-primary mt-4 w-full px-4 py-2 text-xs"
-                onClick={() =>
-                  novel.room?.id
-                    ? router.push(`/rooms/${novel.room.id}`)
-                    : setStatus("Discussion room is not ready yet.")
-                }
+                className={`ui-tab ${activeTab === "about" ? "ui-tab-active" : ""}`}
+                onClick={() => setActiveTab("about")}
               >
-                Join the discussion
+                About
+              </button>
+              <button
+                type="button"
+                className={`ui-tab ${activeTab === "chapters" ? "ui-tab-active" : ""}`}
+                onClick={() => setActiveTab("chapters")}
+              >
+                Chapters
+              </button>
+              <button
+                type="button"
+                className={`ui-tab ${activeTab === "reviews" ? "ui-tab-active" : ""}`}
+                onClick={() => setActiveTab("reviews")}
+              >
+                Reviews
+              </button>
+            </div>
+
+            {activeTab === "about" && (
+              <div className="space-y-4">
+                <div className="ui-card p-5 text-sm text-text-secondary">
+                  {novel.description ?? "-"}
+                </div>
+                <section className="ui-card max-h-[60vh] overflow-y-auto p-5">
+                  {readingText ? (
+                    <div className="text-base leading-8 text-text-primary whitespace-pre-wrap">
+                      {readingText}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-text-muted">
+                      No story content yet.
+                    </p>
+                  )}
+                </section>
+              </div>
+            )}
+
+            {activeTab === "chapters" && (
+              <section className="ui-card p-5">
+                <div className="space-y-3">
+                  {(novel.chapters ?? []).map((chapter, index) => {
+                    const freeCount =
+                      novel.chapters.filter((item) => item.isFree).length ||
+                      Math.min(5, novel.chapters.length);
+                    const isFree = chapter.isFree || index < freeCount;
+                    return (
+                      <div
+                        key={chapter.id}
+                        className="flex items-center justify-between rounded-2xl border border-border-default bg-card px-4 py-3 text-sm"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => {
+                          if (!isFree) {
+                            setShowPremiumPrompt(true);
+                          }
+                        }}
+                        onKeyDown={(event) => {
+                          if (!isFree) {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              setShowPremiumPrompt(true);
+                            }
+                          }
+                        }}
+                      >
+                        <div className="space-y-1">
+                          <p className="font-semibold text-text-primary">
+                            {chapter.title || `Chapter ${index + 1}`}
+                          </p>
+                        </div>
+                        {isFree ? (
+                          <span className="ui-badge ui-badge-story">Free</span>
+                        ) : (
+                          <span className="ui-badge ui-badge-premium">
+                            Premium
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                {(novel.chapters ?? []).some((chapter, index) => {
+                  const freeCount =
+                    novel.chapters.filter((item) => item.isFree).length ||
+                    Math.min(5, novel.chapters.length);
+                  return !(chapter.isFree || index < freeCount);
+                }) && (
+                  <div className="ui-surface mt-4 p-4 text-sm text-text-secondary">
+                    Premium required to unlock locked chapters.
+                  </div>
+                )}
+              </section>
+            )}
+
+            {activeTab === "reviews" && (
+              <section className="ui-card p-5 text-sm text-text-secondary">-</section>
+            )}
+          </div>
+        )}
+        {showPremiumPrompt && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-text-primary/40 p-6"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="ui-surface w-full max-w-md p-6 text-text-primary">
+              <h3 className="text-lg font-semibold">Premium chapter</h3>
+              <p className="mt-2 text-sm text-text-secondary">
+                Premium required to unlock locked chapters.
+              </p>
+              <button
+                type="button"
+                className="btn-secondary mt-4 px-4 py-2 text-xs"
+                onClick={() => setShowPremiumPrompt(false)}
+              >
+                Close
               </button>
             </div>
           </div>
-
-          <aside className="hidden lg:flex flex-col gap-3 lg:sticky lg:top-24">
-            <button
-              type="button"
-              className={`w-full rounded-full border border-border-default px-3 py-2 text-xs font-semibold transition ${
-                novel.myReaction === "LIKE"
-                  ? "bg-brand-primary text-card"
-                  : "bg-card text-text-secondary"
-              }`}
-              onClick={() => handleReaction("LIKE")}
-              disabled={reactionLoading}
-            >
-              Like
-            </button>
-            <button
-              type="button"
-              className={`w-full rounded-full border border-border-default px-3 py-2 text-xs font-semibold transition ${
-                novel.myReaction === "DISLIKE"
-                  ? "bg-brand-secondary text-card"
-                  : "bg-card text-text-secondary"
-              }`}
-              onClick={() => handleReaction("DISLIKE")}
-              disabled={reactionLoading}
-            >
-              Dislike
-            </button>
-            <button
-              type="button"
-              className="btn-secondary px-3 py-2 text-xs"
-              onClick={handleShare}
-            >
-              Share
-            </button>
-          </aside>
-        </div>
-      )}
+        )}
+      </div>
     </main>
   );
 }

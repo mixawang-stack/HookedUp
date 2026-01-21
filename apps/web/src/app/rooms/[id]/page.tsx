@@ -633,7 +633,7 @@ export default function RoomPage() {
     }
   };
 
-  if (loading) {
+    if (loading) {
     return (
       <main className="ui-page flex min-h-screen items-center justify-center p-6">
         <p className="text-sm text-text-muted">Loading room...</p>
@@ -663,139 +663,92 @@ export default function RoomPage() {
     GAME_OPTIONS.find((option) => option.value === selectedGameType)?.label ??
     selectedGameType;
   const isOwner = room.currentUserRole === "OWNER";
+  const rawMessageCount =
+    (room as { messageCount?: number | string }).messageCount ??
+    (room as { messagesCount?: number | string }).messagesCount ??
+    (room as { message_count?: number | string }).message_count;
+  const messageCount = Number.isFinite(Number(rawMessageCount))
+    ? Number(rawMessageCount)
+    : null;
+  const messageLabel = messageCount === null ? "-" : String(messageCount);
+  const guidelines = room.description
+    ? [room.description]
+    : ["Be respectful", "Stay on topic", "No spam"];
 
   return (
     <>
-      <main className="ui-page mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-6 px-4 py-6 lg:px-6 lg:py-8">
-        <section className="ui-card px-6 py-5">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-semibold text-text-primary">
-                {room.title}
-              </h1>
-              {room.description && (
-                <p className="mt-2 text-sm text-text-secondary">
-                  {room.description}
-                </p>
-              )}
-              <p className="mt-2 text-xs text-text-muted">
-                Members: {room.memberCount}
-                {room.capacity ? ` / ${room.capacity}` : ""}
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              {isOwner && (
-                <button
-                  type="button"
-                  className="btn-secondary px-3 py-1 text-xs"
-                  onClick={handleOpenInvite}
-                >
-                  Invite
-                </button>
-              )}
-              <button
-                type="button"
-                className="btn-secondary px-3 py-1 text-xs"
-                onClick={handleLeaveRoom}
-              >
-                Leave Room
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-text-secondary">
-            <span className="rounded-full border border-border-default bg-surface px-3 py-1">
-              Selected: {selectedGameLabel}
-            </span>
-            {isOwner && (
-              <label className="flex items-center gap-2">
-                <span className="text-text-secondary">Select game</span>
-                <select
-                  className="rounded-full border border-border-default bg-card px-3 py-1 text-xs text-text-primary"
-                  value={selectedGameType}
-                  onChange={(event) => handleSelectGame(event.target.value)}
-                >
-                  {GAME_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-          </div>
-
-          {status && (
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-brand-secondary">
-              <span>{status}</span>
-              {lastFailedMessage && (
-                <button
-                  type="button"
-                  className="btn-secondary px-3 py-1 text-[10px]"
-                  onClick={() => handleSendMessage(lastFailedMessage)}
-                  disabled={sending}
-                >
-                  Retry send
-                </button>
+      <main className="ui-page">
+        <div className="ui-container flex min-h-screen flex-col gap-6 py-8">
+          <section className="ui-card p-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full border border-border-default bg-surface text-base font-semibold text-text-secondary">
+                  {room.title.slice(0, 1).toUpperCase()}
+                </div>
+                <div>
+                  <h1 className="text-2xl font-semibold text-text-primary">
+                    {room.title}
+                  </h1>
+                  <div className="mt-2 flex items-center gap-2 text-xs text-text-muted">
+                    <span>{room.memberCount ?? 0} Members</span>
+                    <span>{messageLabel} Messages</span>
+                  </div>
+                </div>
+              </div>
+              {room.status === "LIVE" && (
+                <span className="ui-badge ui-badge-live">
+                  <span className="mr-1 inline-flex h-1.5 w-1.5 rounded-full bg-brand-primary" />
+                  Live
+                </span>
               )}
             </div>
-          )}
-        </section>
+          </section>
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
-          <section className="ui-card flex min-h-[60vh] flex-1 flex-col p-4">
+          <section className="ui-surface p-5 text-sm text-text-secondary">
+            <ul className="list-disc space-y-2 pl-5">
+              {guidelines.map((item, index) => (
+                <li key={`${item}-${index}`}>{item}</li>
+              ))}
+            </ul>
+          </section>
+
+          <section className="ui-card flex min-h-[50vh] flex-col p-4">
             <div
               ref={chatListRef}
-              className="flex-1 space-y-3 overflow-y-auto pr-2"
+              className="flex-1 space-y-4 overflow-y-auto pr-2"
             >
               {messages.map((message) => {
-                const isSelf = message.senderId === userId;
                 const senderName = message.sender?.maskName ?? "Member";
-                const bubbleClass = isSelf
-                  ? "border-brand-primary/40 bg-brand-primary text-card"
-                  : "border-border-default bg-surface text-text-primary";
-                const metaClass = isSelf ? "text-card/80" : "text-text-muted";
                 return (
-                  <div
-                    key={message.id}
-                    className={`flex items-end gap-3 ${
-                      isSelf ? "justify-end" : "justify-start"
-                    }`}
-                  >
-                    {!isSelf && (
-                      <button
-                        type="button"
-                        className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-surface"
-                        onClick={() => {
-                          if (message.sender?.id) {
-                            openProfileCard(message.sender.id);
-                          }
-                        }}
-                        aria-label="Open profile"
-                      >
-                        {message.sender?.maskAvatarUrl ? (
-                          <img
-                            src={message.sender.maskAvatarUrl}
-                            alt={senderName}
-                            className="h-8 w-8 rounded-full object-cover"
-                          />
-                        ) : (
-                          <span className="text-xs text-text-secondary">
-                            {senderName.slice(0, 1).toUpperCase()}
-                          </span>
-                        )}
-                      </button>
-                    )}
-                    <div
-                      className={`w-fit max-w-[min(640px,85%)] rounded-2xl border px-3 py-2 text-sm ${bubbleClass}`}
+                  <div key={message.id} className="flex items-start gap-3">
+                    <button
+                      type="button"
+                      className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-border-default bg-surface"
+                      onClick={() => {
+                        if (message.sender?.id) {
+                          openProfileCard(message.sender.id);
+                        }
+                      }}
+                      aria-label="Open profile"
                     >
-                      <div
-                        className={`flex items-center justify-between text-[10px] uppercase tracking-wide ${metaClass}`}
-                      >
-                        <span>{isSelf ? "You" : senderName}</span>
+                      {message.sender?.maskAvatarUrl ? (
+                        <img
+                          src={message.sender.maskAvatarUrl}
+                          alt={senderName}
+                          className="h-8 w-8 rounded-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-xs text-text-secondary">
+                          {senderName.slice(0, 1).toUpperCase()}
+                        </span>
+                      )}
+                    </button>
+                    <div className="flex-1 rounded-2xl border border-border-default bg-card px-4 py-3">
+                      <div className="flex items-center justify-between text-xs text-text-muted">
+                        <span>{senderName}</span>
                         <span>{new Date(message.createdAt).toLocaleTimeString()}</span>
                       </div>
-                      <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">
+                      <p className="mt-2 text-sm text-text-primary whitespace-pre-wrap">
                         {message.content}
                       </p>
                     </div>
@@ -808,184 +761,91 @@ export default function RoomPage() {
             </div>
           </section>
 
-          <aside className="sticky top-6">
-            <div className="ui-panel space-y-6">
-              <div className="ui-card p-4 text-text-secondary">
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-text-muted">
-                  Welcome
-                </p>
-                <p className="mt-2 text-xs">
-                  Keep it warm, be respectful, and keep the room flowing.
-                </p>
-                <ul className="mt-2 space-y-1 text-xs text-text-muted">
-                  <li>Share the space. Let others speak.</li>
-                  <li>No harassment, no spamming.</li>
-                  <li>Stay on topic: {room.title}.</li>
-                </ul>
-              </div>
-
-              <div className="space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-text-muted">
-                  Say something
-                </p>
-                <textarea
-                  value={messageInput}
-                  onChange={(event) => setMessageInput(event.target.value)}
-                  placeholder="Drop a message to the room..."
-                  className="mt-2 w-full rounded-2xl border border-border-default bg-card px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/30"
-                />
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    className="btn-primary flex-1 py-2 text-xs"
-                    onClick={() => handleSendMessage()}
-                    disabled={sending}
-                  >
-                    {sending ? "Sending..." : "Send"}
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-3 border-t border-border-default pt-4">
-                <h3 className="text-xs font-semibold uppercase tracking-[0.3em] text-text-muted">
-                  Games
-                </h3>
-                <p className="text-xs text-text-secondary">
-                  Selected: {selectedGameLabel}
-                </p>
-                {isOwner && (
-                  <select
-                    className="w-full rounded-full border border-border-default bg-card px-3 py-1 text-xs text-text-primary"
-                    value={selectedGameType}
-                    onChange={(event) => handleSelectGame(event.target.value)}
-                  >
-                    {GAME_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              <div className="space-y-3 border-t border-border-default pt-4">
-                <h3 className="text-xs font-semibold uppercase tracking-[0.3em] text-text-muted">
-                  Invite
-                </h3>
-                {isOwner && (
-                  <div className="space-y-2">
-                    <button
-                      type="button"
-                      className="btn-secondary w-full px-3 py-2 text-xs"
-                      onClick={handleOpenInvite}
-                    >
-                      Invite someone
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-secondary w-full px-3 py-2 text-xs"
-                      onClick={handleGenerateShareLink}
-                      disabled={shareLoading}
-                    >
-                      {shareLoading ? "Generating..." : "Generate share link"}
-                    </button>
-                  </div>
-                )}
-                {shareStatus && !shareLink && (
-                  <p className="text-xs text-text-muted">{shareStatus}</p>
-                )}
-                {shareLink && (
-                  <div className="ui-card space-y-2 p-3 text-xs text-text-secondary">
-                    <p className="font-semibold text-text-primary">Share link</p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <input
-                        readOnly
-                        value={shareLink}
-                        className="flex-1 rounded-lg border border-border-default bg-card px-3 py-1 text-xs text-text-primary placeholder:text-text-muted"
-                      />
-                      <button
-                        type="button"
-                        className="btn-secondary px-3 py-1 text-xs"
-                        onClick={handleCopyShareLink}
-                      >
-                        Copy
-                      </button>
-                    </div>
-                    {shareStatus && (
-                      <p className="text-xs text-text-muted">{shareStatus}</p>
-                    )}
-                  </div>
-                )}
-              </div>
+          <section className="ui-card p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <input
+                value={messageInput}
+                onChange={(event) => setMessageInput(event.target.value)}
+                placeholder="Drop a message to the room..."
+                className="flex-1 rounded-full border border-border-default bg-card px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/30"
+              />
+              <button
+                type="button"
+                className="btn-primary px-5 py-2.5 text-sm"
+                onClick={() => handleSendMessage()}
+                disabled={sending}
+              >
+                {sending ? "Sending..." : "Send"}
+              </button>
             </div>
-          </aside>
+          </section>
         </div>
-
-        {showInvite && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-text-primary/40 p-6">
-            <section className="ui-card w-full max-w-lg p-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-text-primary">
-                  Invite to room
-                </h2>
-                <button
-                  type="button"
-                  className="text-xs text-text-muted"
-                  onClick={() => setShowInvite(false)}
-                >
-                  Close
-                </button>
-              </div>
-              <p className="mt-2 text-sm text-text-secondary">
-                Invite someone you have a mutual chat with.
-              </p>
-              <div className="mt-4 space-y-3">
-                {inviteLoading && (
-                  <p className="text-sm text-text-muted">Loading candidates...</p>
-                )}
-                {!inviteLoading && inviteCandidates.length === 0 && (
-                  <p className="text-sm text-text-muted">
-                    No eligible candidates.
-                  </p>
-                )}
-                {!inviteLoading &&
-                  inviteCandidates.map((candidate) => (
-                    <div
-                      key={candidate.userId}
-                      className="ui-surface flex items-center justify-between px-3 py-2"
-                    >
-                      <div className="flex items-center gap-3">
-                        {candidate.maskAvatarUrl ? (
-                          <img
-                            src={candidate.maskAvatarUrl}
-                            alt={candidate.maskName ?? "Member"}
-                            className="h-8 w-8 rounded-full object-cover"
-                          />
-                        ) : (
-                          <span className="h-8 w-8 rounded-full bg-surface" />
-                        )}
-                        <span className="text-sm text-text-secondary">
-                          {candidate.maskName ?? "Anonymous"}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        className="btn-secondary px-3 py-1 text-xs"
-                        onClick={() => handleSendInvite(candidate.userId)}
-                        disabled={invitingId === candidate.userId}
-                      >
-                        {invitingId === candidate.userId ? "Inviting..." : "Invite"}
-                      </button>
-                    </div>
-                  ))}
-              </div>
-              {inviteStatus && (
-                <p className="mt-3 text-sm text-text-muted">{inviteStatus}</p>
-              )}
-            </section>
-          </div>
-        )}
       </main>
+
+      {showInvite && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-text-primary/40 p-6">
+          <section className="ui-card w-full max-w-lg p-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-text-primary">
+                Invite to room
+              </h2>
+              <button
+                type="button"
+                className="text-xs text-text-muted"
+                onClick={() => setShowInvite(false)}
+              >
+                Close
+              </button>
+            </div>
+            <p className="mt-2 text-sm text-text-secondary">
+              Invite someone you have a mutual chat with.
+            </p>
+            <div className="mt-4 space-y-3">
+              {inviteLoading && (
+                <p className="text-sm text-text-muted">Loading candidates...</p>
+              )}
+              {!inviteLoading && inviteCandidates.length === 0 && (
+                <p className="text-sm text-text-muted">
+                  No eligible candidates.
+                </p>
+              )}
+              {!inviteLoading &&
+                inviteCandidates.map((candidate) => (
+                  <div
+                    key={candidate.userId}
+                    className="ui-surface flex items-center justify-between px-3 py-2"
+                  >
+                    <div className="flex items-center gap-3">
+                      {candidate.maskAvatarUrl ? (
+                        <img
+                          src={candidate.maskAvatarUrl}
+                          alt={candidate.maskName ?? "Member"}
+                          className="h-8 w-8 rounded-full object-cover"
+                        />
+                      ) : (
+                        <span className="h-8 w-8 rounded-full bg-surface" />
+                      )}
+                      <span className="text-sm text-text-secondary">
+                        {candidate.maskName ?? "Anonymous"}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-secondary px-3 py-1 text-xs"
+                      onClick={() => handleSendInvite(candidate.userId)}
+                      disabled={invitingId === candidate.userId}
+                    >
+                      {invitingId === candidate.userId ? "Inviting..." : "Invite"}
+                    </button>
+                  </div>
+                ))}
+            </div>
+            {inviteStatus && (
+              <p className="mt-3 text-sm text-text-muted">{inviteStatus}</p>
+            )}
+          </section>
+        </div>
+      )}
       {profileCard && (
         <ProfileCard
           profile={profileCard}
@@ -1004,5 +864,4 @@ export default function RoomPage() {
         </div>
       )}
     </>
-  );
-}
+  );\n}

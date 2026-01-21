@@ -14,6 +14,7 @@
   --color-text-muted: 185 168 157;
   --color-accent-premium: 155 135 199;
   --color-border-default: 230 220 211;
+  --status-online: 46 166 92;
 }
 
 body {
@@ -105,11 +106,86 @@ body {
     box-shadow: 0 1px 2px 0 rgb(var(--color-border-default) / 0.25);
   }
 
+  .ui-container {
+    width: 100%;
+    max-width: 72rem;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+
   .ui-surface {
     border-radius: 1.5rem;
     border: 1px solid rgb(var(--color-border-default));
     background: rgb(var(--color-surface-elevated));
     box-shadow: 0 1px 2px 0 rgb(var(--color-border-default) / 0.25);
+  }
+
+  .ui-tab-list {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    border-radius: 9999px;
+    border: 1px solid rgb(var(--color-border-default));
+    background: rgb(var(--color-surface-elevated));
+  }
+
+  .ui-tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    border: 1px solid transparent;
+    color: rgb(var(--color-text-secondary));
+    font-size: 0.875rem;
+    font-weight: 600;
+    padding: 0.4rem 1rem;
+    transition: color 120ms ease, border-color 120ms ease,
+      background-color 120ms ease;
+  }
+
+  .ui-tab:hover {
+    color: rgb(var(--color-text-primary));
+  }
+
+  .ui-tab-active {
+    background: rgb(var(--color-card-bg));
+    border-color: rgb(var(--color-text-primary));
+    color: rgb(var(--color-text-primary));
+  }
+
+  .ui-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    border: 1px solid rgb(var(--color-border-default));
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 0.2rem 0.5rem;
+    text-transform: uppercase;
+  }
+
+  .ui-badge-live {
+    background: rgb(var(--color-brand-primary) / 0.15);
+    color: rgb(var(--color-brand-secondary));
+  }
+
+  .ui-badge-story {
+    background: rgb(var(--color-surface-elevated));
+    color: rgb(var(--color-text-secondary));
+  }
+
+  .ui-badge-premium {
+    background: rgb(var(--color-accent-premium) / 0.15);
+    color: rgb(var(--color-accent-premium));
+  }
+
+  .ui-status-online {
+    background: rgb(var(--status-online));
   }
 
   .ui-panel {

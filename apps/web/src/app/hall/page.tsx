@@ -1,9 +1,8 @@
-"use client";
+﻿"use client";
 
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import PageShell from "../components/PageShell";
 import ProfileCard from "../components/ProfileCard";
 import { emitHostStatus } from "../lib/hostStatus";
 
@@ -205,11 +204,7 @@ export default function HallPage() {
     }
     const updateColumns = () => {
       const width = window.innerWidth;
-      if (width >= 1280) {
-        setColumnCount(3);
-        return;
-      }
-      if (width >= 768) {
+      if (width >= 1024) {
         setColumnCount(2);
         return;
       }
@@ -739,7 +734,7 @@ export default function HallPage() {
 
   const normalizeTraceContent = (value: string) => {
     if (!value) return value;
-    const sanitized = value.replace(/点击看全文/g, "Read full story");
+    const sanitized = value.replace(/鐐瑰嚮鐪嬪叏鏂?g, "Read full story");
     const lines = sanitized.split("\n").map((line) => line.trim());
     const filtered = lines.filter((line) => line.length > 0);
     if (filtered.length === 0) return sanitized;
@@ -811,11 +806,11 @@ export default function HallPage() {
             ))}
           </div>
         ) : (
-          <p className="mt-2 text-text-muted">бк</p>
+          <p className="mt-2 text-text-muted">斜泻</p>
         )}
         <div className="mt-3 space-y-1 text-text-muted">
           <p>Curious what they sound like?</p>
-          <p>You can say hello бк or just remember the face.</p>
+          <p>You can say hello 斜泻 or just remember the face.</p>
           <p>Private conversations are optional. You can also meet people in rooms.</p>
         </div>
       </div>
@@ -829,9 +824,9 @@ export default function HallPage() {
     });
 
   const hallTabs: Array<{ id: "all" | "story" | "post"; label: string }> = [
-    { id: "all", label: "全部" },
-    { id: "story", label: "故事" },
-    { id: "post", label: "帖子" }
+    { id: "all", label: "鍏ㄩ儴" },
+    { id: "story", label: "鏁呬簨" },
+    { id: "post", label: "甯栧瓙" }
   ];
 
   const cardBaseClasses =
@@ -856,7 +851,7 @@ export default function HallPage() {
           </span>
           {metaParts.length > 0 && (
             <span className="text-[10px] uppercase tracking-[0.3em] text-text-muted">
-              {metaParts.join(" · ")}
+              {metaParts.join(" 路 ")}
             </span>
           )}
         </div>
@@ -1161,359 +1156,373 @@ export default function HallPage() {
     return columns;
   }, [columnCount, feedItems]);
 
-  const stageContent = (
+    return (
     <>
-      <div className="space-y-2 text-sm text-text-secondary">
-        <p>People pass through.</p>
-        <p>Some stay.</p>
-        <p>Something might happen.</p>
-      </div>
-      {showWelcome && (
-        <div className="mt-4 ui-surface p-4 text-sm text-text-secondary">
-          <p>Welcome to HookedUp?</p>
-          <p>This is the main hall of the castle.</p>
-          <p>Look around. See what’s happening.</p>
-          <p>Join when something catches your interest.</p>
-          <button
-            type="button"
-            className="mt-3 rounded-full border border-border-default px-3 py-1 text-xs font-semibold text-text-secondary"
-            onClick={() => {
-              localStorage.setItem("hallWelcomeSeen", "true");
-              setShowWelcome(false);
-            }}
-          >
-            Close
-          </button>
-        </div>
-      )}
-      {status && <p className="mt-3 text-sm text-text-secondary">{status}</p>}
-
-      <section className="mt-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-text-primary">Hall Feed</h2>
-            <p className="text-xs text-text-muted">Stories and posts mingled together.</p>
-          </div>
-          <div className="flex items-center gap-2 rounded-full border border-border-default bg-card p-1 text-xs">
-            {hallTabs.map((tab) => {
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  className={`rounded-full px-4 py-2 font-semibold transition ${
-                    isActive
-                      ? "bg-brand-primary text-card"
-                      : "text-text-secondary hover:text-text-primary"
-                  }`}
-                  onClick={() => setActiveTab(tab.id)}
-                  aria-pressed={isActive}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {feedColumns.map((column, columnIndex) => (
-            <div key={`feed-col-${columnIndex}`} className="flex flex-col gap-4">
-              {column.map((item) =>
-                item.kind === "novel"
-                  ? renderNovelCard(item.novel)
-                  : renderTraceCard(item.trace)
-              )}
+      <main className="ui-page">
+        <div className="ui-container py-8">
+          <section className="ui-card p-6 sm:p-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-text-muted">
+              Stories &amp; Spaces
+            </p>
+            <h1 className="mt-3 text-3xl font-semibold text-text-primary">
+              The Grand Hall
+            </h1>
+            <p className="mt-2 text-sm text-text-secondary">
+              A shared room for stories, posts, and the next conversation.
+            </p>
+            <div className="mt-4 space-y-2 text-sm text-text-secondary">
+              <p>People pass through.</p>
+              <p>Some stay.</p>
+              <p>Something might happen.</p>
             </div>
-          ))}
-        </div>
-        {hall && feedItems.length === 0 && (
-          <p className="mt-4 text-sm text-text-muted">
-            {activeTab === "story"
-              ? "No stories in the Hall yet."
-              : activeTab === "post"
-                ? "No traces in the Hall yet."
-                : "The Hall is quiet for now."}
-          </p>
-        )}
-      </section>
+          </section>
 
-      {traceDetail && (
-        <div className="fixed inset-0 z-40 flex items-stretch" role="dialog" aria-modal="true">
-          <div
-            className="absolute inset-0 bg-text-primary/40 backdrop-blur-sm animate-trace-backdrop"
-            onClick={() => setSelectedTraceId(null)}
-          />
-          <div className="relative ml-auto flex h-full w-full max-w-[520px] flex-col overflow-hidden bg-card text-text-primary shadow-sm animate-trace-drawer">
-            <header className="flex items-start justify-between border-b border-border-default px-6 py-4">
-              <div>
-                <h3 className="text-lg font-semibold text-text-primary">Trace details</h3>
-                <div className="mt-2 flex items-center gap-2 text-sm text-text-secondary">
-                  <button
-                    type="button"
-                    className="flex h-6 w-6 items-center justify-center rounded-full bg-surface overflow-hidden"
-                    onClick={() => {
-                      if (traceDetail.trace.author?.id) {
-                        openProfileCard(traceDetail.trace.author.id);
-                      }
-                    }}
-                    aria-label="Open profile"
-                  >
-                    {traceDetail.trace.author?.maskAvatarUrl ? (
-                      <img
-                        src={traceDetail.trace.author.maskAvatarUrl}
-                        alt={renderTraceAuthor(traceDetail.trace.author)}
-                        className="h-6 w-6 rounded-full object-cover"
-                      />
-                    ) : (
-                      <span className="h-6 w-6 rounded-full bg-surface" />
-                    )}
-                  </button>
-                  <span>
-                    {renderTraceAuthor(traceDetail.trace.author)} ·{" "}
-                    {new Date(traceDetail.trace.createdAt).toLocaleString()}
-                  </span>
-                </div>
-              </div>
+          {showWelcome && (
+            <div className="mt-4 ui-surface p-4 text-sm text-text-secondary">
+              <p>Welcome to HookedUp?</p>
+              <p>This is the main hall of the castle.</p>
+              <p>Look around. See what's happening.</p>
+              <p>Join when something catches your interest.</p>
               <button
                 type="button"
-                className="text-xs text-text-muted"
-                onClick={() => setSelectedTraceId(null)}
+                className="btn-secondary mt-3 px-3 py-1 text-xs"
+                onClick={() => {
+                  localStorage.setItem("hallWelcomeSeen", "true");
+                  setShowWelcome(false);
+                }}
               >
                 Close
               </button>
-            </header>
+            </div>
+          )}
+          {status && <p className="mt-3 text-sm text-text-secondary">{status}</p>}
 
-            <div className="flex-1 overflow-y-auto px-6 py-5">
-              {traceDetail.trace.imageUrl && (
-                <div className="overflow-hidden rounded-2xl bg-surface">
-                  <img
-                    src={resolveMediaUrl(traceDetail.trace.imageUrl) ?? ""}
-                    alt={traceDetail.trace.content.slice(0, 40)}
-                    className="w-full object-contain"
-                    style={{
-                      aspectRatio:
-                        traceDetail.trace.imageWidth && traceDetail.trace.imageHeight
-                          ? `${traceDetail.trace.imageWidth} / ${traceDetail.trace.imageHeight}`
-                          : "4 / 5"
-                    }}
+          <section className="mt-6 space-y-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-text-primary">
+                  Hall Feed
+                </h2>
+                <p className="text-xs text-text-muted">
+                  Stories and posts mingled together.
+                </p>
+              </div>
+              <div className="ui-tab-list">
+                {hallTabs.map((tab) => {
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      className={`ui-tab ${isActive ? "ui-tab-active" : ""}`}
+                      onClick={() => setActiveTab(tab.id)}
+                      aria-pressed={isActive}
+                    >
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="ui-card p-4 sm:p-5">
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-border-default bg-surface text-sm font-semibold text-text-secondary">
+                    {meProfile?.maskAvatarUrl ? (
+                      <img
+                        src={meProfile.maskAvatarUrl}
+                        alt={meProfile.maskName ?? "Avatar"}
+                        className="h-10 w-10 rounded-full object-cover"
+                      />
+                    ) : (
+                      <span>
+                        {(meProfile?.maskName ?? "U").slice(0, 1).toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                  <textarea
+                    className="flex-1 resize-none rounded-full border border-border-default bg-card px-4 py-3 text-sm text-text-primary placeholder:text-text-muted"
+                    rows={1}
+                    maxLength={1000}
+                    placeholder="Share a thought with the hall..."
+                    value={traceInput}
+                    onChange={(event) => setTraceInput(event.target.value)}
                   />
-                </div>
-              )}
-              <p className="mt-4 text-sm text-text-secondary whitespace-pre-wrap">
-                {normalizeTraceContent(traceDetail.trace.content)}
-              </p>
-              {traceDetail.trace.novelId && (
-                <button
-                  type="button"
-                  className="mt-4 rounded-full border border-border-default px-4 py-2 text-xs font-semibold text-text-secondary"
-                  onClick={() => router.push(`/novels/${traceDetail.trace.novelId}`)}
-                >
-                  Read full story
-                </button>
-              )}
-
-              <div className="mt-6 space-y-3">
-                {traceDetail.replies.map((reply) => (
-                  <div
-                    key={reply.id}
-                    className="rounded-xl border border-border-default bg-surface p-3"
-                  >
-                    <div className="flex items-center justify-between text-xs text-text-muted">
-                      <span>{renderTraceAuthor(reply.author)}</span>
-                      <span>{new Date(reply.createdAt).toLocaleString()}</span>
-                    </div>
-                    <p className="mt-2 text-sm text-text-secondary">{reply.content}</p>
-                  </div>
-                ))}
-                {traceDetail.replies.length === 0 && (
-                  <p className="text-sm text-text-muted">No replies yet.</p>
-                )}
-              </div>
-
-              {traceDetail.nextCursor && (
-                <button
-                  type="button"
-                  className="mt-4 rounded-full border border-border-default px-4 py-2 text-xs font-semibold text-text-secondary"
-                  onClick={loadMoreReplies}
-                  disabled={loadingReplies}
-                >
-                  {loadingReplies ? "Loading..." : "Load more replies"}
-                </button>
-              )}
-            </div>
-
-            <div className="border-t border-border-default px-6 py-4">
-              <label className="text-xs font-semibold text-text-secondary">Reply</label>
-              <textarea
-                className="mt-2 w-full rounded-xl border border-border-default bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted"
-                rows={2}
-                maxLength={200}
-                placeholder="Write a reply (max 200)."
-                value={replyInput}
-                onChange={(event) => setReplyInput(event.target.value)}
-              />
-              <div className="mt-2 flex items-center justify-between text-xs text-text-muted">
-                <span>{replyInput.length}/200</span>
-                <button
-                  type="button"
-                  className="rounded-full bg-brand-primary px-4 py-2 text-xs font-semibold text-card"
-                  onClick={handlePostReply}
-                  disabled={postingReply}
-                >
-                  {postingReply ? "Replying..." : "Reply"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-    </>
-  );
-
-  const panelContent = (
-    <div className="space-y-6">
-      {!token || !isProfileComplete ? (
-        <div className="ui-surface p-4 text-text-primary">
-          <p className="text-sm font-semibold">Complete your profile</p>
-          <p className="mt-1 text-xs text-text-secondary">
-            Add a name, avatar, and tags so people can connect with you faster.
-          </p>
-          <button
-            type="button"
-            className="mt-3 w-full rounded-full bg-brand-primary px-4 py-2 text-xs font-semibold text-card"
-            onClick={() => {
-              if (!token) {
-                router.push("/login");
-                return;
-              }
-              openProfileOnboarding();
-            }}
-          >
-            {token ? "Complete profile" : "Sign in to continue"}
-          </button>
-        </div>
-      ) : null}
-      <div className="space-y-4">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-text-muted">
-          Do something.
-        </h3>
-        <div className="space-y-4">
-          <div className="space-y-3">
-            <label className="text-xs font-semibold text-text-secondary">Add a trace</label>
-            <textarea
-              className="mt-2 w-full rounded-xl border border-border-default bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted"
-              rows={3}
-              maxLength={1000}
-              placeholder="Add a thought to the hall..."
-              value={traceInput}
-              onChange={(event) => setTraceInput(event.target.value)}
-            />
-            <div className="space-y-2">
-              <button
-                type="button"
-                className="flex flex-col items-center gap-1 rounded-2xl border border-border-default px-4 py-2 text-xs font-semibold text-text-primary transition hover:border-brand-primary/40"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                {selectedImageFile ? "Replace image" : "Attach image"}
-                <span className="text-[10px] text-text-muted">jpg/png/webp · max 5MB</span>
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-                onChange={handleImageSelect}
-              />
-              {selectedImageFile && imagePreview && (
-                <div className="ui-surface p-3">
-                  <div className="overflow-hidden rounded-2xl bg-card relative">
-                    <img
-                      src={imagePreview?.startsWith("http") ? imagePreview : `${API_BASE}${imagePreview}`}
-                      alt={selectedImageFile.name}
-                      className="h-32 w-full object-cover"
-                    />
-                    {uploadingImage && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-text-primary/30">
-                        <p className="text-xs text-text-primary">Uploading...</p>
-                      </div>
-                    )}
-                    {uploadedImageData && !uploadingImage && (
-                      <div className="absolute top-2 right-2 rounded-full bg-brand-secondary px-2 py-1">
-                        <p className="text-[10px] text-card font-semibold">✓ Uploaded</p>
-                      </div>
-                    )}
-                  </div>
-                  <div className="mt-3 flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-semibold text-text-primary">
-                        {selectedImageFile.name}
-                      </p>
-                      <p className="text-[10px] text-text-muted">
-                        {formatBytes(selectedImageFile.size)}
-                        {uploadedImageData && uploadedImageData.width && uploadedImageData.height && (
-                          <span> · {uploadedImageData.width}×{uploadedImageData.height}</span>
-                        )}
-                      </p>
-                    </div>
+                  <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      className="rounded-full border border-border-default px-2 py-1 text-[10px] text-text-secondary"
-                      onClick={clearSelectedImage}
-                      disabled={uploadingImage}
+                      className="flex h-10 w-10 items-center justify-center rounded-full border border-border-default bg-card text-text-secondary"
+                      onClick={() => fileInputRef.current?.click()}
+                      aria-label="Attach image"
                     >
-                      Remove
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        className="h-5 w-5"
+                      >
+                        <path d="M12 5v14" />
+                        <path d="M5 12h14" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-primary text-card"
+                      onClick={handlePostTrace}
+                      disabled={postingTrace || uploadingImage}
+                      aria-label="Post"
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        className="h-5 w-5"
+                      >
+                        <path d="M5 12h14" />
+                        <path d="M13 6l6 6-6 6" />
+                      </svg>
                     </button>
                   </div>
                 </div>
-              )}
-              {imageError && <p className="text-xs text-text-secondary">{imageError}</p>}
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={handleImageSelect}
+                />
+
+                {selectedImageFile && imagePreview && (
+                  <div className="ui-surface p-3">
+                    <div className="overflow-hidden rounded-2xl bg-card relative">
+                      <img
+                        src={
+                          imagePreview?.startsWith("http")
+                            ? imagePreview
+                            : `${API_BASE}${imagePreview}`
+                        }
+                        alt={selectedImageFile.name}
+                        className="h-32 w-full object-cover"
+                      />
+                      {uploadingImage && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-text-primary/30">
+                          <p className="text-xs text-text-primary">Uploading...</p>
+                        </div>
+                      )}
+                      {uploadedImageData && !uploadingImage && (
+                        <div className="absolute top-2 right-2 rounded-full bg-brand-secondary px-2 py-1">
+                          <p className="text-[10px] text-card font-semibold">Uploaded</p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="mt-3 flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold text-text-primary">
+                          {selectedImageFile.name}
+                        </p>
+                        <p className="text-[10px] text-text-muted">
+                          {formatBytes(selectedImageFile.size)}
+                          {uploadedImageData &&
+                            uploadedImageData.width &&
+                            uploadedImageData.height && (
+                              <span>
+                                {" "}- {uploadedImageData.width}x{uploadedImageData.height}
+                              </span>
+                            )}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="rounded-full border border-border-default px-2 py-1 text-[10px] text-text-secondary"
+                        onClick={clearSelectedImage}
+                        disabled={uploadingImage}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {imageError && (
+                  <p className="text-xs text-text-secondary">{imageError}</p>
+                )}
+                <div className="flex items-center justify-between text-xs text-text-muted">
+                  <span>{traceInput.length}/1000</span>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center justify-between text-xs text-text-muted">
-              <span>{traceInput.length}/1000</span>
-              <button
-                type="button"
-                className="rounded-full bg-brand-primary px-4 py-2 text-xs font-semibold text-card transition hover:bg-brand-secondary"
-                onClick={handlePostTrace}
-                disabled={postingTrace || uploadingImage}
-              >
-                {postingTrace || uploadingImage ? "Posting..." : "Post"}
-              </button>
+
+            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+              {feedColumns.map((column, columnIndex) => (
+                <div key={`feed-col-${columnIndex}`} className="flex flex-col gap-4">
+                  {column.map((item) =>
+                    item.kind === "novel"
+                      ? renderNovelCard(item.novel)
+                      : renderTraceCard(item.trace)
+                  )}
+                </div>
+              ))}
             </div>
-          </div>
-          <div className="space-y-2 border-t border-border-default pt-4 text-text-primary">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-              Start a Room
-            </h4>
-            <button
-              type="button"
-              className="w-full rounded-full border border-border-default px-4 py-2 text-xs font-semibold text-text-primary transition hover:border-brand-primary/40"
-              onClick={() => router.push("/rooms")}
+            {hall && feedItems.length === 0 && (
+              <p className="mt-4 text-sm text-text-muted">
+                {activeTab === "story"
+                  ? "No stories in the Hall yet."
+                  : activeTab === "post"
+                    ? "No traces in the Hall yet."
+                    : "The Hall is quiet for now."}
+              </p>
+            )}
+          </section>
+
+          {traceDetail && (
+            <div
+              className="fixed inset-0 z-40 flex items-stretch"
+              role="dialog"
+              aria-modal="true"
             >
-              Start something
-            </button>
-          </div>
+              <div
+                className="absolute inset-0 bg-text-primary/40 backdrop-blur-sm animate-trace-backdrop"
+                onClick={() => setSelectedTraceId(null)}
+              />
+              <div className="relative ml-auto flex h-full w-full max-w-[520px] flex-col overflow-hidden bg-card text-text-primary shadow-sm animate-trace-drawer">
+                <header className="flex items-start justify-between border-b border-border-default px-6 py-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-text-primary">
+                      Trace details
+                    </h3>
+                    <div className="mt-2 flex items-center gap-2 text-sm text-text-secondary">
+                      <button
+                        type="button"
+                        className="flex h-6 w-6 items-center justify-center rounded-full bg-surface overflow-hidden"
+                        onClick={() => {
+                          if (traceDetail.trace.author?.id) {
+                            openProfileCard(traceDetail.trace.author.id);
+                          }
+                        }}
+                        aria-label="Open profile"
+                      >
+                        {traceDetail.trace.author?.maskAvatarUrl ? (
+                          <img
+                            src={traceDetail.trace.author.maskAvatarUrl}
+                            alt={renderTraceAuthor(traceDetail.trace.author)}
+                            className="h-6 w-6 rounded-full object-cover"
+                          />
+                        ) : (
+                          <span className="h-6 w-6 rounded-full bg-surface" />
+                        )}
+                      </button>
+                      <span>
+                        {renderTraceAuthor(traceDetail.trace.author)} - {new Date(traceDetail.trace.createdAt).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="text-xs text-text-muted"
+                    onClick={() => setSelectedTraceId(null)}
+                  >
+                    Close
+                  </button>
+                </header>
+
+                <div className="flex-1 overflow-y-auto px-6 py-5">
+                  {traceDetail.trace.imageUrl && (
+                    <div className="overflow-hidden rounded-2xl bg-surface">
+                      <img
+                        src={resolveMediaUrl(traceDetail.trace.imageUrl) ?? ""}
+                        alt={traceDetail.trace.content.slice(0, 40)}
+                        className="w-full object-contain"
+                        style={{
+                          aspectRatio:
+                            traceDetail.trace.imageWidth &&
+                            traceDetail.trace.imageHeight
+                              ? `${traceDetail.trace.imageWidth} / ${traceDetail.trace.imageHeight}`
+                              : "4 / 5"
+                        }}
+                      />
+                    </div>
+                  )}
+                  <p className="mt-4 text-sm text-text-secondary whitespace-pre-wrap">
+                    {normalizeTraceContent(traceDetail.trace.content)}
+                  </p>
+                  {traceDetail.trace.novelId && (
+                    <button
+                      type="button"
+                      className="mt-4 rounded-full border border-border-default px-4 py-2 text-xs font-semibold text-text-secondary"
+                      onClick={() =>
+                        router.push(`/novels/${traceDetail.trace.novelId}`)
+                      }
+                    >
+                      Read full story
+                    </button>
+                  )}
+
+                  <div className="mt-6 space-y-3">
+                    {traceDetail.replies.map((reply) => (
+                      <div
+                        key={reply.id}
+                        className="rounded-xl border border-border-default bg-surface p-3"
+                      >
+                        <div className="flex items-center justify-between text-xs text-text-muted">
+                          <span>{renderTraceAuthor(reply.author)}</span>
+                          <span>
+                            {new Date(reply.createdAt).toLocaleString()}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-sm text-text-secondary">
+                          {reply.content}
+                        </p>
+                      </div>
+                    ))}
+                    {traceDetail.replies.length === 0 && (
+                      <p className="text-sm text-text-muted">No replies yet.</p>
+                    )}
+                  </div>
+
+                  {traceDetail.nextCursor && (
+                    <button
+                      type="button"
+                      className="mt-4 rounded-full border border-border-default px-4 py-2 text-xs font-semibold text-text-secondary"
+                      onClick={loadMoreReplies}
+                      disabled={loadingReplies}
+                    >
+                      {loadingReplies ? "Loading..." : "Load more replies"}
+                    </button>
+                  )}
+                </div>
+
+                <div className="border-t border-border-default px-6 py-4">
+                  <label className="text-xs font-semibold text-text-secondary">
+                    Reply
+                  </label>
+                  <textarea
+                    className="mt-2 w-full rounded-xl border border-border-default bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted"
+                    rows={2}
+                    maxLength={200}
+                    placeholder="Write a reply (max 200)."
+                    value={replyInput}
+                    onChange={(event) => setReplyInput(event.target.value)}
+                  />
+                  <div className="mt-2 flex items-center justify-between text-xs text-text-muted">
+                    <span>{replyInput.length}/200</span>
+                    <button
+                      type="button"
+                      className="rounded-full bg-brand-primary px-4 py-2 text-xs font-semibold text-card"
+                      onClick={handlePostReply}
+                      disabled={postingReply}
+                    >
+                      {postingReply ? "Replying..." : "Reply"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-      </div>
-
-      <div className="space-y-3 border-t border-border-default pt-4">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-          Quick Prompts
-        </h4>
-        <ul className="space-y-2 text-sm text-text-secondary">
-          {QUICK_PROMPTS.map((prompt) => (
-            <li key={prompt} className="text-xs leading-relaxed">
-              {prompt}
-            </li>
-          ))}
-        </ul>
-      </div>
-    </div>
-  );
-
-  return (
-    <>
-      <PageShell title="The Grand Hall" stage={stageContent} panel={panelContent} />
+      </main>
       {profileCard && (
         <ProfileCard
           profile={profileCard}
@@ -1541,5 +1550,6 @@ export default function HallPage() {
         </div>
       )}
     </>
-  );
-}
+  );}
+
+

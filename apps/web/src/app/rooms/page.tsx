@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 export const dynamic = "force-dynamic";
 
@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
-import PageShell from "../components/PageShell";
 import { emitHostStatus } from "../lib/hostStatus";
 
 const API_BASE =
@@ -149,6 +148,18 @@ export default function RoomsPage() {
     emitHostStatus({ page: "rooms", cold: rooms.length === 0 });
   }, [rooms]);
 
+  useEffect(() => {
+    if (!filterQuery.trim()) {
+      return;
+    }
+    const debounce = setTimeout(() => {
+      loadRooms(null, { search: filterQuery }).catch(() =>
+        setStatus("Failed to load.")
+      );
+    }, 300);
+    return () => clearTimeout(debounce);
+  }, [filterQuery]);
+
   const handleApplyFilters = async () => {
     setStatus(null);
     await loadRooms(null);
@@ -232,146 +243,158 @@ export default function RoomsPage() {
     }
   };
 
-  const stageContent = (
+    return (
     <>
-      <div className="space-y-2">
-        <h1 className="text-2xl font-semibold text-text-primary">Ongoing Gatherings</h1>
-        <p className="text-sm text-text-secondary">
-          <span className="block">Each room carries its own tone.</span>
-          <span className="block">Read the theme before stepping in.</span>
-        </p>
-        {status && <p className="text-sm text-text-secondary">{status}</p>}
-      </div>
+      <main className="ui-page">
+        <div className="ui-container py-8">
+          <section className="space-y-2">
+            <h1 className="text-2xl font-semibold text-text-primary">
+              Discussion Rooms
+            </h1>
+            <p className="text-sm text-text-secondary">
+              Each room carries its own tone.
+            </p>
+            {status && <p className="text-sm text-text-secondary">{status}</p>}
+          </section>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        {rooms.map((room) => {
-          if (room.novel) {
-            return (
-              <Link
-                key={room.id}
-                href={`/rooms/${room.id}`}
-                className="group ui-surface flex flex-col gap-3 p-4 transition hover:border-brand-primary/40"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="badge-premium text-[9px] uppercase tracking-[0.2em]">
-                    Story room
-                  </span>
-                  <span className="text-[10px] text-text-muted">
-                    {room.memberCount} discussing
-                  </span>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="h-20 w-14 overflow-hidden rounded-lg border border-border-default bg-card">
-                    {room.novel.coverImageUrl ? (
+          <section className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="relative flex-1">
+              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-text-muted">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  className="h-4 w-4"
+                >
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="M20 20l-3.5-3.5" />
+                </svg>
+              </span>
+              <input
+                className="w-full rounded-full border border-border-default bg-card py-2.5 pl-11 pr-4 text-sm text-text-primary placeholder:text-text-muted"
+                placeholder="Search rooms"
+                value={filterQuery}
+                onChange={(event) => setFilterQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    handleApplyFilters();
+                  }
+                }}
+              />
+            </div>
+            <button
+              type="button"
+              className="btn-primary px-5 py-2.5 text-sm"
+              onClick={() => setShowCreate(true)}
+            >
+              + Create Room
+            </button>
+          </section>
+
+          <div className="mt-6 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] text-text-muted">
+            <span className="h-2 w-2 rounded-full bg-brand-primary" />
+            Live Now
+          </div>
+
+          <section className="mt-4 grid gap-4 md:grid-cols-2">
+            {rooms.map((room) => {
+              const createdBy = (room as { createdBy?: { name?: string; avatarUrl?: string; avatar?: string | null } }).createdBy;
+              const hostName = createdBy?.name ?? "Unknown";
+              const hostAvatar = createdBy?.avatarUrl ?? createdBy?.avatar ?? null;
+              const rawMessageCount = (room as { messageCount?: number | string; messagesCount?: number | string; message_count?: number | string }).messageCount ?? (room as { messagesCount?: number | string }).messagesCount ?? (room as { message_count?: number | string }).message_count;
+              const messageCount = Number.isFinite(Number(rawMessageCount)) ? Number(rawMessageCount) : null;
+              const messageLabel = messageCount === null ? "-" : String(messageCount);
+              const topicTag = room.tagsJson?.[0] ?? "Topic";
+              const coverUrl = room.novel?.coverImageUrl;
+              const timeText = room.status === "LIVE" && room.endsAt
+                ? `Ends ${new Date(room.endsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                : room.startsAt
+                ? `Starts ${new Date(room.startsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                : "-";
+
+              return (
+                <Link
+                  key={room.id}
+                  href={`/rooms/${room.id}`}
+                  className={`ui-card p-5 transition hover:border-brand-primary/40 ${
+                    coverUrl ? "grid gap-4 md:grid-cols-[160px_1fr]" : "flex flex-col gap-3"
+                  }`}
+                >
+                  {coverUrl && (
+                    <div className="overflow-hidden rounded-2xl border border-border-default bg-surface">
                       <img
-                        src={resolveMediaUrl(room.novel.coverImageUrl) ?? ""}
-                        alt={room.novel.title}
+                        src={resolveMediaUrl(coverUrl) ?? ""}
+                        alt={room.novel?.title ?? room.title}
                         className="h-full w-full object-cover"
                       />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-[9px] text-text-muted">
-                        No cover
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <h2 className="text-sm font-semibold text-text-primary line-clamp-1">
-                      {room.novel.title}
-                    </h2>
-                    <p className="mt-1 text-xs text-text-secondary line-clamp-2">
-                      {room.description ?? "Join the official story discussion."}
-                    </p>
-                  </div>
-                </div>
-              </Link>
-            );
-          }
-
-          return (
-            <Link
-              key={room.id}
-              href={`/rooms/${room.id}`}
-              className="group ui-card flex flex-col gap-3 p-5 transition hover:border-brand-primary/40"
-            >
-              <div className="relative z-10">
-                <div className="flex items-start justify-between gap-3">
-                  <h2 className="text-lg font-bold text-text-primary leading-tight flex-1">
-                    {room.title}
-                  </h2>
-                  {room.status === "LIVE" && (
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                      <div className="relative">
-                        <div className="absolute inset-0 rounded-full bg-brand-primary/40 blur-sm animate-pulse" />
-                        <div className="relative w-2 h-2 rounded-full bg-brand-primary" />
-                      </div>
-                      <span className="rounded-full border border-border-default bg-surface px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-text-secondary shadow-sm">
-                        LIVE
-                      </span>
                     </div>
                   )}
-                </div>
-                <p className="mt-2 text-sm text-text-secondary leading-snug line-clamp-1">
-                  {room.description ?? "-"}
-                </p>
-                <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-text-muted">
-                  <span className="font-medium">
-                    {room.memberCount}
-                    {room.capacity ? `/${room.capacity}` : ""} guests
-                  </span>
-                  {room.capacity !== null && room.memberCount >= room.capacity ? (
-                    <span className="rounded-full border border-border-default bg-surface px-2 py-0.5 text-[9px] font-medium text-text-secondary">
-                      Full
-                    </span>
-                  ) : room.status === "LIVE" ? (
-                    <span className="rounded-full border border-border-default bg-surface px-2 py-0.5 text-[9px] font-medium text-text-secondary">
-                      Open
-                    </span>
-                  ) : (
-                    <span className="rounded-full border border-border-default bg-surface px-2 py-0.5 text-[9px] font-medium text-text-secondary">
-                      Waiting
-                    </span>
-                  )}
-                </div>
-                <div className="mt-4 flex items-center gap-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
-                  <span className="rounded-full border border-border-default bg-surface px-3 py-1.5 text-[10px] font-semibold text-text-secondary shadow-sm">
-                    Enter
-                  </span>
-                  {room.status === "LIVE" && (
-                    <span className="rounded-full border border-border-default bg-surface px-3 py-1.5 text-[10px] font-medium text-text-muted">
-                      Peek
-                    </span>
-                  )}
-                </div>
-                {(room.status === "LIVE" && room.endsAt) ||
-                (room.startsAt && room.status !== "LIVE") ? (
-                  <p className="mt-2 text-[9px] text-text-muted">
-                    {room.status === "LIVE" && room.endsAt
-                      ? `Until ${new Date(room.endsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
-                      : room.startsAt
-                      ? `Starts ${new Date(room.startsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
-                      : ""}
-                  </p>
-                ) : null}
-              </div>
-            </Link>
-          );
-        })}
-      </div>
+                  <div className="flex flex-col gap-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {room.status === "LIVE" && (
+                        <span className="ui-badge ui-badge-live">
+                          <span className="mr-1 inline-flex h-1.5 w-1.5 rounded-full bg-brand-primary" />
+                          Live
+                        </span>
+                      )}
+                      <span className="ui-badge ui-badge-story">{topicTag}</span>
+                    </div>
 
-      {rooms.length === 0 && (
-        <p className="text-sm text-text-muted">No rooms yet.</p>
-      )}
+                    <div>
+                      <h2 className="text-lg font-semibold text-text-primary">
+                        {room.title}
+                      </h2>
+                      <p className="mt-2 text-sm text-text-secondary line-clamp-2">
+                        {room.description ?? "-"}
+                      </p>
+                    </div>
 
-      {cursor && (
-        <button
-          type="button"
-          className="btn-secondary px-4 py-2 text-xs"
-          onClick={() => loadRooms(cursor)}
-          disabled={loading}
-        >
-          {loading ? "Loading..." : "Load more"}
-        </button>
-      )}
+                    <div className="flex items-center gap-3 text-xs text-text-secondary">
+                      <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-border-default bg-surface text-xs font-semibold">
+                        {hostAvatar ? (
+                          <img
+                            src={resolveMediaUrl(hostAvatar) ?? hostAvatar}
+                            alt={hostName}
+                            className="h-8 w-8 rounded-full object-cover"
+                          />
+                        ) : (
+                          <span>{hostName.slice(0, 1).toUpperCase()}</span>
+                        )}
+                      </div>
+                      <span>{hostName}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-text-muted">
+                      <div className="flex items-center gap-4">
+                        <span>{room.memberCount ?? 0} Members</span>
+                        <span>{messageLabel} Messages</span>
+                      </div>
+                      <span>{timeText}</span>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </section>
+
+          {rooms.length === 0 && (
+            <p className="mt-4 text-sm text-text-muted">No rooms yet.</p>
+          )}
+
+          {cursor && (
+            <button
+              type="button"
+              className="btn-secondary mt-4 px-4 py-2 text-xs"
+              onClick={() => loadRooms(cursor)}
+              disabled={loading}
+            >
+              {loading ? "Loading..." : "Load more"}
+            </button>
+          )}
+        </div>
+      </main>
 
       {showCreate && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-text-primary/40 p-6">
@@ -449,100 +472,4 @@ export default function RoomsPage() {
         </div>
       )}
     </>
-  );
-
-  const panelContent = (
-    <div className="space-y-6">
-      <div className="space-y-3">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-text-muted">
-          Filters
-        </h3>
-        <div className="space-y-3">
-          <select
-            value={filterStatus}
-            onChange={(event) => setFilterStatus(event.target.value)}
-            className="w-full rounded-full border border-border-default bg-card px-4 py-2 text-xs text-text-secondary"
-          >
-            <option value="all">All statuses</option>
-            <option value="live">Live</option>
-            <option value="scheduled">Scheduled</option>
-            <option value="ended">Ended</option>
-          </select>
-          <input
-            className="w-full rounded-full border border-border-default bg-card px-4 py-2 text-xs text-text-secondary"
-            placeholder="Search title or description"
-            value={filterQuery}
-            onChange={(event) => setFilterQuery(event.target.value)}
-          />
-          <input
-            className="w-full rounded-full border border-border-default bg-card px-4 py-2 text-xs text-text-secondary"
-            placeholder="Tags (comma-separated)"
-            value={filterTags}
-            onChange={(event) => setFilterTags(event.target.value)}
-          />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            className="btn-primary px-4 py-2 text-xs"
-            onClick={handleApplyFilters}
-            disabled={loading}
-          >
-            {loading ? "Loading..." : "Apply filters"}
-          </button>
-          <button
-            type="button"
-            className="btn-secondary px-4 py-2 text-xs"
-            onClick={handleClearFilters}
-            disabled={loading}
-          >
-            Clear
-          </button>
-        </div>
-      </div>
-      {novels.length > 0 && (
-        <div className="border-t border-border-default pt-4">
-          <p className="text-xs uppercase tracking-[0.3em] text-text-muted">
-            Featured novels
-          </p>
-          <div className="mt-3 space-y-3">
-            {novels.map((novel) => (
-              <div
-                key={novel.id}
-                className="ui-card p-3 text-xs text-text-secondary"
-              >
-                <p className="font-semibold">{novel.title}</p>
-                {novel.description && (
-                  <p className="mt-1 text-[11px] text-text-muted line-clamp-2">
-                    {novel.description}
-                  </p>
-                )}
-                <Link
-                  href="/hall"
-                  className="mt-2 inline-flex text-[11px] font-semibold text-brand-primary"
-                >
-                  View in Hall 鈫?                </Link>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-      <div className="border-t border-border-default pt-4">
-        <p className="text-xs uppercase tracking-[0.3em] text-text-muted">
-          Actions
-        </p>
-        <button
-          type="button"
-          className="btn-primary mt-3 w-full px-4 py-2 text-xs"
-          onClick={() => setShowCreate(true)}
-        >
-          Create Room
-        </button>
-      </div>
-    </div>
-  );
-
-  return <PageShell stage={stageContent} panel={panelContent} />;
-}
-
-
+  );\n}

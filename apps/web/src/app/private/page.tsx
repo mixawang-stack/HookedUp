@@ -10,7 +10,6 @@ import React, { Suspense, useEffect, useMemo, useState } from "react";
 import { emitHostStatus } from "../lib/hostStatus";
 
 import ChatBubble from "../components/ChatBubble";
-import PageShell from "../components/PageShell";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
@@ -66,6 +65,7 @@ function PrivateListPageInner() {
         useState<ConversationItem | null>(null);
     const searchParams = useSearchParams();
     const requestedConversationId = searchParams?.get("conversationId");
+    const [searchQuery, setSearchQuery] = useState("");
 
   const authHeader = useMemo(() => {
         if (!token) return null;
@@ -192,170 +192,148 @@ function PrivateListPageInner() {
     setActiveConversation(null);
   };
 
-  const stageContent = (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
-          Private Conversations
-        </h1>
-        <p className="text-sm text-text-secondary">
-          <span className="block">Private is what happens after things click.</span>
-          <span className="block">Not planned. Not forced. Just continued.</span>
-        </p>
-        {status && <p className="text-sm text-brand-secondary">{status}</p>}
-      </div>
-
-      <div className="space-y-3">
-        {conversations.map((item) => (
-          <div
-            key={item.id}
-                        className={`ui-card flex items-center justify-between px-4 py-3 text-sm transition ${item.unreadCount > 0
-                ? "border-brand-primary/40 bg-surface"
-                : "bg-card"
-            }`}
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => openConversation(item)}
-                        onKeyDown={(event) => {
-                            if (event.key === "Enter" || event.key === " ") {
-                                event.preventDefault();
-                                openConversation(item);
-                            }
-                        }}
-                    >
-                        <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-border-default bg-surface text-xs font-semibold text-text-secondary">
-                                {item.otherUser?.maskAvatarUrl ? (
-                                    <img
-                                        src={item.otherUser.maskAvatarUrl}
-                                        alt={item.otherUser?.maskName ?? "Avatar"}
-                                        className="h-10 w-10 rounded-full object-cover"
-                                    />
-                                ) : (
-                                    <span>
-                                        {(item.otherUser?.maskName ?? "A")
-                                            .slice(0, 1)
-                                            .toUpperCase()}
-                                    </span>
-                                )}
-                            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                {item.unreadCount > 0 && (
-                  <span className="h-2 w-2 rounded-full bg-brand-primary" />
-                )}
-                <p className="font-semibold text-text-primary">
-                  {item.otherUser?.maskName ?? "Anonymous"}
-                </p>
-              </div>
-              <p className="mt-1 text-xs text-text-secondary">
-                                    Private room {item.isMuted ? "路 Muted" : ""}
-              </p>
-            </div>
-                        </div>
-
-            <div className="flex items-center gap-2">
-              {item.unreadCount > 0 && (
-                <span className="rounded-full bg-brand-primary px-2 py-0.5 text-[10px] font-semibold text-card">
-                  {item.unreadCount}
-                </span>
-              )}
-
-              <button
-                type="button"
-                className="btn-primary px-4 py-2 text-xs"
-                                onClick={(event) => {
-                                    event.stopPropagation();
-                                    openConversation(item);
-                                }}
-              >
-                                {activeConversation?.id === item.id ? "Close" : "Open"}
-              </button>
-
-              <button
-                type="button"
-                className="btn-secondary px-4 py-2 text-xs"
-                onClick={() => toggleMute(item)}
-              >
-                {item.isMuted ? "Unmute" : "Mute"}
-              </button>
-            </div>
-          </div>
-        ))}
-
-        {conversations.length === 0 && (
-          <div className="ui-surface border-dashed p-4 text-sm text-text-secondary">
-            <p>Nothing private yet.</p>
-            <p>Most conversations start in the Hall</p>
-                        <p>or inside a room. Go stir things up.</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Link
-                href="/hall"
-                className="btn-primary px-4 py-2 text-xs"
-              >
-                Hall
-              </Link>
-              <Link
-                href="/rooms"
-                className="btn-secondary px-4 py-2 text-xs"
-              >
-                Rooms
-              </Link>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {cursor && (
-        <div className="flex justify-center">
-          <button
-            type="button"
-            className="btn-secondary px-4 py-2 text-xs"
-            onClick={() => loadConversations(cursor)}
-            disabled={loading}
-          >
-            {loading ? "Loading..." : "Load more"}
-          </button>
-        </div>
-      )}
-    </div>
-  );
-
-  const panelContent = (
-    <div className="space-y-4">
-      <div className="ui-card p-5 text-sm text-text-secondary">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-          Keep it private
-        </h3>
-        <p className="mt-3 text-xs text-text-secondary">
-          Conversations stay between the two of you unless you invite someone
-          else. Pause or mute whenever you need. No one else sees your words.
-        </p>
-      </div>
-
-      <div className="ui-card p-5 text-sm text-text-secondary">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-          Need ideas?
-        </h3>
-        <p className="mt-2 text-xs text-text-secondary">
-          Suggest a topic, re-share a memory, or share how the day went.
-        </p>
-      </div>
-    </div>
-  );
+    const filteredConversations = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) {
+      return conversations;
+    }
+    return conversations.filter((item) =>
+      (item.otherUser?.maskName ?? "").toLowerCase().includes(query)
+    );
+  }, [conversations, searchQuery]);
 
   return (
-    <>
-            <PageShell stage={stageContent} panel={panelContent} />
+    <main className="ui-page">
+      <div className="ui-container py-8">
+        <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
+          <aside className="ui-card flex flex-col gap-4 p-4">
+            <div className="space-y-2">
+              <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
+                Private Conversations
+              </h1>
+              <p className="text-sm text-text-secondary">
+                <span className="block">
+                  Private is what happens after things click.
+                </span>
+                <span className="block">Not planned. Not forced. Just continued.</span>
+              </p>
+              {status && <p className="text-sm text-brand-secondary">{status}</p>}
+            </div>
 
-      {activeConversation && (
-        <PrivateConversationDrawer
-          conversation={activeConversation}
-          token={token}
-          onClose={closeConversation}
-        />
-      )}
-    </>
+            <div className="relative">
+              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-text-muted">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  className="h-4 w-4"
+                >
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="M20 20l-3.5-3.5" />
+                </svg>
+              </span>
+              <input
+                className="w-full rounded-full border border-border-default bg-card py-2.5 pl-11 pr-4 text-sm text-text-primary placeholder:text-text-muted"
+                placeholder="Search conversations"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+              />
+            </div>
+
+            <div className="space-y-3">
+              {filteredConversations.map((item) => {
+                const displayName = item.otherUser?.maskName ?? "Anonymous";
+                const snippet = item.isMuted ? "Private room - Muted" : "Private room";
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`w-full rounded-2xl border px-3 py-3 text-left transition ${
+                      activeConversation?.id === item.id
+                        ? "border-brand-primary/40 bg-surface"
+                        : "border-border-default bg-card"
+                    }`}
+                    onClick={() => openConversation(item)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-border-default bg-surface text-xs font-semibold text-text-secondary">
+                        {item.otherUser?.maskAvatarUrl ? (
+                          <img
+                            src={item.otherUser.maskAvatarUrl}
+                            alt={displayName}
+                            className="h-10 w-10 rounded-full object-cover"
+                          />
+                        ) : (
+                          <span>{displayName.slice(0, 1).toUpperCase()}</span>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="truncate text-sm font-semibold text-text-primary">
+                            {displayName}
+                          </p>
+                          <span className="text-[11px] text-text-muted">-</span>
+                        </div>
+                        <p className="mt-1 truncate text-xs text-text-secondary">
+                          {snippet}
+                        </p>
+                      </div>
+                      {item.unreadCount > 0 && (
+                        <span className="rounded-full bg-brand-primary px-2 py-0.5 text-[10px] font-semibold text-card">
+                          {item.unreadCount}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+
+              {conversations.length === 0 && (
+                <div className="ui-surface border-dashed p-4 text-sm text-text-secondary">
+                  <p>Nothing private yet.</p>
+                  <p>Most conversations start in the Hall</p>
+                  <p>or inside a room. Go stir things up.</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Link href="/hall" className="btn-primary px-4 py-2 text-xs">
+                      Hall
+                    </Link>
+                    <Link href="/rooms" className="btn-secondary px-4 py-2 text-xs">
+                      Rooms
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {cursor && (
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  className="btn-secondary px-4 py-2 text-xs"
+                  onClick={() => loadConversations(cursor)}
+                  disabled={loading}
+                >
+                  {loading ? "Loading..." : "Load more"}
+                </button>
+              </div>
+            )}
+          </aside>
+
+          <section className="ui-card flex min-h-[70vh] flex-col overflow-hidden">
+            {activeConversation ? (
+              <PrivateConversationDrawer
+                conversation={activeConversation}
+                token={token}
+                onClose={closeConversation}
+              />
+            ) : (
+              <div className="flex h-full flex-1" />
+            )}
+          </section>
+        </div>
+      </div>
+    </main>
   );
 }
 
@@ -596,68 +574,52 @@ function PrivateConversationDrawer({
         };
     }, [onClose]);
 
-    const handleBackdropClick = (event: React.MouseEvent<HTMLDivElement>) => {
-        if (event.target === event.currentTarget) {
-            onClose();
-        }
-  };
-
   return (
-    <div
-      className="fixed inset-0 z-40 flex items-stretch"
-      role="dialog"
-      aria-modal="true"
-    >
-      <div
-        className="absolute inset-0 bg-text-primary/40"
-        onClick={handleBackdropClick}
-      />
-
-      <div className="relative ml-auto flex h-full w-full max-w-[720px] flex-col overflow-hidden border-l border-border-default bg-card text-text-primary shadow-sm">
-        <div className="pointer-events-none absolute inset-0 -z-10 rounded-none shadow-[0_0_45px_rgba(56,189,248,0.35),0_0_120px_rgba(14,165,233,0.25)]" />
-
-        <header className="flex items-center justify-between border-b border-border-default px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full border border-border-default bg-surface text-xs font-semibold uppercase text-text-secondary">
-              {conversation.otherUser?.maskName
-                ? conversation.otherUser.maskName.charAt(0).toUpperCase()
-                : "A"}
-            </div>
-
-            <div>
-              <p className="text-base font-semibold text-text-primary">
-                {conversation.otherUser?.maskName ?? "Anonymous"}
-              </p>
-              <p className="text-xs uppercase tracking-[0.3em] text-text-muted">
-                Private chat
-              </p>
-                            {isRequestOnly && (
-                                <p className="mt-1 text-[10px] text-brand-secondary">
-                                    This user has closed stranger DMs
-                                </p>
-                            )}
-            </div>
+    <div className="flex h-full flex-col" role="region" aria-label="Private chat">
+      <header className="flex items-center justify-between border-b border-border-default px-6 py-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full border border-border-default bg-surface text-xs font-semibold uppercase text-text-secondary">
+            {conversation.otherUser?.maskName
+              ? conversation.otherUser.maskName.charAt(0).toUpperCase()
+              : "A"}
           </div>
 
-          <div className="flex items-center gap-2 text-xs">
-            {isMuted && (
-              <span className="rounded-full border border-border-default bg-surface px-3 py-1 text-text-muted">
-                Muted
-              </span>
+          <div>
+            <p className="text-base font-semibold text-text-primary">
+              {conversation.otherUser?.maskName ?? "Anonymous"}
+            </p>
+            <div className="mt-1 flex items-center gap-2 text-xs text-text-secondary">
+              <span className="ui-status-online inline-flex h-2 w-2 rounded-full" />
+              <span>Online</span>
+            </div>
+            {isRequestOnly && (
+              <p className="mt-1 text-[10px] text-brand-secondary">
+                This user has closed stranger DMs
+              </p>
             )}
-            <button
-              type="button"
-              className="btn-secondary px-3 py-1 text-xs"
-              onClick={onClose}
-            >
-              Close
-            </button>
           </div>
-        </header>
+        </div>
 
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto px-4 py-6">
-            <div className="mx-auto flex max-w-[640px] flex-col gap-4">
+        <button
+          type="button"
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-border-default bg-card text-text-secondary"
+          aria-label="More"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            className="h-4 w-4"
+          >
+            <circle cx="12" cy="5" r="1.8" />
+            <circle cx="12" cy="12" r="1.8" />
+            <circle cx="12" cy="19" r="1.8" />
+          </svg>
+        </button>
+      </header>
+
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex-1 overflow-y-auto px-6 py-6">
+          <div className="mx-auto flex max-w-[640px] flex-col gap-4">
                             {requestPending && (
                                 <div className="ui-surface p-3 text-xs text-text-secondary">
                                     Request sent. Waiting for their reply.
@@ -710,50 +672,48 @@ function PrivateConversationDrawer({
             </div>
           </div>
 
-          <div className="border-t border-border-default bg-card px-6 py-5">
-            <div className="space-y-3">
-              <textarea
-                className="h-24 w-full rounded-2xl border border-border-default bg-card px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/30"
-                placeholder="Say something when it feels right."
-                value={input}
-                onChange={(event) => setInput(event.target.value)}
-                onKeyDown={handleKeyDown}
-              />
+        </div>
 
-              <div className="flex items-center justify-between text-xs text-text-muted">
-                <span>{input.length} chars</span>
-
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    className="btn-secondary px-3 py-1 text-xs"
-                                        onClick={() => loadMessages(null)}
-                    disabled={loading}
-                  >
-                    Refresh
-                  </button>
-
-                                    {cursor && (
-                                        <button
-                                            type="button"
-                                            className="btn-secondary px-3 py-1 text-xs"
-                                            onClick={() => loadMessages(cursor)}
-                                            disabled={loading}
-                                        >
-                                            Load earlier
-                                        </button>
-                                    )}
-
-                  <button
-                    type="button"
-                    className="btn-primary px-4 py-2 text-xs"
-                                        onClick={() => sendMessage()}
-                    disabled={sending}
-                  >
-                    {sending ? "Sending..." : "Send"}
-                  </button>
-                </div>
-              </div>
+        <div className="border-t border-border-default bg-card px-6 py-4">
+          <div className="flex items-center gap-3">
+            <textarea
+              className="flex-1 rounded-full border border-border-default bg-card px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/30"
+              placeholder="Say something when it feels right."
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              onKeyDown={handleKeyDown}
+              rows={1}
+            />
+            <button
+              type="button"
+              className="btn-primary px-5 py-2.5 text-sm"
+              onClick={() => sendMessage()}
+              disabled={sending}
+            >
+              {sending ? "Sending..." : "Send"}
+            </button>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-text-muted">
+            <span>{input.length} chars</span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="btn-secondary px-3 py-1 text-xs"
+                onClick={() => loadMessages(null)}
+                disabled={loading}
+              >
+                Refresh
+              </button>
+              {cursor && (
+                <button
+                  type="button"
+                  className="btn-secondary px-3 py-1 text-xs"
+                  onClick={() => loadMessages(cursor)}
+                  disabled={loading}
+                >
+                  Load earlier
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -761,6 +721,9 @@ function PrivateConversationDrawer({
     </div>
   );
 }
+
+
+
 
 
 
