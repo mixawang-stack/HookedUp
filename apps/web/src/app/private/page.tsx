@@ -7,9 +7,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { Suspense, useEffect, useMemo, useState } from "react";
 
-import { emitHostStatus } from "../lib/hostStatus";
-
 import ChatBubble from "../components/ChatBubble";
+import { emitHostStatus } from "../lib/hostStatus";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
@@ -21,7 +20,7 @@ type ConversationItem = {
     id: string;
     maskName: string | null;
     maskAvatarUrl: string | null;
-        allowStrangerPrivate?: boolean | null;
+    allowStrangerPrivate?: boolean | null;
   };
   isMuted: boolean;
   mutedAt: string | null;
@@ -61,14 +60,14 @@ function PrivateListPageInner() {
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [authReady, setAuthReady] = useState(false);
-    const [activeConversation, setActiveConversation] =
-        useState<ConversationItem | null>(null);
-    const searchParams = useSearchParams();
-    const requestedConversationId = searchParams?.get("conversationId");
-    const [searchQuery, setSearchQuery] = useState("");
+  const [activeConversation, setActiveConversation] =
+    useState<ConversationItem | null>(null);
+  const searchParams = useSearchParams();
+  const requestedConversationId = searchParams?.get("conversationId");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const authHeader = useMemo(() => {
-        if (!token) return null;
+    if (!token) return null;
     return { Authorization: `Bearer ${token}` };
   }, [token]);
 
@@ -79,17 +78,19 @@ function PrivateListPageInner() {
 
   const loadConversations = async (nextCursor?: string | null) => {
     if (!authHeader) {
-            if (authReady) setStatus("Please sign in to view private conversations.");
+      if (authReady) {
+        setStatus("Please sign in to view private conversations.");
+      }
       return;
     }
 
     setLoading(true);
     try {
       const params = new URLSearchParams();
-            if (nextCursor) params.set("cursor", nextCursor);
+      if (nextCursor) params.set("cursor", nextCursor);
 
       const res = await fetch(`${API_BASE}/private/conversations?${params}`, {
-                headers: { ...authHeader }
+        headers: { ...authHeader }
       });
 
       if (!res.ok) {
@@ -97,10 +98,10 @@ function PrivateListPageInner() {
         const errorMessage = body?.message ?? `HTTP ${res.status}`;
         if (res.status === 401) {
           setStatus("Please sign in to view private conversations.");
-                    return;
-                }
-          throw new Error(errorMessage);
+          return;
         }
+        throw new Error(errorMessage);
+      }
 
       const data = (await res.json()) as ConversationResponse;
       setConversations((prev) =>
@@ -117,22 +118,22 @@ function PrivateListPageInner() {
   };
 
   useEffect(() => {
-        if (!authReady) return;
+    if (!authReady) return;
     loadConversations(null).catch(() => setStatus("Failed to load."));
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authHeader, authReady]);
 
-    useEffect(() => {
-        if (!requestedConversationId || activeConversation) {
-            return;
-        }
-        const match = conversations.find(
-            (item) => item.id === requestedConversationId
-        );
-        if (match) {
-            setActiveConversation(match);
-        }
-    }, [requestedConversationId, conversations, activeConversation]);
+  useEffect(() => {
+    if (!requestedConversationId || activeConversation) {
+      return;
+    }
+    const match = conversations.find(
+      (item) => item.id === requestedConversationId
+    );
+    if (match) {
+      setActiveConversation(match);
+    }
+  }, [requestedConversationId, conversations, activeConversation]);
 
   useEffect(() => {
     emitHostStatus({ page: "private", cold: conversations.length === 0 });
@@ -149,7 +150,7 @@ function PrivateListPageInner() {
       const endpoint = item.isMuted ? "unmute" : "mute";
       const res = await fetch(
         `${API_BASE}/private/conversations/${item.id}/${endpoint}`,
-                { method: "POST", headers: { ...authHeader } }
+        { method: "POST", headers: { ...authHeader } }
       );
 
       if (!res.ok) {
@@ -169,15 +170,15 @@ function PrivateListPageInner() {
         )
       );
 
-            setActiveConversation((prev) =>
-                prev?.id === item.id
-                    ? {
-                        ...prev,
-                        isMuted: !item.isMuted,
-                        mutedAt: item.isMuted ? null : new Date().toISOString()
-                    }
-                    : prev
-            );
+      setActiveConversation((prev) =>
+        prev?.id === item.id
+          ? {
+              ...prev,
+              isMuted: !item.isMuted,
+              mutedAt: item.isMuted ? null : new Date().toISOString()
+            }
+          : prev
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Action failed.";
       setStatus(message);
@@ -185,14 +186,14 @@ function PrivateListPageInner() {
   };
 
   const openConversation = (item: ConversationItem) => {
-        setActiveConversation((prev) => (prev?.id === item.id ? null : item));
+    setActiveConversation((prev) => (prev?.id === item.id ? null : item));
   };
 
   const closeConversation = () => {
     setActiveConversation(null);
   };
 
-    const filteredConversations = useMemo(() => {
+  const filteredConversations = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) {
       return conversations;
@@ -215,7 +216,9 @@ function PrivateListPageInner() {
                 <span className="block">
                   Private is what happens after things click.
                 </span>
-                <span className="block">Not planned. Not forced. Just continued.</span>
+                <span className="block">
+                  Not planned. Not forced. Just continued.
+                </span>
               </p>
               {status && <p className="text-sm text-brand-secondary">{status}</p>}
             </div>
@@ -244,7 +247,9 @@ function PrivateListPageInner() {
             <div className="space-y-3">
               {filteredConversations.map((item) => {
                 const displayName = item.otherUser?.maskName ?? "Anonymous";
-                const snippet = item.isMuted ? "Private room - Muted" : "Private room";
+                const snippet = item.isMuted
+                  ? "Private room - Muted"
+                  : "Private room";
                 return (
                   <button
                     key={item.id}
@@ -298,7 +303,10 @@ function PrivateListPageInner() {
                     <Link href="/hall" className="btn-primary px-4 py-2 text-xs">
                       Hall
                     </Link>
-                    <Link href="/rooms" className="btn-secondary px-4 py-2 text-xs">
+                    <Link
+                      href="/rooms"
+                      className="btn-secondary px-4 py-2 text-xs"
+                    >
                       Rooms
                     </Link>
                   </div>
@@ -338,11 +346,11 @@ function PrivateListPageInner() {
 }
 
 export default function PrivateListPage() {
-    return (
-        <Suspense fallback={null}>
-            <PrivateListPageInner />
-        </Suspense>
-    );
+  return (
+    <Suspense fallback={null}>
+      <PrivateListPageInner />
+    </Suspense>
+  );
 }
 
 type DrawerProps = {
@@ -363,7 +371,9 @@ function PrivateConversationDrawer({
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
-  const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(null);
+  const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(
+    null
+  );
   const [me, setMe] = useState<SenderProfile | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const otherUserId = conversation.otherUser?.id ?? null;
@@ -526,7 +536,8 @@ function PrivateConversationDrawer({
       }
       setLastFailedMessage(null);
     } catch (error) {
-      const rawMessage = error instanceof Error ? error.message : "Failed to send.";
+      const rawMessage =
+        error instanceof Error ? error.message : "Failed to send.";
       const normalized = rawMessage.toLowerCase();
       if (normalized.includes("private_reply_required")) {
         setStatus(
@@ -599,11 +610,7 @@ function PrivateConversationDrawer({
           className="flex h-9 w-9 items-center justify-center rounded-full border border-border-default bg-card text-text-secondary"
           aria-label="More"
         >
-          <svg
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            className="h-4 w-4"
-          >
+          <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
             <circle cx="12" cy="5" r="1.8" />
             <circle cx="12" cy="12" r="1.8" />
             <circle cx="12" cy="19" r="1.8" />
@@ -614,58 +621,56 @@ function PrivateConversationDrawer({
       <div className="flex flex-1 flex-col overflow-hidden">
         <div className="flex-1 overflow-y-auto px-6 py-6">
           <div className="mx-auto flex max-w-[640px] flex-col gap-4">
-                            {requestPending && (
-                                <div className="ui-surface p-3 text-xs text-text-secondary">
-                                    Request sent. Waiting for their reply.
-                                </div>
-                            )}
+            {requestPending && (
+              <div className="ui-surface p-3 text-xs text-text-secondary">
+                Request sent. Waiting for their reply.
+              </div>
+            )}
 
-              {status && (
-                <div className="ui-surface p-3 text-xs text-brand-secondary">
-                                    <div className="flex flex-wrap items-center justify-between gap-2">
-                                        <span>{status}</span>
-                                        {lastFailedMessage && (
-                                            <button
-                                                type="button"
-                                                className="btn-secondary px-3 py-1 text-[11px]"
-                                                onClick={() => sendMessage(lastFailedMessage)}
-                                                disabled={sending}
-                                            >
-                                                Retry send
-                                            </button>
-                                        )}
-                                    </div>
+            {status && (
+              <div className="ui-surface p-3 text-xs text-brand-secondary">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span>{status}</span>
+                  {lastFailedMessage && (
+                    <button
+                      type="button"
+                      className="btn-secondary px-3 py-1 text-[11px]"
+                      onClick={() => sendMessage(lastFailedMessage)}
+                      disabled={sending}
+                    >
+                      Retry send
+                    </button>
+                  )}
                 </div>
-              )}
+              </div>
+            )}
 
-              {loading && (
-                <p className="text-center text-xs text-text-muted">Loading...</p>
-              )}
+            {loading && (
+              <p className="text-center text-xs text-text-muted">Loading...</p>
+            )}
 
-              {!loading && sortedMessages.length === 0 && (
-                <p className="text-center text-xs text-text-muted">
-                  No messages yet. Say something to start.
-                </p>
-              )}
+            {!loading && sortedMessages.length === 0 && (
+              <p className="text-center text-xs text-text-muted">
+                No messages yet. Say something to start.
+              </p>
+            )}
 
-              {sortedMessages.map((msg, index) => {
-                const isOwnMessage = Boolean(me && msg.sender?.id === me.id);
-                const prev = sortedMessages[index - 1];
-                const showMeta =
-                  index === 0 || prev?.sender?.id !== msg.sender?.id;
+            {sortedMessages.map((msg, index) => {
+              const isOwnMessage = Boolean(me && msg.sender?.id === me.id);
+              const prev = sortedMessages[index - 1];
+              const showMeta =
+                index === 0 || prev?.sender?.id !== msg.sender?.id;
 
-                return (
-                  <ChatBubble
-                    key={msg.id}
-                    message={msg}
-                    isMine={isOwnMessage}
-                    showMeta={showMeta}
-                  />
-                );
-              })}
-            </div>
+              return (
+                <ChatBubble
+                  key={msg.id}
+                  message={msg}
+                  isMine={isOwnMessage}
+                  showMeta={showMeta}
+                />
+              );
+            })}
           </div>
-
         </div>
 
         <div className="border-t border-border-default bg-card px-6 py-4">
@@ -715,12 +720,3 @@ function PrivateConversationDrawer({
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
