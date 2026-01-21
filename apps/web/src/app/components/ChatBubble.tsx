@@ -24,7 +24,7 @@ const formatShortTime = (value: string) =>
   });
 
 const Avatar = ({ avatarUrl, label }: { avatarUrl: string | null; label: string }) => (
-  <div className="flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/5 text-xs font-semibold uppercase text-slate-200">
+  <div className="flex h-10 w-10 items-center justify-center rounded-full border border-border-default bg-surface text-xs font-semibold uppercase text-text-secondary">
     {avatarUrl ? (
       <img
         src={avatarUrl}
@@ -67,32 +67,30 @@ export default function ChatBubble({ message, isMine, showMeta }: ChatBubbleProp
 
   if (isSystem) {
     bubbleClasses.push(
-      "bg-white/10",
+      "bg-surface",
       "border",
-      "border-white/20",
+      "border-border-default",
+      "text-text-muted",
+      "shadow-sm",
       "text-xs",
       "uppercase",
       "tracking-[0.4em]"
     );
   } else if (isMine) {
     bubbleClasses.push(
-      "bg-gradient-to-br",
-      "from-slate-950",
-      "via-slate-900",
-      "to-slate-800",
-      "text-white",
-      "shadow-[0_0_35px_rgba(15,23,42,0.5)]",
+      "bg-brand-primary",
+      "text-card",
+      "shadow-sm",
       "border",
-      "border-white/10"
+      "border-brand-primary/40"
     );
   } else {
     bubbleClasses.push(
-      "bg-white/5",
+      "bg-card",
       "border",
-      "border-white/20",
-      "text-slate-100",
-      "backdrop-blur-sm",
-      "shadow-[0_10px_30px_rgba(15,23,42,0.4)]"
+      "border-border-default",
+      "text-text-primary",
+      "shadow-sm"
     );
   }
 
@@ -109,7 +107,7 @@ export default function ChatBubble({ message, isMine, showMeta }: ChatBubbleProp
       )}
       <div className={`flex flex-col ${isMine ? "items-end" : "items-start"} gap-1`}>
         {showMeta && !isSystem && (
-          <div className="text-[11px] text-slate-400 flex items-center gap-2">
+          <div className="text-[11px] text-text-muted flex items-center gap-2">
             <span className="font-semibold">{displayName}</span>
             <span>{formatShortTime(message.createdAt)}</span>
           </div>

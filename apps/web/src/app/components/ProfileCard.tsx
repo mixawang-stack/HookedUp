@@ -68,11 +68,11 @@ export default function ProfileCard({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-      <div className="absolute inset-0 bg-slate-950/70 backdrop-blur" onClick={onClose} />
-      <div className="relative w-full max-w-[520px] max-h-[80vh] overflow-y-auto rounded-2xl border border-white/10 bg-slate-900/95 p-5 text-slate-100 shadow-[0_30px_80px_rgba(2,6,23,0.8)]">
+      <div className="absolute inset-0 bg-text-primary/40 backdrop-blur" onClick={onClose} />
+      <div className="relative ui-surface w-full max-w-[520px] max-h-[80vh] overflow-y-auto p-5 text-text-primary">
         <button
           type="button"
-          className="absolute right-4 top-4 text-xs text-slate-400 hover:text-white"
+          className="absolute right-4 top-4 text-xs text-text-muted hover:text-text-primary"
           onClick={onClose}
         >
           Close
@@ -85,18 +85,18 @@ export default function ProfileCard({
               className="h-16 w-16 rounded-full object-cover"
             />
           ) : (
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/10 text-lg font-semibold">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-card text-lg font-semibold">
               {(profile.maskName ?? "A").slice(0, 1).toUpperCase()}
             </div>
           )}
           <div>
-            <p className="text-lg font-semibold text-white">
+            <p className="text-lg font-semibold text-text-primary">
               {profile.maskName ?? "Anonymous"}
             </p>
             {locationLine ? (
-              <p className="text-xs text-slate-300">{locationLine}</p>
+              <p className="text-xs text-text-secondary">{locationLine}</p>
             ) : (
-              <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+              <p className="text-xs uppercase tracking-[0.3em] text-text-muted">
                 Profile
               </p>
             )}
@@ -104,25 +104,25 @@ export default function ProfileCard({
         </div>
 
         {profile.bio && (
-          <p className="mt-4 text-sm text-slate-200">{profile.bio}</p>
+          <p className="mt-4 text-sm text-text-secondary">{profile.bio}</p>
         )}
 
         {displayTags.length > 0 && (
           <div className="mt-4">
-            <p className="text-[10px] uppercase tracking-wide text-slate-400">
+            <p className="text-[10px] uppercase tracking-wide text-text-muted">
               Tags
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
               {displayTags.map((tag) => (
                 <span
                   key={tag}
-                  className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-slate-200"
+                  className="rounded-full border border-border-default px-2 py-0.5 text-[10px] text-text-secondary"
                 >
                   {tag}
                 </span>
               ))}
               {overflowCount > 0 && (
-                <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-slate-300">
+                <span className="rounded-full border border-border-default px-2 py-0.5 text-[10px] text-text-muted">
                   +{overflowCount}
                 </span>
               )}
@@ -131,14 +131,14 @@ export default function ProfileCard({
         )}
 
         {!allowStrangerPrivate && (
-          <p className="mt-4 rounded-xl border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+          <p className="mt-4 rounded-xl border border-border-default bg-card px-3 py-2 text-xs text-text-secondary">
             This user accepts private chats after they reply. You can send a
             one-time request.
           </p>
         )}
 
         {mutedHint && (
-          <p className="mt-4 rounded-xl border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+          <p className="mt-4 rounded-xl border border-border-default bg-card px-3 py-2 text-xs text-text-secondary">
             {mutedHint}
           </p>
         )}
@@ -146,7 +146,7 @@ export default function ProfileCard({
         <div className="mt-5 space-y-2">
           <button
             type="button"
-            className="w-full rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-900"
+            className="btn-primary w-full px-4 py-2 text-sm"
             onClick={handleStart}
             disabled={starting}
           >
@@ -159,7 +159,7 @@ export default function ProfileCard({
           {onViewProfile && (
             <button
               type="button"
-              className="w-full rounded-full border border-white/20 px-4 py-2 text-xs text-white"
+              className="btn-secondary w-full px-4 py-2 text-xs"
               onClick={() => onViewProfile(profile.id)}
             >
               View profile
@@ -169,7 +169,7 @@ export default function ProfileCard({
             {onReport && (
               <button
                 type="button"
-                className="flex-1 rounded-full border border-rose-300/60 px-3 py-2 text-rose-200 hover:bg-rose-500/10"
+                className="btn-secondary flex-1 px-3 py-2 text-xs"
                 onClick={() => onReport(profile.id)}
               >
                 Report
@@ -178,7 +178,7 @@ export default function ProfileCard({
             {onBlock && (
               <button
                 type="button"
-                className="flex-1 rounded-full border border-slate-400/60 px-3 py-2 text-slate-200 hover:bg-white/5"
+                className="btn-secondary flex-1 px-3 py-2 text-xs"
                 onClick={() => onBlock(profile.id)}
               >
                 Block

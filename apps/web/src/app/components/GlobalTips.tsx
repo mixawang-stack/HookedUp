@@ -27,7 +27,7 @@ export default function GlobalTips() {
   }, []);
 
   return (
-    <div className="pointer-events-none fixed bottom-4 right-4 max-w-xs rounded-full border border-slate-200 bg-white/90 px-4 py-2 text-xs text-slate-600 shadow-sm">
+    <div className="pointer-events-none fixed bottom-4 right-4 max-w-xs rounded-full border border-border-default bg-card/90 px-4 py-2 text-xs text-text-secondary shadow-sm">
       {tip}
     </div>
   );

@@ -155,18 +155,18 @@ export default function ProfileOnboardingModal({
 
   return (
     <div className="fixed inset-0 z-50 flex min-h-[100svh] items-center justify-center overflow-y-auto px-4 py-10">
-      <div className="absolute inset-0 bg-slate-950/70 backdrop-blur" onClick={onClose} />
-      <div className="relative w-full max-w-[520px] max-h-[80vh] overflow-y-auto rounded-2xl border border-white/10 bg-slate-900/95 p-6 text-slate-100 shadow-[0_30px_80px_rgba(2,6,23,0.8)]">
+      <div className="absolute inset-0 bg-text-primary/40 backdrop-blur" onClick={onClose} />
+      <div className="relative ui-surface w-full max-w-[520px] max-h-[80vh] overflow-y-auto p-6 text-text-primary">
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-white">Complete your profile</h2>
-            <p className="mt-1 text-xs text-slate-400">
+            <h2 className="text-lg font-semibold text-text-primary">Complete your profile</h2>
+            <p className="mt-1 text-xs text-text-muted">
               Add a name, vibe tags, and a short bio so people know who you are.
             </p>
           </div>
           <button
             type="button"
-            className="text-xs text-slate-400 hover:text-white"
+            className="text-xs text-text-muted hover:text-text-primary"
             onClick={onClose}
           >
             Skip for now
@@ -182,14 +182,14 @@ export default function ProfileOnboardingModal({
                 className="h-16 w-16 rounded-full object-cover"
               />
             ) : (
-              <div className="flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-white/5 text-sm">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full border border-border-default bg-card text-sm">
                 {(maskName || "U").slice(0, 1).toUpperCase()}
               </div>
             )}
             <div>
               <button
                 type="button"
-                className="rounded-full border border-white/20 px-3 py-1 text-xs text-white"
+                className="btn-secondary px-3 py-1 text-xs"
                 onClick={() => avatarInputRef.current?.click()}
               >
                 Upload avatar
@@ -204,10 +204,10 @@ export default function ProfileOnboardingModal({
             </div>
           </div>
 
-          <label className="text-xs text-slate-300">
+          <label className="text-xs text-text-secondary">
             Display name
             <input
-              className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
+              className="mt-2 w-full rounded-xl border border-border-default bg-card px-3 py-2 text-sm text-text-primary"
               value={maskName}
               onChange={(event) => setMaskName(event.target.value)}
               maxLength={64}
@@ -215,10 +215,10 @@ export default function ProfileOnboardingModal({
             />
           </label>
 
-          <label className="text-xs text-slate-300">
+          <label className="text-xs text-text-secondary">
             Bio
             <textarea
-              className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
+              className="mt-2 w-full rounded-xl border border-border-default bg-card px-3 py-2 text-sm text-text-primary"
               rows={3}
               value={bio}
               onChange={(event) => setBio(event.target.value)}
@@ -227,30 +227,30 @@ export default function ProfileOnboardingModal({
             />
           </label>
 
-          <label className="text-xs text-slate-300">
+          <label className="text-xs text-text-secondary">
             Vibe tags (comma separated)
             <input
-              className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
+              className="mt-2 w-full rounded-xl border border-border-default bg-card px-3 py-2 text-sm text-text-primary"
               value={vibeTags}
               onChange={(event) => setVibeTags(event.target.value)}
               placeholder="Curious, soft, playful"
             />
           </label>
 
-          <label className="text-xs text-slate-300">
+          <label className="text-xs text-text-secondary">
             Interests (comma separated)
             <input
-              className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
+              className="mt-2 w-full rounded-xl border border-border-default bg-card px-3 py-2 text-sm text-text-primary"
               value={interests}
               onChange={(event) => setInterests(event.target.value)}
               placeholder="Art, travel, late-night chats"
             />
           </label>
 
-          <label className="text-xs text-slate-300">
+          <label className="text-xs text-text-secondary">
             Personality preference
             <input
-              className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
+              className="mt-2 w-full rounded-xl border border-border-default bg-card px-3 py-2 text-sm text-text-primary"
               value={personality}
               onChange={(event) => setPersonality(event.target.value)}
               maxLength={128}
@@ -258,10 +258,10 @@ export default function ProfileOnboardingModal({
             />
           </label>
 
-          <label className="flex items-center gap-2 text-xs text-slate-300">
+          <label className="flex items-center gap-2 text-xs text-text-secondary">
             <input
               type="checkbox"
-              className="h-4 w-4 rounded border-white/20 bg-slate-900/60"
+              className="h-4 w-4 rounded border-border-default bg-card"
               checked={allowStrangerPrivate}
               onChange={(event) => setAllowStrangerPrivate(event.target.checked)}
             />
@@ -269,19 +269,19 @@ export default function ProfileOnboardingModal({
           </label>
         </div>
 
-        {status && <p className="mt-4 text-xs text-rose-300">{status}</p>}
+        {status && <p className="mt-4 text-xs text-text-secondary">{status}</p>}
 
         <div className="mt-5 flex items-center justify-end gap-3">
           <button
             type="button"
-            className="rounded-full border border-white/20 px-4 py-2 text-xs text-white"
+            className="btn-secondary px-4 py-2 text-xs"
             onClick={onClose}
           >
             Later
           </button>
           <button
             type="button"
-            className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-900"
+            className="btn-primary px-4 py-2 text-xs"
             onClick={handleSave}
             disabled={saving}
           >
