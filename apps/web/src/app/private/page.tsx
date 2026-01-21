@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 export const dynamic = "force-dynamic";
 // BUILD_MARKER_PRIVATE_PAGE_TSX__2026_01_16
