@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 import {
   HOST_STATUS_EVENT,
@@ -107,6 +107,7 @@ const isTypingElement = (target: EventTarget | null) => {
 
 export default function HostFloating() {
   const pathname = usePathname() ?? "";
+  const router = useRouter();
   const [position, setPosition] = useState<Position>(DEFAULT_POS);
   const [isDragging, setIsDragging] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -116,6 +117,7 @@ export default function HostFloating() {
   const bubbleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastPageRef = useRef<HostPageType>("other");
   const lastUserMoveRef = useRef<number>(0);
+  const dragMovedRef = useRef(false);
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -194,6 +196,7 @@ export default function HostFloating() {
     }
     setIsDragging(true);
     setMenuOpen(false);
+    dragMovedRef.current = false;
     lastUserMoveRef.current = Date.now();
     const startX = event.clientX;
     const startY = event.clientY;
@@ -202,6 +205,9 @@ export default function HostFloating() {
     const onMove = (moveEvent: PointerEvent) => {
       const dx = moveEvent.clientX - startX;
       const dy = moveEvent.clientY - startY;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+        dragMovedRef.current = true;
+      }
       updatePosition({ x: origin.x + dx, y: origin.y + dy });
     };
 
@@ -219,6 +225,19 @@ export default function HostFloating() {
   const handleMenuToggle = () => setMenuOpen((prev) => !prev);
 
   const handleMenuSelect = () => setMenuOpen(false);
+
+  const handleHostClick = () => {
+    if (dragMovedRef.current) {
+      dragMovedRef.current = false;
+      return;
+    }
+    router.push("/private");
+  };
+
+  const handleContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setMenuOpen(true);
+  };
 
   useEffect(() => {
     const pageType = determinePageType(pathname);
@@ -347,6 +366,7 @@ export default function HostFloating() {
         isDragging ? "" : "transition-[right,bottom] duration-700 ease-out"
       }`}
       style={{ right: position.x, bottom: position.y, touchAction: "none" }}
+      onContextMenu={handleContextMenu}
     >
       {bubble && (
         <div
@@ -359,7 +379,7 @@ export default function HostFloating() {
       <div
         className="flex cursor-grab items-center justify-center rounded-full border border-border-default bg-card p-2 shadow-lg transition hover:bg-surface"
         onPointerDown={onPointerDown}
-        onClick={handleMenuToggle}
+        onClick={handleHostClick}
         title="Host"
         aria-label="Host"
       >
@@ -372,6 +392,18 @@ export default function HostFloating() {
           draggable={false}
         />
       </div>
+      <button
+        type="button"
+        className="flex h-7 w-7 items-center justify-center rounded-full border border-border-default bg-card text-text-secondary shadow-sm transition hover:bg-surface"
+        onClick={handleMenuToggle}
+        aria-label="More host options"
+      >
+        <svg viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5">
+          <circle cx="12" cy="5" r="1.8" />
+          <circle cx="12" cy="12" r="1.8" />
+          <circle cx="12" cy="19" r="1.8" />
+        </svg>
+      </button>
       {menuOpen && (
         <div className="ui-card px-3 py-2 text-sm text-text-secondary">
           {menuItems.map((item) => (
