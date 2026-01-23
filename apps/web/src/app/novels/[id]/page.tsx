@@ -167,10 +167,15 @@ export default function NovelDetailPage() {
                 )}
               </div>
               <div className="space-y-3">
+                <p className="text-sm text-text-secondary">
+                  Take your time.
+                  <br />
+                  This one is better when you don't rush.
+                </p>
                 <h1 className="text-3xl font-semibold text-text-primary">
                   {novel.title}
                 </h1>
-                <p className="text-sm text-text-secondary">Author: -</p>
+                <p className="text-sm text-text-secondary">Left here by someone.</p>
                 <div className="flex flex-wrap items-center gap-4 text-sm text-text-secondary">
                   <span>Rating -</span>
                   <span>{novel.viewCount ?? 0} reads</span>
@@ -219,6 +224,19 @@ export default function NovelDetailPage() {
                     </p>
                   )}
                 </section>
+                <div className="ui-surface p-4 text-sm text-text-secondary">
+                  <p>Curious how others felt about it?</p>
+                  <p>There's a room where this story is being talked about.</p>
+                  <button
+                    type="button"
+                    className="btn-primary mt-3 px-4 py-2 text-xs"
+                    onClick={() =>
+                      router.push(novel.room?.id ? `/rooms/${novel.room.id}` : "/rooms")
+                    }
+                  >
+                    Go to discussion room
+                  </button>
+                </div>
               </div>
             )}
 

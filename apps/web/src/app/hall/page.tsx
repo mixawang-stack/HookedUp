@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -727,7 +727,7 @@ export default function HallPage() {
       return "Anonymous";
     }
     if (author.role === "OFFICIAL") {
-      return author.maskName ?? "Official";
+      return author.maskName ?? "House";
     }
     return author.maskName ?? "Anonymous";
   };
@@ -806,11 +806,11 @@ export default function HallPage() {
             ))}
           </div>
         ) : (
-          <p className="mt-2 text-text-muted">斜泻</p>
+          <p className="mt-2 text-text-muted">бк</p>
         )}
         <div className="mt-3 space-y-1 text-text-muted">
           <p>Curious what they sound like?</p>
-          <p>You can say hello 斜泻 or just remember the face.</p>
+          <p>You can say hello бк or just remember the face.</p>
           <p>Private conversations are optional. You can also meet people in rooms.</p>
         </div>
       </div>
@@ -824,9 +824,9 @@ export default function HallPage() {
     });
 
   const hallTabs: Array<{ id: "all" | "story" | "post"; label: string }> = [
-    { id: "all", label: "鍏ㄩ儴" },
-    { id: "story", label: "鏁呬簨" },
-    { id: "post", label: "甯栧瓙" }
+    { id: "all", label: "全部" },
+    { id: "story", label: "故事" },
+    { id: "post", label: "帖子" }
   ];
 
   const cardBaseClasses =
@@ -851,7 +851,7 @@ export default function HallPage() {
           </span>
           {metaParts.length > 0 && (
             <span className="text-[10px] uppercase tracking-[0.3em] text-text-muted">
-              {metaParts.join(" 路 ")}
+              {metaParts.join(" · ")}
             </span>
           )}
         </div>
@@ -893,7 +893,7 @@ export default function HallPage() {
           </p>
         </div>
         <div className="mt-auto flex items-center justify-between text-xs text-text-muted">
-          <span>{novel.room?.title ?? "Official story"}</span>
+          <span>{novel.room?.title ?? "House story"}</span>
           <span className="font-semibold text-brand-primary">Read story</span>
         </div>
       </button>
@@ -1165,15 +1165,16 @@ export default function HallPage() {
               Stories &amp; Spaces
             </p>
             <h1 className="mt-3 text-3xl font-semibold text-text-primary">
-              The Forum
+              Say something. Or just watch.
             </h1>
             <p className="mt-2 text-sm text-text-secondary">
-              A shared room for stories, posts, and the next conversation.
+              People talk about anything here.
+              <br />
+              Some stay polite. Some do not.
             </p>
             <div className="mt-4 space-y-2 text-sm text-text-secondary">
-              <p>People pass through.</p>
-              <p>Some stay.</p>
-              <p>Something might happen.</p>
+              <p>It is public. It is messy.</p>
+              <p>It still feels alive.</p>
             </div>
           </section>
 
@@ -1204,7 +1205,7 @@ export default function HallPage() {
                   Forum Feed
                 </h2>
                 <p className="text-xs text-text-muted">
-                  Stories and posts mingled together.
+                  Anything can show up here.
                 </p>
               </div>
               <div className="ui-tab-list">
@@ -1245,7 +1246,7 @@ export default function HallPage() {
                     className="flex-1 resize-none rounded-full border border-border-default bg-card px-4 py-3 text-sm text-text-primary placeholder:text-text-muted"
                     rows={1}
                     maxLength={1000}
-                    placeholder="Share a thought with the hall..."
+                    placeholder="What's on your mind tonight?"
                     value={traceInput}
                     onChange={(event) => setTraceInput(event.target.value)}
                   />
@@ -1272,7 +1273,7 @@ export default function HallPage() {
                       className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-primary text-card"
                       onClick={handlePostTrace}
                       disabled={postingTrace || uploadingImage}
-                      aria-label="Post"
+                      aria-label="Start a post"
                     >
                       <svg
                         viewBox="0 0 24 24"
@@ -1368,13 +1369,14 @@ export default function HallPage() {
             </div>
             {hall && feedItems.length === 0 && (
               <p className="mt-4 text-sm text-text-muted">
-                {activeTab === "story"
-                  ? "No stories in the Forum yet."
-                  : activeTab === "post"
-                    ? "No traces in the Forum yet."
-                    : "The Forum is quiet for now."}
+                <span>It is quiet right now.</span>
+                <br />
+                <span>Be the one who breaks it.</span>
               </p>
             )}
+            <p className="mt-4 text-sm text-text-muted">
+              You do not have to reply. But you probably want to.
+            </p>
           </section>
 
           {traceDetail && (
@@ -1551,5 +1553,6 @@ export default function HallPage() {
       )}
     </>
   );}
+
 
 

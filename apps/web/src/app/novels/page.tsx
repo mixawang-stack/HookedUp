@@ -59,8 +59,13 @@ export default function StoriesPage() {
       >
         Back
       </button>
-      <div className="mt-4 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Stories</h1>
+      <div className="mt-4">
+        <h1 className="text-2xl font-semibold">Stories worth staying up for</h1>
+        <p className="mt-2 text-sm text-text-secondary">
+          Short reads, strange thoughts, guilty pleasures.
+          <br />
+          Read a little. Stay longer if you like.
+        </p>
       </div>
       {status && <p className="mt-3 text-sm text-brand-secondary">{status}</p>}
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -98,14 +103,15 @@ export default function StoriesPage() {
                 className="btn-primary mt-3 w-full px-3 py-2 text-xs"
                 onClick={() => router.push(`/novels/${novel.id}`)}
               >
-                Read story
+                Continue reading
               </button>
             </div>
           );
         })}
         {novels.length === 0 && (
           <div className="ui-surface p-6 text-xs text-text-muted">
-            No stories yet.
+            <p>No stories here yet.</p>
+            <p>Someone is probably writing one right now.</p>
           </div>
         )}
       </div>

@@ -17,7 +17,7 @@ const registerSchema = z.object({
   password: z.string().min(8),
   dob: z.string().min(1),
   agreeTerms: z.boolean().refine((value) => value, {
-    message: "You must accept the terms."
+    message: "You must accept the rules."
   })
 });
 
@@ -157,9 +157,15 @@ export default function RegisterPage() {
       <div className="grid w-full max-w-5xl gap-8 md:grid-cols-2">
         <section className="ui-card flex flex-col gap-6 p-8">
           <header>
-            <h1 className="text-2xl font-semibold text-text-primary">Register</h1>
+            <h1 className="text-2xl font-semibold text-text-primary">
+              Before we start --
+            </h1>
             <p className="mt-2 text-sm text-text-secondary">
-              Email verification is required to finish registration.
+              Pick a name.
+              <br />
+              Say a little about yourself.
+              <br />
+              You can always change it later.
             </p>
           </header>
 
@@ -215,7 +221,7 @@ export default function RegisterPage() {
                 className="h-4 w-4 rounded border border-border-default bg-card focus-visible:ring-2 focus-visible:ring-brand-primary/30"
                 {...registerForm.register("agreeTerms")}
               />
-              I agree to the terms
+              I agree to the rules
             </label>
             {registerForm.formState.errors.agreeTerms && (
               <p className="text-xs text-brand-secondary">
@@ -231,7 +237,7 @@ export default function RegisterPage() {
               className="btn-primary w-full py-3 text-sm"
               disabled={loading}
             >
-              {loading ? "Sending..." : "Send verification code"}
+              {loading ? "Sending..." : "Continue"}
             </button>
           </form>
 
@@ -252,7 +258,7 @@ export default function RegisterPage() {
                 className="btn-primary w-full py-3 text-sm"
                 disabled={verifyLoading}
               >
-                {verifyLoading ? "Verifying..." : "Complete registration"}
+                {verifyLoading ? "Verifying..." : "Finish"}
               </button>
               {verifyStatus && (
                 <p className="text-sm text-text-secondary">{verifyStatus}</p>
@@ -266,7 +272,7 @@ export default function RegisterPage() {
               href="/login"
               className="font-semibold text-text-primary hover:text-brand-primary"
             >
-              Sign in.
+              Come back in.
             </Link>
           </p>
         </section>
@@ -296,24 +302,24 @@ export default function RegisterPage() {
             </h2>
           </div>
           <p className="text-sm leading-relaxed text-text-secondary">
-            A party you can actually talk in.
+            A late room where people stay a while.
           </p>
           <ul className="space-y-3 text-sm leading-relaxed text-text-secondary">
-            <li>Leave a trace. Start the vibe.</li>
-            <li>Join a room. Talk taboo. Play nice.</li>
-            <li>Go private (optional). If it clicks, continue.</li>
+            <li>Leave a trace. See who answers.</li>
+            <li>Drift into rooms. Linger if it feels right.</li>
+            <li>Keep it light. Keep it human.</li>
           </ul>
           <p className="text-xs leading-relaxed text-text-muted">
-            Bold is welcome. Coercion isn't.
+            Do what feels right. Stop when it does not.
           </p>
           <div className="ui-card p-4 text-sm text-text-secondary">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-text-muted">
-              TONIGHT'S ROOMS MIGHT INCLUDE:
+              TONIGHT, YOU MIGHT RUN INTO:
             </p>
             <ul className="mt-2 space-y-1 text-sm text-text-secondary">
-              <li>Masked confessions</li>
-              <li>Truth and dare (grown-up)</li>
-              <li>Power and boundaries talk</li>
+              <li>Whispered confessions</li>
+              <li>Truths and dares</li>
+              <li>Soft talk, sharp edges</li>
             </ul>
           </div>
           <Link

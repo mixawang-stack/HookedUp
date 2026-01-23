@@ -249,10 +249,10 @@ export default function RoomsPage() {
         <div className="ui-container py-8">
           <section className="space-y-2">
             <h1 className="text-2xl font-semibold text-text-primary">
-              Discussion Rooms
+              Something is always happening somewhere.
             </h1>
             <p className="text-sm text-text-secondary">
-              Each room carries its own tone.
+              Jump in. Lurk. Leave anytime.
             </p>
             {status && <p className="text-sm text-text-secondary">{status}</p>}
           </section>
@@ -380,7 +380,11 @@ export default function RoomsPage() {
           </section>
 
           {rooms.length === 0 && (
-            <p className="mt-4 text-sm text-text-muted">No rooms yet.</p>
+            <p className="mt-4 text-sm text-text-muted">
+              <span>No active rooms right now.</span>
+              <br />
+              <span>That never lasts long.</span>
+            </p>
           )}
 
           {cursor && (

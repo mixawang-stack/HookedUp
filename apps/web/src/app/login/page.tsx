@@ -64,7 +64,7 @@ function LoginFormContent() {
       const nextPath = redirect && redirect.startsWith("/") ? redirect : "/hall";
       router.push(nextPath);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Login failed";
+      const message = err instanceof Error ? err.message : "Could not get you in.";
       const friendly =
         message === "INVALID_CREDENTIALS"
           ? "Email or password is incorrect."
@@ -77,7 +77,7 @@ function LoginFormContent() {
           : message === "USER_NOT_ACTIVE"
           ? "Account status is inactive. Please contact support."
           : message === "EMPTY_LOGIN_RESPONSE"
-          ? "Login failed. Please try again."
+          ? "Could not get you in. Try again."
           : message;
       setError(friendly);
     } finally {
@@ -89,9 +89,13 @@ function LoginFormContent() {
     <main className="ui-page flex w-full items-center justify-center px-4 py-12">
       <div className="mx-auto grid w-full max-w-5xl gap-8 md:grid-cols-2">
         <section className="ui-card flex flex-col gap-6 p-8">
-          <h1 className="text-2xl font-semibold text-text-primary">Login</h1>
+          <h1 className="text-2xl font-semibold text-text-primary">
+            Come in. Stay if you like.
+          </h1>
           <p className="mt-2 text-sm text-text-secondary">
-            Use your verified email to continue.
+            No pressure.
+            <br />
+            Just do not pretend you are not curious.
           </p>
 
           <form className="mt-6 space-y-4" onSubmit={onSubmit}>
@@ -133,16 +137,16 @@ function LoginFormContent() {
               className="btn-primary w-full py-3 text-sm disabled:opacity-60"
               disabled={loading}
             >
-              {loading ? "Signing in..." : "Sign in"}
+              {loading ? "Entering..." : "Enter"}
             </button>
           </form>
           <p className="text-sm text-text-secondary">
-            New here?{" "}
+            First time here? It only takes a moment.{" "}
             <Link
               href="/register"
               className="font-semibold text-text-primary hover:text-brand-primary"
             >
-              Create an account.
+              Create an account
             </Link>
           </p>
         </section>
@@ -172,24 +176,24 @@ function LoginFormContent() {
             </h2>
           </div>
           <p className="text-sm leading-relaxed text-text-secondary">
-            A party you can actually talk in.
+            A late room where people stay a while.
           </p>
           <ul className="space-y-3 text-sm leading-relaxed text-text-secondary">
-            <li>Leave a trace. Start the vibe.</li>
-            <li>Join a room. Talk taboo. Play nice.</li>
-            <li>Go private (optional). If it clicks, continue.</li>
+            <li>Leave a trace. See who answers.</li>
+            <li>Drift into rooms. Linger if it feels right.</li>
+            <li>Keep it light. Keep it human.</li>
           </ul>
           <p className="text-xs leading-relaxed text-text-muted">
-            Bold is welcome. Coercion isn't.
+            Do what feels right. Stop when it does not.
           </p>
           <div className="ui-card p-4 text-sm text-text-secondary">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-text-muted">
-              TONIGHT'S ROOMS MIGHT INCLUDE:
+              TONIGHT, YOU MIGHT RUN INTO:
             </p>
             <ul className="mt-2 space-y-1 text-sm text-text-secondary">
-              <li>Masked confessions</li>
-              <li>Truth and dare (grown-up)</li>
-              <li>Power and boundaries talk</li>
+              <li>Whispered confessions</li>
+              <li>Truths and dares</li>
+              <li>Soft talk, sharp edges</li>
             </ul>
           </div>
           <Link

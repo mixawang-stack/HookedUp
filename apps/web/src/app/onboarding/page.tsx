@@ -234,7 +234,7 @@ export default function OnboardingPage() {
         throw new Error(rawMessage ?? `HTTP ${preferenceRes.status}`);
       }
 
-      setSubmitStatus("Submitted. Redirecting to the Forum.");
+      setSubmitStatus("That's enough for now. The rest happens naturally.");
       setTimeout(() => router.push("/hall"), 800);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Submission failed.";
@@ -253,9 +253,15 @@ export default function OnboardingPage() {
   return (
     <main className="ui-page mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-6 p-6">
       <section className="ui-card p-6">
-        <h1 className="text-2xl font-semibold text-text-primary">Profile setup</h1>
+        <h1 className="text-2xl font-semibold text-text-primary">
+          Before we start --
+        </h1>
         <p className="mt-2 text-sm text-text-secondary">
-          Complete these two steps to enter the Forum.
+          Pick a name.
+          <br />
+          Say a little about yourself.
+          <br />
+          You can always change it later.
         </p>
         <div className="mt-4 flex flex-wrap gap-2 text-xs text-text-muted">
           <span className={step === 1 ? "font-semibold text-text-primary" : ""}>
@@ -272,7 +278,7 @@ export default function OnboardingPage() {
         <section className="ui-card p-6">
           <h2 className="text-lg font-semibold text-text-primary">Your profile</h2>
           <p className="mt-2 text-sm text-text-secondary">
-            Upload an avatar and basic info.
+            A few things we can call you.
           </p>
           <div className="mt-4 flex flex-col gap-6">
             <div>
@@ -292,7 +298,7 @@ export default function OnboardingPage() {
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    "Click to upload"
+                    "Pick something that feels like you."
                   )}
                 </button>
                 <input
@@ -305,18 +311,18 @@ export default function OnboardingPage() {
                   }
                 />
                 <p className="text-xs text-text-muted">
-                  JPG/PNG supported. Click the avatar box to choose a file.
+                  Pick something that feels like you.
                 </p>
               </div>
             </div>
 
             <div>
               <label className="text-xs font-semibold text-text-secondary">
-                Display name
+                Nickname
               </label>
               <input
                 className="mt-1 w-full rounded-lg border border-border-default bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted"
-                placeholder="Enter a display name"
+                placeholder="What do people call you here?"
                 {...profileForm.register("maskName")}
               />
               {profileForm.formState.errors.maskName && (
@@ -349,7 +355,7 @@ export default function OnboardingPage() {
         <section className="ui-card p-6">
           <h2 className="text-lg font-semibold text-text-primary">Preferences</h2>
           <p className="mt-2 text-sm text-text-secondary">
-            Share who you hope to meet in the Forum.
+            Share a little about who you are.
           </p>
           <div className="mt-4 grid gap-4">
             <div>
@@ -364,11 +370,11 @@ export default function OnboardingPage() {
             </div>
             <div>
               <label className="text-xs font-semibold text-text-secondary">
-                Special interests
+                Interests
               </label>
               <input
                 className="mt-1 w-full rounded-lg border border-border-default bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted"
-                placeholder="e.g. roleplay"
+                placeholder="What are you usually into?"
                 {...preferenceForm.register("smPreference")}
               />
             </div>
@@ -414,7 +420,7 @@ export default function OnboardingPage() {
             onClick={handleSubmitAll}
             disabled={submitting}
           >
-            {submitting ? "Submitting..." : "Submit all details"}
+            {submitting ? "Entering..." : "Enter the space"}
           </button>
         )}
       </section>
