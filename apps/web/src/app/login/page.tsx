@@ -172,28 +172,29 @@ function LoginFormContent() {
               </p>
             </div>
             <h2 className="mt-2 text-3xl font-semibold text-text-primary">
-              HookedUp?
+              Some stories don't ask permission.
             </h2>
           </div>
           <p className="text-sm leading-relaxed text-text-secondary">
-            A late room where people stay a while.
+            Neither do conversations.
           </p>
           <ul className="space-y-3 text-sm leading-relaxed text-text-secondary">
-            <li>Leave a trace. See who answers.</li>
-            <li>Drift into rooms. Linger if it feels right.</li>
-            <li>Keep it light. Keep it human.</li>
+            <li>Read a little.</li>
+            <li>Say a little.</li>
+            <li>Let it go further -- or don't.</li>
           </ul>
           <p className="text-xs leading-relaxed text-text-muted">
-            Do what feels right. Stop when it does not.
+            Nothing is required. Curiosity is enough.
           </p>
           <div className="ui-card p-4 text-sm text-text-secondary">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-text-muted">
-              TONIGHT, YOU MIGHT RUN INTO:
+              TONIGHT, YOU MAY RUN INTO:
             </p>
             <ul className="mt-2 space-y-1 text-sm text-text-secondary">
-              <li>Whispered confessions</li>
-              <li>Truths and dares</li>
-              <li>Soft talk, sharp edges</li>
+              <li>Tempting stories</li>
+              <li>Unfinished thoughts</li>
+              <li>People testing the edge</li>
+              <li>Rooms that feel a bit too honest</li>
             </ul>
           </div>
           <Link

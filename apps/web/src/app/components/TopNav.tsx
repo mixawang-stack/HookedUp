@@ -33,6 +33,7 @@ export default function TopNav() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [unreadTotal, setUnreadTotal] = useState(0);
+  const [avatarError, setAvatarError] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const isProfileComplete = Boolean(
     me?.profileCompleted ??
@@ -93,6 +94,10 @@ export default function TopNav() {
     }
     fetchUnreadTotal(token).catch(() => undefined);
   }, [token, fetchUnreadTotal, pathname]);
+
+  useEffect(() => {
+    setAvatarError(false);
+  }, [me?.maskAvatarUrl]);
 
   useEffect(() => {
     if (!token) {
@@ -199,15 +204,29 @@ export default function TopNav() {
                 onClick={() => setMenuOpen((prev) => !prev)}
                 aria-label="Open profile menu"
               >
-                {me.maskAvatarUrl ? (
+                {me.maskAvatarUrl && !avatarError ? (
                   <img
                     src={me.maskAvatarUrl}
                     alt={me.maskName ?? "User avatar"}
                     className="h-9 w-9 rounded-full object-cover"
+                    onError={() => setAvatarError(true)}
                   />
                 ) : (
-                  <span className="text-xs font-semibold text-text-secondary">
-                    {(me.maskName ?? "User").slice(0, 1).toUpperCase()}
+                  <span
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-border-default text-text-secondary"
+                    aria-hidden="true"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      className="h-5 w-5"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-3.6 0-6.5 2.1-6.5 4.7V20h13v-1.3c0-2.6-2.9-4.7-6.5-4.7Z"
+                        fill="currentColor"
+                      />
+                    </svg>
                   </span>
                 )}
               </button>
