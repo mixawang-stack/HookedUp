@@ -6,10 +6,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import ProfileOnboardingModal from "./ProfileOnboardingModal";
 
 const NAV_ITEMS = [
-  { href: "/hall", label: "Hall" },
-  { href: "/rooms", label: "Rooms" },
-  { href: "/private", label: "Private" },
-  { href: "/novels", label: "Bookstore" }
+  { href: "/novels", label: "Stories" },
+  { href: "/hall", label: "Forum" },
+  { href: "/rooms", label: "Rooms" }
 ];
 
 const API_BASE =
@@ -174,28 +173,21 @@ export default function TopNav() {
         </div>
         <div className="flex items-center justify-center gap-3">
           <div className="ui-tab-list">
-          {NAV_ITEMS.map((item) => {
-            const isActive =
-              pathname === item.href || pathname.startsWith(`${item.href}/`);
-            const isPrivate = item.href === "/private";
-            const showUnread = isPrivate && unreadTotal > 0;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`ui-tab ${isActive ? "ui-tab-active" : ""}`}
-              >
-                <span className="inline-flex items-center gap-2">
-                  {item.label}
-                  {showUnread && (
-                    <span className="rounded-full bg-brand-primary px-2 py-0.5 text-[10px] font-semibold text-card">
-                      {unreadTotal > 99 ? "99+" : unreadTotal}
-                    </span>
-                  )}
-                </span>
-              </Link>
-            );
-          })}
+            {NAV_ITEMS.map((item) => {
+              const isActive =
+                pathname === item.href || pathname.startsWith(`${item.href}/`);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`ui-tab ${isActive ? "ui-tab-active" : ""}`}
+                >
+                  <span className="inline-flex items-center gap-2">
+                    {item.label}
+                  </span>
+                </Link>
+              );
+            })}
           </div>
         </div>
         {me && (
@@ -220,30 +212,51 @@ export default function TopNav() {
                 )}
               </button>
               {menuOpen && (
-                <div className="absolute right-0 mt-2 w-52 rounded-xl border border-border-default bg-surface p-3 text-xs text-text-secondary shadow-sm">
+                <div className="absolute right-0 mt-2 w-56 rounded-xl border border-border-default bg-surface p-3 text-xs text-text-secondary shadow-sm">
                   <p className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-[0.3em] text-text-muted">
-                    My profile
+                    Me
                   </p>
                   <button
                     type="button"
                     className="block w-full rounded-lg px-3 py-2 text-left transition hover:bg-surface"
-                    onClick={() => router.push("/me/posts")}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      router.push("/me/posts");
+                    }}
                   >
-                    Posts management
+                    My Forum
                   </button>
                   <button
                     type="button"
                     className="block w-full rounded-lg px-3 py-2 text-left transition hover:bg-surface"
-                    onClick={() => router.push("/me")}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      router.push("/me");
+                    }}
                   >
-                    Personal profile
+                    Profile
                   </button>
                   <button
                     type="button"
                     className="block w-full rounded-lg px-3 py-2 text-left transition hover:bg-surface"
-                    onClick={() => router.push("/me/account")}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      router.push("/me/account");
+                    }}
                   >
-                    Account settings
+                    Account
+                  </button>
+                  <button
+                    type="button"
+                    className="block w-full rounded-lg px-3 py-2 text-left transition hover:bg-surface"
+                    onClick={() => {
+                      localStorage.removeItem("accessToken");
+                      setToken(null);
+                      setMenuOpen(false);
+                      router.push("/login");
+                    }}
+                  >
+                    Log out
                   </button>
                 </div>
               )}
@@ -251,6 +264,18 @@ export default function TopNav() {
           </div>
         )}
       </div>
+      <Link
+        href="/private"
+        className="fixed bottom-6 right-6 z-40 flex h-12 w-12 items-center justify-center rounded-full border border-border-default bg-card text-sm font-semibold text-text-primary shadow-sm transition hover:-translate-y-0.5"
+        aria-label="Open private chat"
+      >
+        <span>DM</span>
+        {unreadTotal > 0 && (
+          <span className="absolute -top-1 -right-1 rounded-full bg-brand-primary px-1.5 py-0.5 text-[10px] font-semibold text-card">
+            {unreadTotal > 99 ? "99+" : unreadTotal}
+          </span>
+        )}
+      </Link>
       {showOnboarding && me && token && (
         <ProfileOnboardingModal
           token={token}

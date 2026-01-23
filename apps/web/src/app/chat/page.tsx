@@ -254,7 +254,7 @@ function ChatPageContent() {
             <div className="rounded-2xl border border-dashed border-border-default bg-surface p-3 text-xs text-text-secondary">
               <p>No traces to start a private conversation yet.</p>
               <Link href="/hall" className="btn-primary mt-2">
-                Hall
+                Forum
               </Link>
             </div>
           )}

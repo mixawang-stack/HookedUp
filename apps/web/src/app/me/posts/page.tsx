@@ -173,7 +173,7 @@ export default function MyPostsPage() {
         <div>
           <h1 className="text-2xl font-semibold">Posts management</h1>
           <p className="mt-1 text-sm text-text-secondary">
-            Review, edit, and remove your Hall posts.
+            Review, edit, and remove your Forum posts.
           </p>
         </div>
       </div>
@@ -197,7 +197,7 @@ export default function MyPostsPage() {
 
         {traces.length === 0 && !loadingTraces ? (
           <p className="text-sm text-text-secondary">
-            You have not posted in the Hall yet.
+            You have not posted in the Forum yet.
           </p>
         ) : (
           <div className="space-y-3">

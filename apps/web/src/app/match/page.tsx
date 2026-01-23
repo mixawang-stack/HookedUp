@@ -101,7 +101,7 @@ export default function MatchPage() {
     });
 
     if (!res.ok) {
-      setMessage("Failed to load the hall.");
+      setMessage("Failed to load the forum.");
       return;
     }
 
@@ -191,18 +191,18 @@ export default function MatchPage() {
   return (
     <main className="ui-page mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-6 px-4 py-8">
       <section className="ui-card p-6">
-        <h1 className="text-2xl font-semibold text-text-primary">Grand Hall</h1>
+        <h1 className="text-2xl font-semibold text-text-primary">Forum</h1>
         <p className="mt-2 text-sm text-text-secondary">
-          Walk the hall, leave a trace, and see who echoes back.
+          Walk the forum, leave a trace, and see who echoes back.
         </p>
         {message && <p className="mt-2 text-sm text-text-secondary">{message}</p>}
       </section>
 
       <section className="ui-card p-6">
-        <h2 className="text-lg font-semibold text-text-primary">Hall Guests</h2>
+        <h2 className="text-lg font-semibold text-text-primary">Forum Guests</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           {recommendations.length === 0 && (
-            <p className="text-sm text-text-secondary">The hall is quiet for now.</p>
+            <p className="text-sm text-text-secondary">The forum is quiet for now.</p>
           )}
           {recommendations.map((rec) => (
             <div key={rec.id} className="ui-surface flex flex-col gap-4 p-4">
@@ -293,7 +293,7 @@ export default function MatchPage() {
       {matchPrompt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-text-primary/20 p-6 backdrop-blur-sm">
           <div className="ui-card w-full max-w-sm p-6">
-            <h3 className="text-lg font-semibold text-text-primary">Hall echo</h3>
+            <h3 className="text-lg font-semibold text-text-primary">Forum echo</h3>
             <p className="mt-2 text-sm text-text-secondary">
               You and {promptOther?.maskName ?? "a guest"} noticed each other.
               Start a private thread?

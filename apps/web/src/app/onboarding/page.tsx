@@ -234,7 +234,7 @@ export default function OnboardingPage() {
         throw new Error(rawMessage ?? `HTTP ${preferenceRes.status}`);
       }
 
-      setSubmitStatus("Submitted. Redirecting to the Hall.");
+      setSubmitStatus("Submitted. Redirecting to the Forum.");
       setTimeout(() => router.push("/hall"), 800);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Submission failed.";
@@ -255,7 +255,7 @@ export default function OnboardingPage() {
       <section className="ui-card p-6">
         <h1 className="text-2xl font-semibold text-text-primary">Profile setup</h1>
         <p className="mt-2 text-sm text-text-secondary">
-          Complete these two steps to enter the Hall.
+          Complete these two steps to enter the Forum.
         </p>
         <div className="mt-4 flex flex-wrap gap-2 text-xs text-text-muted">
           <span className={step === 1 ? "font-semibold text-text-primary" : ""}>
@@ -349,7 +349,7 @@ export default function OnboardingPage() {
         <section className="ui-card p-6">
           <h2 className="text-lg font-semibold text-text-primary">Preferences</h2>
           <p className="mt-2 text-sm text-text-secondary">
-            Share who you hope to meet in the Hall.
+            Share who you hope to meet in the Forum.
           </p>
           <div className="mt-4 grid gap-4">
             <div>

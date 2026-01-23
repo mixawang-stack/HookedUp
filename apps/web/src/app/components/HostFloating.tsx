@@ -37,9 +37,9 @@ const menuItems = [
 
 const PAGE_PROMPTS: Record<HostPageType, string[]> = {
   hall: [
-    "The hall feels wide - maybe drop a trace?",
-    "I hear footsteps echoing somewhere in the hall.",
-    "A question in the hall might wake a new face."
+    "The forum feels wide - maybe drop a trace?",
+    "I hear footsteps echoing somewhere in the forum.",
+    "A question in the forum might wake a new face."
   ],
   rooms: [
     "Rooms are ready; one of them might need a spark.",
@@ -66,7 +66,7 @@ const PAGE_PROMPTS: Record<HostPageType, string[]> = {
 const COLD_PROMPTS: Partial<Record<HostPageType, string[]>> = {
   hall: [
     "No traces yet - maybe add a thought for others.",
-    "The hall is empty right now. Drop a surprise anyway?"
+    "The forum is empty right now. Drop a surprise anyway?"
   ],
   private: [
     "Nothing private yet; the next hello could change that.",

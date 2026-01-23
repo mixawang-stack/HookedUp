@@ -23,13 +23,20 @@ export default function AuthNav() {
       <div className="mx-auto flex w-full max-w-6xl items-center gap-4 px-6 py-3 text-sm">
         {FF_WORLD_06 && (
           <Link
-            href="/hall"
+            href="/novels"
             className="font-semibold text-text-primary"
-            title="Where everyone passes through."
+            title="Stories meant to be lingered with."
           >
-            Hall
+            Stories
           </Link>
         )}
+        <Link
+          href="/hall"
+          className="text-text-secondary hover:text-text-primary"
+          title="Where everyone passes through."
+        >
+          Forum
+        </Link>
         <Link
           href="/rooms"
           className="text-text-secondary hover:text-text-primary"
@@ -37,15 +44,6 @@ export default function AuthNav() {
         >
           Rooms
         </Link>
-        {FF_WORLD_06 && (
-          <Link
-            href="/private"
-            className="text-text-secondary hover:text-text-primary"
-            title="Conversations that continued."
-          >
-            Private
-          </Link>
-        )}
         {FF_INTENT_12 ? (
           <span className="text-xs text-text-muted">Intent</span>
         ) : null}

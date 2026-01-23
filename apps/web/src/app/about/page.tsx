@@ -10,8 +10,8 @@ export default function AboutPage() {
           without pushing or defaulting to anything beyond the room itself.
         </p>
         <p className="mt-4 text-sm text-text-secondary">
-          Explore the Grand Hall, step into Rooms, and keep Private threads for
-          what you choose to carry further.
+          Explore the Forum, step into Rooms, and keep Private threads for what
+          you choose to carry further.
         </p>
       </section>
     </main>

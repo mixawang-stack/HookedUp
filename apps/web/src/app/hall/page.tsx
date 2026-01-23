@@ -243,7 +243,7 @@ export default function HallPage() {
       headers: authHeader ? { ...authHeader } : undefined
     });
     if (!res.ok) {
-      setStatus("Failed to load the Hall.");
+      setStatus("Failed to load the Forum.");
       return;
     }
     const data = (await res.json()) as HallResponse;
@@ -480,7 +480,7 @@ export default function HallPage() {
   };
 
   useEffect(() => {
-    fetchHall().catch(() => setStatus("Failed to load the Hall."));
+    fetchHall().catch(() => setStatus("Failed to load the Forum."));
   }, []);
 
   useEffect(() => {
@@ -1165,7 +1165,7 @@ export default function HallPage() {
               Stories &amp; Spaces
             </p>
             <h1 className="mt-3 text-3xl font-semibold text-text-primary">
-              The Grand Hall
+              The Forum
             </h1>
             <p className="mt-2 text-sm text-text-secondary">
               A shared room for stories, posts, and the next conversation.
@@ -1201,7 +1201,7 @@ export default function HallPage() {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-text-primary">
-                  Hall Feed
+                  Forum Feed
                 </h2>
                 <p className="text-xs text-text-muted">
                   Stories and posts mingled together.
@@ -1369,10 +1369,10 @@ export default function HallPage() {
             {hall && feedItems.length === 0 && (
               <p className="mt-4 text-sm text-text-muted">
                 {activeTab === "story"
-                  ? "No stories in the Hall yet."
+                  ? "No stories in the Forum yet."
                   : activeTab === "post"
-                    ? "No traces in the Hall yet."
-                    : "The Hall is quiet for now."}
+                    ? "No traces in the Forum yet."
+                    : "The Forum is quiet for now."}
               </p>
             )}
           </section>

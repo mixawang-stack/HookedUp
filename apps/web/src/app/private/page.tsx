@@ -297,11 +297,11 @@ function PrivateListPageInner() {
               {conversations.length === 0 && (
                 <div className="ui-surface border-dashed p-4 text-sm text-text-secondary">
                   <p>Nothing private yet.</p>
-                  <p>Most conversations start in the Hall</p>
+                  <p>Most conversations start in the Forum</p>
                   <p>or inside a room. Go stir things up.</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Link href="/hall" className="btn-primary px-4 py-2 text-xs">
-                      Hall
+                      Forum
                     </Link>
                     <Link
                       href="/rooms"
