@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
@@ -28,25 +29,6 @@ type NovelPreview = {
   }>;
 };
 
-const resolveMediaUrl = (value?: string | null) => {
-  if (!value) return null;
-  if (value.startsWith("/uploads/")) {
-    return `${API_BASE}${value}`;
-  }
-  if (!value.startsWith("http://") && !value.startsWith("https://")) {
-    return value;
-  }
-  try {
-    const parsed = new URL(value);
-    if (parsed.pathname.startsWith("/uploads/")) {
-      return `${API_BASE}${parsed.pathname}`;
-    }
-  } catch {
-    return value;
-  }
-  return value;
-};
-
 export default function NovelDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -55,10 +37,6 @@ export default function NovelDetailPage() {
   const [novel, setNovel] = useState<NovelPreview | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [reactionLoading, setReactionLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"about" | "chapters" | "reviews">(
-    "about"
-  );
-  const [showPremiumPrompt, setShowPremiumPrompt] = useState(false);
 
   const authHeader = useMemo(
     () => (token ? { Authorization: `Bearer ${token}` } : null),
@@ -138,191 +116,156 @@ export default function NovelDetailPage() {
   const readingText = novel?.chapters
     ? novel.chapters.map((chapter) => chapter.content).join("\n\n")
     : "";
+  const readingParagraphs = readingText
+    .split(/\n\s*\n/g)
+    .map((paragraph) => paragraph.trim())
+    .filter((paragraph) => paragraph.length > 0);
 
   return (
     <main className="ui-page">
-      <div className="ui-container py-10 text-text-primary">
-        <button
-          type="button"
-          className="btn-secondary px-3 py-1 text-xs"
-          onClick={() => router.push("/hall")}
+      <div className="ui-container pb-20 pt-10 text-text-primary lg:pb-10">
+        <Link
+          href="/novels"
+          className="text-sm text-text-secondary transition hover:text-text-primary"
         >
-          Back
-        </button>
+          ← Back
+        </Link>
         {status && <p className="mt-4 text-sm text-text-secondary">{status}</p>}
         {novel && (
-          <div className="mt-6 space-y-6">
-            <section className="ui-card grid gap-6 p-6 md:grid-cols-[160px_1fr]">
-              <div className="overflow-hidden rounded-2xl border border-border-default bg-surface">
-                {novel.coverImageUrl ? (
-                  <img
-                    src={resolveMediaUrl(novel.coverImageUrl) ?? ""}
-                    alt={novel.title}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full min-h-[200px] items-center justify-center text-xs text-text-muted">
-                    No cover
-                  </div>
-                )}
-              </div>
-              <div className="space-y-3">
-                <p className="text-sm text-text-secondary">
-                  Take your time.
-                  <br />
-                  This one is better when you don't rush.
-                </p>
-                <h1 className="text-3xl font-semibold text-text-primary">
-                  {novel.title}
-                </h1>
-                <p className="text-sm text-text-secondary">Left here by someone.</p>
-                <div className="flex flex-wrap items-center gap-4 text-sm text-text-secondary">
-                  <span>Rating -</span>
-                  <span>{novel.viewCount ?? 0} reads</span>
-                  <span>{novel.favoriteCount ?? 0} likes</span>
-                </div>
-              </div>
+          <div className="mt-6 space-y-10">
+            <section className="space-y-2">
+              <h1 className="text-3xl font-semibold text-text-primary">
+                {novel.title}
+              </h1>
+              <p className="text-sm text-text-secondary">
+                Chapter 1 · Free / Grown-up
+              </p>
             </section>
 
-            <div className="ui-tab-list">
-              <button
-                type="button"
-                className={`ui-tab ${activeTab === "about" ? "ui-tab-active" : ""}`}
-                onClick={() => setActiveTab("about")}
-              >
-                About
-              </button>
-              <button
-                type="button"
-                className={`ui-tab ${activeTab === "chapters" ? "ui-tab-active" : ""}`}
-                onClick={() => setActiveTab("chapters")}
-              >
-                Chapters
-              </button>
-              <button
-                type="button"
-                className={`ui-tab ${activeTab === "reviews" ? "ui-tab-active" : ""}`}
-                onClick={() => setActiveTab("reviews")}
-              >
-                Reviews
-              </button>
-            </div>
-
-            {activeTab === "about" && (
-              <div className="space-y-4">
-                <div className="ui-card p-5 text-sm text-text-secondary">
-                  {novel.description ?? "-"}
-                </div>
-                <section className="ui-card max-h-[60vh] overflow-y-auto p-5">
-                  {readingText ? (
-                    <div className="text-base leading-8 text-text-primary whitespace-pre-wrap">
-                      {readingText}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-text-muted">
-                      No story content yet.
-                    </p>
-                  )}
-                </section>
-                <div className="ui-surface p-4 text-sm text-text-secondary">
-                  <p>Curious how others felt about it?</p>
-                  <p>There's a room where this story is being talked about.</p>
-                  <button
-                    type="button"
-                    className="btn-primary mt-3 px-4 py-2 text-xs"
-                    onClick={() =>
-                      router.push(novel.room?.id ? `/rooms/${novel.room.id}` : "/rooms")
-                    }
-                  >
-                    Go to discussion room
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {activeTab === "chapters" && (
-              <section className="ui-card p-5">
-                <div className="space-y-3">
-                  {(novel.chapters ?? []).map((chapter, index) => {
-                    const freeCount =
-                      novel.chapters.filter((item) => item.isFree).length ||
-                      Math.min(5, novel.chapters.length);
-                    const isFree = chapter.isFree || index < freeCount;
-                    return (
-                      <div
-                        key={chapter.id}
-                        className="flex items-center justify-between rounded-2xl border border-border-default bg-card px-4 py-3 text-sm"
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => {
-                          if (!isFree) {
-                            setShowPremiumPrompt(true);
-                          }
-                        }}
-                        onKeyDown={(event) => {
-                          if (!isFree) {
-                            if (event.key === "Enter" || event.key === " ") {
-                              event.preventDefault();
-                              setShowPremiumPrompt(true);
-                            }
-                          }
-                        }}
-                      >
-                        <div className="space-y-1">
-                          <p className="font-semibold text-text-primary">
-                            {chapter.title || `Chapter ${index + 1}`}
-                          </p>
-                        </div>
-                        {isFree ? (
-                          <span className="ui-badge ui-badge-story">Free</span>
-                        ) : (
-                          <span className="ui-badge ui-badge-premium">
-                            Premium
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-                {(novel.chapters ?? []).some((chapter, index) => {
-                  const freeCount =
-                    novel.chapters.filter((item) => item.isFree).length ||
-                    Math.min(5, novel.chapters.length);
-                  return !(chapter.isFree || index < freeCount);
-                }) && (
-                  <div className="ui-surface mt-4 p-4 text-sm text-text-secondary">
-                    Premium required to unlock locked chapters.
+            <div className="relative">
+              <div className="mx-auto flex max-w-5xl items-start gap-6">
+                <div className="hidden shrink-0 lg:block">
+                  <div className="sticky top-[140px] flex flex-col gap-3">
+                    <button
+                      type="button"
+                      className="flex items-center gap-2 rounded-full border border-border-default bg-card px-3 py-2 text-xs text-text-secondary transition hover:text-text-primary"
+                      onClick={() => handleReaction("LIKE")}
+                      disabled={reactionLoading}
+                      title="More like this"
+                    >
+                      <span aria-hidden="true">♥</span>
+                      <span>Like</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="flex items-center gap-2 rounded-full border border-border-default bg-card px-3 py-2 text-xs text-text-secondary transition hover:text-text-primary"
+                      onClick={() => handleReaction("DISLIKE")}
+                      disabled={reactionLoading}
+                      title="Show me less"
+                    >
+                      <span aria-hidden="true">×</span>
+                      <span>Not for me</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="flex items-center gap-2 rounded-full border border-border-default bg-card px-3 py-2 text-xs text-text-secondary transition hover:text-text-primary"
+                      onClick={handleShare}
+                      title="Send a taste"
+                    >
+                      <span aria-hidden="true">↗</span>
+                      <span>Share</span>
+                    </button>
                   </div>
-                )}
-              </section>
-            )}
+                </div>
 
-            {activeTab === "reviews" && (
-              <section className="ui-card p-5 text-sm text-text-secondary">-</section>
-            )}
-          </div>
-        )}
-        {showPremiumPrompt && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-text-primary/40 p-6"
-            role="dialog"
-            aria-modal="true"
-          >
-            <div className="ui-surface w-full max-w-md p-6 text-text-primary">
-              <h3 className="text-lg font-semibold">Premium chapter</h3>
-              <p className="mt-2 text-sm text-text-secondary">
-                Premium required to unlock locked chapters.
-              </p>
-              <button
-                type="button"
-                className="btn-secondary mt-4 px-4 py-2 text-xs"
-                onClick={() => setShowPremiumPrompt(false)}
-              >
-                Close
-              </button>
+                <section className="mx-auto w-full max-w-[720px]">
+                  <p className="text-xs text-text-muted">
+                    Take your time. This isn't a race.
+                  </p>
+                  <div className="mt-6 space-y-6 text-base leading-8 text-text-primary">
+                    {readingParagraphs.length > 0 ? (
+                      readingParagraphs.map((paragraph, index) => (
+                        <p key={`${novel.id}-paragraph-${index}`}>
+                          {paragraph}
+                        </p>
+                      ))
+                    ) : (
+                      <p className="text-sm text-text-muted">
+                        No story content yet.
+                      </p>
+                    )}
+                  </div>
+
+                  <section className="ui-surface mt-10 p-6 text-sm text-text-secondary">
+                    <h2 className="text-lg font-semibold text-text-primary">
+                      Keep going?
+                    </h2>
+                    <div className="mt-3 space-y-1 text-xs text-text-muted">
+                      <p>Read by 1,284 people</p>
+                      <p>23 are talking about it right now</p>
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        className="btn-primary px-4 py-2 text-xs"
+                        onClick={() => router.push("/novels")}
+                      >
+                        See other stories
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary px-4 py-2 text-xs"
+                        onClick={() =>
+                          router.push(
+                            novel.room?.id ? `/rooms/${novel.room.id}` : "/rooms"
+                          )
+                        }
+                      >
+                        Join the room
+                      </button>
+                    </div>
+                    <p className="mt-4 text-xs text-text-muted">
+                      Bold is welcome. Coercion isn't.
+                    </p>
+                  </section>
+                </section>
+              </div>
             </div>
           </div>
         )}
+      </div>
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border-default bg-card/95 backdrop-blur lg:hidden">
+        <div className="ui-container flex items-center justify-around py-2 text-xs text-text-secondary">
+          <button
+            type="button"
+            className="flex items-center gap-1 px-3 py-2"
+            onClick={() => handleReaction("LIKE")}
+            disabled={reactionLoading}
+            title="More like this"
+          >
+            <span aria-hidden="true">♥</span>
+            <span>Like</span>
+          </button>
+          <button
+            type="button"
+            className="flex items-center gap-1 px-3 py-2"
+            onClick={() => handleReaction("DISLIKE")}
+            disabled={reactionLoading}
+            title="Show me less"
+          >
+            <span aria-hidden="true">×</span>
+            <span>Not for me</span>
+          </button>
+          <button
+            type="button"
+            className="flex items-center gap-1 px-3 py-2"
+            onClick={handleShare}
+            title="Send a taste"
+          >
+            <span aria-hidden="true">↗</span>
+            <span>Share</span>
+          </button>
+        </div>
       </div>
     </main>
   );
