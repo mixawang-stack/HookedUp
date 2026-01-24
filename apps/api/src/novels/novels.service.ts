@@ -291,6 +291,9 @@ export class NovelsService {
       throw new BadRequestException("CONTENT_PARSE_FAILED");
     }
 
+    const nextSourceType: NovelSourceType =
+      parsed.sourceType === "MD" ? "MARKDOWN" : "TEXT";
+
     await this.prisma.$transaction(async (tx) => {
       await tx.novelChapter.deleteMany({ where: { novelId } });
       await tx.novelChapter.createMany({
@@ -310,7 +313,8 @@ export class NovelsService {
           contentRawText: parsed.rawText || null,
           chapterCount: parsed.chapters.length,
           wordCount: parsed.wordCount,
-          attachmentUrl: attachmentUrl ?? undefined
+          attachmentUrl: null,
+          sourceType: nextSourceType
         }
       });
     });
