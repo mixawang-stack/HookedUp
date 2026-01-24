@@ -181,34 +181,27 @@ export default function AdminNovelsPage() {
     }
   };
 
-  const handleUploadContent = async () => {
-    if (!authHeader || !contentFile) return;
-    if (!selectedNovel) {
-      setStatus("Save the novel first, then upload content.");
-      return;
-    }
+  const uploadContentFile = async (novelId: string, file: File) => {
+    if (!authHeader) return false;
     setContentUploading(true);
     setStatus(null);
     setContentStatus(null);
     const form = new FormData();
-    form.append("file", contentFile);
-    const isPdf = contentFile.name.toLowerCase().endsWith(".pdf");
+    form.append("file", file);
+    const isPdf = file.name.toLowerCase().endsWith(".pdf");
     if (isPdf) {
       form.append("asAttachmentOnly", "true");
     }
     try {
-      const res = await fetch(
-        `${API_BASE}/admin/novels/${selectedNovel.id}/content`,
-        {
-          method: "POST",
-          headers: { ...authHeader },
-          body: form
-        }
-      );
+      const res = await fetch(`${API_BASE}/admin/novels/${novelId}/content`, {
+        method: "POST",
+        headers: { ...authHeader },
+        body: form
+      });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setStatus(data?.message ?? "Failed to upload content.");
-        return;
+        return false;
       }
       setContentStatus(
         `Parsed ${data?.chapterCount ?? 0} chapters - ${data?.wordCount ?? 0} words`
@@ -220,10 +213,20 @@ export default function AdminNovelsPage() {
         }))
       );
       setContentFile(null);
-      await loadChapters(selectedNovel.id);
+      await loadChapters(novelId);
+      return true;
     } finally {
       setContentUploading(false);
     }
+  };
+
+  const handleUploadContent = async () => {
+    if (!authHeader || !contentFile) return;
+    if (!selectedNovel) {
+      setStatus("Save the novel first, then upload content.");
+      return;
+    }
+    await uploadContentFile(selectedNovel.id, contentFile);
   };
 
   const handleSaveNovel = async () => {
@@ -264,6 +267,14 @@ export default function AdminNovelsPage() {
           Array.isArray(body?.message) ? body.message.join(" / ") : body?.message;
         setStatus(message ?? "Failed to save novel.");
         return;
+      }
+
+      const savedNovelId = selectedNovel?.id ?? body?.id;
+      if (contentFile && savedNovelId) {
+        const uploaded = await uploadContentFile(savedNovelId, contentFile);
+        if (!uploaded) {
+          return;
+        }
       }
 
       setDrawerOpen(false);
@@ -600,6 +611,12 @@ export default function AdminNovelsPage() {
                       }
                     />
                   </label>
+                  {contentFile && (
+                    <p className="text-[10px] text-slate-500">
+                      Selected: {contentFile.name} -{" "}
+                      {(contentFile.size / (1024 * 1024)).toFixed(2)} MB
+                    </p>
+                  )}
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
