@@ -601,24 +601,41 @@ export class NovelsService {
   }
 
   private decodeTextBuffer(buffer: Buffer, mimeType?: string) {
+    const bom = buffer.slice(0, 2);
+    if (bom[0] === 0xff && bom[1] === 0xfe) {
+      return iconv.decode(buffer, "utf16le").replace(/\u0000/g, "");
+    }
+    if (bom[0] === 0xfe && bom[1] === 0xff) {
+      return iconv.decode(buffer, "utf16be").replace(/\u0000/g, "");
+    }
+
     const utf8Text = buffer.toString("utf8");
     if (this.looksLikeValidUtf8(utf8Text)) {
-      return utf8Text;
+      return utf8Text.replace(/\u0000/g, "");
+    }
+
+    const zeroByteCount = buffer.reduce((count, byte) => count + (byte === 0 ? 1 : 0), 0);
+    if (zeroByteCount > buffer.length / 10) {
+      try {
+        return iconv.decode(buffer, "utf16le").replace(/\u0000/g, "");
+      } catch {
+        return utf8Text.replace(/\u0000/g, "");
+      }
     }
     const detected = chardet.detect(buffer) as string | null;
     const normalized = this.normalizeEncoding(detected ?? mimeType);
     if (normalized && iconv.encodingExists(normalized)) {
       try {
-        return iconv.decode(buffer, normalized);
+        return iconv.decode(buffer, normalized).replace(/\u0000/g, "");
       } catch {
-        return utf8Text;
+        return utf8Text.replace(/\u0000/g, "");
       }
     }
     const latinFallback = buffer.toString("latin1");
     if (latinFallback && this.looksLikeValidUtf8(latinFallback)) {
-      return latinFallback;
+      return latinFallback.replace(/\u0000/g, "");
     }
-    return utf8Text;
+    return utf8Text.replace(/\u0000/g, "");
   }
 
   private looksLikeValidUtf8(text: string) {
@@ -633,6 +650,9 @@ export class NovelsService {
     const normalized = value.toLowerCase();
     if (normalized.includes("gbk") || normalized.includes("gb2312")) return "gb18030";
     if (normalized.includes("gb18030")) return "gb18030";
+    if (normalized.includes("utf-16le") || normalized.includes("ucs-2")) return "utf16le";
+    if (normalized.includes("utf-16be")) return "utf16be";
+    if (normalized.includes("utf-16")) return "utf16le";
     if (normalized.includes("utf-8") || normalized.includes("utf8")) return "utf8";
     if (normalized.includes("ascii")) return "ascii";
     return normalized;
