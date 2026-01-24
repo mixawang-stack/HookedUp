@@ -527,10 +527,8 @@ export class NovelsService {
     wordCount: number;
   }> {
     if (sourceType === "DOCX") {
-      const htmlResult = await mammoth.convertToHtml({ buffer });
-      const html = htmlResult.value ?? "";
-      const htmlText = this.htmlToTextWithHeadings(html);
-      const rawText = this.normalizeRawText(htmlText);
+      const rawResult = await mammoth.extractRawText({ buffer });
+      const rawText = this.normalizeRawText(rawResult.value ?? "");
       const chapters = this.extractChaptersFromText(rawText, fallbackTitle);
       return {
         sourceType,
@@ -559,25 +557,6 @@ export class NovelsService {
     };
   }
 
-  private htmlToTextWithHeadings(html: string) {
-    const withHeadings = html
-      .replace(/<h[1-6][^>]*>(.*?)<\/h[1-6]>/gi, "\n\n# $1\n\n")
-      .replace(/<p[^>]*>(.*?)<\/p>/gi, "$1\n\n")
-      .replace(/<br\s*\/?>/gi, "\n")
-      .replace(/<\/(div|section|article)>/gi, "\n\n");
-    const stripped = withHeadings.replace(/<[^>]+>/g, "");
-    return this.decodeHtmlEntities(stripped);
-  }
-
-  private decodeHtmlEntities(text: string) {
-    return text
-      .replace(/&nbsp;/g, " ")
-      .replace(/&amp;/g, "&")
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">")
-      .replace(/&quot;/g, '"');
-  }
-
   private normalizeRawText(text: string) {
     const trimmedBom = text.replace(/^\uFEFF/, "");
     const normalized = trimmedBom.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
@@ -593,6 +572,7 @@ export class NovelsService {
     const chapterLineRegex =
       /^(Chapter|CHAPTER)\s+(\d+)\b[:.\-]?\s*(.*)$|^第\s*([0-9一二三四五六七八九十百千]+)\s*章\s*(.*)$/;
     const markdownHeadingRegex = /^#{1,2}\s+(.+)$/;
+    const standaloneHeadingRegex = /^[A-Za-z0-9][A-Za-z0-9'’\-\s]+$/;
 
     const flush = () => {
       const content = buffer.join("\n").replace(/\n{3,}/g, "\n\n").trim();
@@ -607,7 +587,11 @@ export class NovelsService {
       buffer = [];
     };
 
-    lines.forEach((line) => {
+    lines.forEach((line, index) => {
+      const nextLine = lines[index + 1] ?? "";
+      const prevLine = lines[index - 1] ?? "";
+      const isPrevEmpty = prevLine.trim().length === 0;
+      const isNextEmpty = nextLine.trim().length === 0;
       const headingMatch = line.match(markdownHeadingRegex);
       if (headingMatch) {
         flush();
@@ -629,6 +613,21 @@ export class NovelsService {
           currentTitle = `第${chapterMatch[4]}章${suffix ? ` ${suffix}` : ""}`;
           return;
         }
+      }
+
+      const trimmedLine = line.trim();
+      if (
+        trimmedLine &&
+        standaloneHeadingRegex.test(trimmedLine) &&
+        trimmedLine.length <= 60 &&
+        trimmedLine.split(/\s+/).length <= 10 &&
+        !/[.!?;,:]$/.test(trimmedLine) &&
+        isPrevEmpty &&
+        isNextEmpty
+      ) {
+        flush();
+        currentTitle = trimmedLine;
+        return;
       }
 
       buffer.push(line);
