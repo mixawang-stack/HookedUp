@@ -23,12 +23,17 @@ async function bootstrap() {
 
   app.enableCors({
     origin: (origin, callback) => {
+      const defaultAllowedOrigins = [
+        "https://hooked-up.vercel.app",
+        "https://hooked-up-admin.vercel.app"
+      ];
       const allowedOrigins = (process.env.CORS_ORIGIN ?? "*")
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean);
 
-      if (!origin || allowedOrigins.includes("*") || allowedOrigins.includes(origin)) {
+      const combinedOrigins = [...defaultAllowedOrigins, ...allowedOrigins];
+      if (!origin || combinedOrigins.includes("*") || combinedOrigins.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error("Not allowed by CORS"));
