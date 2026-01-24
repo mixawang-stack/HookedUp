@@ -25,15 +25,18 @@ async function bootstrap() {
     origin: (origin, callback) => {
       const defaultAllowedOrigins = [
         "https://hooked-up.vercel.app",
-        "https://hooked-up-admin.vercel.app"
+        "https://hooked-up-admin.vercel.app",
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3002"
       ];
-      const allowedOrigins = (process.env.CORS_ORIGIN ?? "*")
+      const allowedOrigins = (process.env.CORS_ORIGIN ?? "")
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean);
 
       const combinedOrigins = [...defaultAllowedOrigins, ...allowedOrigins];
-      if (!origin || combinedOrigins.includes("*") || combinedOrigins.includes(origin)) {
+      if (!origin || combinedOrigins.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error("Not allowed by CORS"));
@@ -42,7 +45,8 @@ async function bootstrap() {
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
-    exposedHeaders: ["Authorization"]
+    exposedHeaders: ["Authorization"],
+    optionsSuccessStatus: 204
   });
 
   const port = Number(process.env.PORT ?? 3001);
