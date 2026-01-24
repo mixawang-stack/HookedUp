@@ -124,7 +124,7 @@ export default function NovelEditor({ novelId }: Props) {
     if (!authHeader) return;
     setChapters([]);
     const res = await fetch(`${API_BASE}/admin/novels/${id}/chapters?t=${Date.now()}`, {
-      headers: { ...authHeader, "Cache-Control": "no-cache" },
+      headers: { ...authHeader },
       cache: "no-store"
     });
     if (!res.ok) return;
@@ -190,7 +190,7 @@ export default function NovelEditor({ novelId }: Props) {
     try {
       const res = await fetch(`${API_BASE}/admin/novels/${id}/content`, {
         method: "POST",
-        headers: { ...authHeader, "Cache-Control": "no-cache" },
+        headers: { ...authHeader },
         cache: "no-store",
         body: form
       });
