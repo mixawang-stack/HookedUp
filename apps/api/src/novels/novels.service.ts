@@ -332,7 +332,7 @@ export class NovelsService {
 
   private splitPdfIntoChapters(text: string) {
     const chapterRegex =
-      /(^|\n)\s*(Chapter\s+\d+[^\n]*|CHAPTER\s+\d+[^\n]*|第[0-9一二三四五六七八九十百千]+章[^\n]*)/g;
+      /(^|\n)\s*(Chapter\s+(?:\d+|[IVXLCDM]+|[A-Za-z]+)\b[^\n]*|CHAPTER\s+(?:\d+|[IVXLCDM]+|[A-Za-z]+)\b[^\n]*|Part\s+(?:\d+|[IVXLCDM]+|[A-Za-z]+)\b[^\n]*|PART\s+(?:\d+|[IVXLCDM]+|[A-Za-z]+)\b[^\n]*|Book\s+(?:\d+|[IVXLCDM]+|[A-Za-z]+)\b[^\n]*|BOOK\s+(?:\d+|[IVXLCDM]+|[A-Za-z]+)\b[^\n]*|Section\s+\d+[^\n]*|SECTION\s+\d+[^\n]*|\u7b2c[0-9\u4e00-\u9fa5]+[\u7ae0\u8282][^\n]*)/g;
     const matches = Array.from(text.matchAll(chapterRegex));
 
     if (matches.length === 0) {
@@ -683,3 +683,4 @@ export class NovelsService {
     });
   }
 }
+
