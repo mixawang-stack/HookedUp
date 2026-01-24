@@ -526,8 +526,13 @@ export default function NovelEditor({ novelId }: Props) {
             <button
               type="button"
               className="rounded-full border border-white/20 px-6 py-2 text-xs text-slate-200"
-              onClick={() => setStep(3)}
-              disabled={chapters.length === 0}
+              onClick={() => {
+                if (chapters.length === 0) {
+                  setStatus("No chapters parsed yet. Upload and parse a file first.");
+                  return;
+                }
+                setStep(3);
+              }}
             >
               Skip to preview
             </button>
