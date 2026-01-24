@@ -291,6 +291,14 @@ export class NovelsService {
       file.path
     );
 
+    if (parsed.chapters.length === 0 && parsed.rawText) {
+      parsed.chapters = [
+        {
+          title: novel.title?.trim() || "Chapter 1",
+          content: parsed.rawText.trim()
+        }
+      ];
+    }
     if (parsed.chapters.length === 0) {
       throw new BadRequestException("CONTENT_PARSE_FAILED");
     }
@@ -409,7 +417,8 @@ export class NovelsService {
 
     const buffer = await readFile(file.path);
     const parsed = await pdfParse(buffer);
-    const rawText = parsed.text?.replace(/\r\n/g, "\n").trim() ?? "";
+    const rawText = parsed.text?.replace(/
+/g, "\n").trim() ?? "";
     if (!rawText) {
       throw new BadRequestException("PDF_EMPTY");
     }
@@ -588,7 +597,8 @@ export class NovelsService {
 
   private normalizeRawText(text: string) {
     const trimmedBom = text.replace(/^\uFEFF/, "");
-    const normalized = trimmedBom.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    const normalized = trimmedBom.replace(/
+/g, "\n").replace(/\r/g, "\n");
     return normalized.replace(/\n{3,}/g, "\n\n").trim();
   }
 
@@ -637,9 +647,11 @@ export class NovelsService {
     let buffer: string[] = [];
 
     const chapterLineRegex =
-      /^(Chapter|CHAPTER)\s+(\d+)\b[:.\-]?\s*(.*)$|^ç¬¬\s*([0-9ä¸€äºŒä¸‰å››äº”å…­ä¸ƒå…«ä¹åç™¾åƒ]+)\s*ç« \s*(.*)$/;
+      /^(Chapter|CHAPTER)\s+(\d+)\b[:.\-]?\s*(.*)$|^µÚ\s*([0-9Ò»¶þÈýËÄÎåÁùÆß°Ë¾ÅÊ®°ÙÇ§]+)\s*ÕÂ\s*(.*)$/;
     const markdownHeadingRegex = /^#{1,2}\s+(.+)$/;
-    const standaloneHeadingRegex = /^[A-Za-z0-9][A-Za-z0-9'â€™\-\s]+$/;
+    const standaloneHeadingRegex = /^[A-Za-z0-9][A-Za-z0-9'¡¯\-\s]+$/;
+    const introHeadingRegex = /^(INTRO|PROLOGUE|EPILOGUE|PREFACE)\b[:.\-]?\s*(.*)$/i;
+    const pipeHeadingRegex = /^(INTRO|PROLOGUE|EPILOGUE|PREFACE)\s*\|\s*(.+)$/i;
 
     const flush = () => {
       const content = buffer.join("\n").replace(/\n{3,}/g, "\n\n").trim();
@@ -666,6 +678,26 @@ export class NovelsService {
         return;
       }
 
+      const pipeHeadingMatch = line.match(pipeHeadingRegex);
+      if (pipeHeadingMatch) {
+        flush();
+        currentTitle = pipeHeadingMatch[1].trim();
+        if (pipeHeadingMatch[2]) {
+          buffer.push(pipeHeadingMatch[2].trim());
+        }
+        return;
+      }
+
+      const introMatch = line.match(introHeadingRegex);
+      if (introMatch) {
+        flush();
+        currentTitle = introMatch[1].trim();
+        if (introMatch[2]) {
+          buffer.push(introMatch[2].trim());
+        }
+        return;
+      }
+
       const chapterMatch = line.match(chapterLineRegex);
       if (chapterMatch) {
         flush();
@@ -677,7 +709,7 @@ export class NovelsService {
         }
         if (chapterMatch[4]) {
           const suffix = chapterMatch[5]?.trim();
-          currentTitle = `ç¬¬${chapterMatch[4]}ç« ${suffix ? ` ${suffix}` : ""}`;
+          currentTitle = "µÚ" + chapterMatch[4] + "ÕÂ" + (suffix ? " " + suffix : "");
           return;
         }
       }
@@ -1034,4 +1066,9 @@ export class NovelsService {
     });
   }
 }
+
+
+
+
+
 
