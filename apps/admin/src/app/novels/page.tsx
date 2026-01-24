@@ -16,6 +16,10 @@ type NovelItem = {
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED" | "SCHEDULED";
   audience: "ALL" | "MATURE";
   category: "DRAMA" | "AFTER_DARK";
+  contentSourceType?: "DOCX" | "TXT" | "MD" | "PDF";
+  attachmentUrl?: string | null;
+  chapterCount?: number;
+  wordCount?: number;
   isFeatured: boolean;
   authorName: string | null;
   language: string | null;
@@ -315,6 +319,7 @@ export default function AdminNovelsPage() {
           <p className="mt-1 text-sm text-slate-400">
             Manage operational status, visibility, and hall promotion.
           </p>
+          <p className="mt-2 text-[11px] text-slate-500">API: {API_BASE}</p>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -398,18 +403,22 @@ export default function AdminNovelsPage() {
                     {novel.description || "No description provided."}
                   </p>
                 </div>
-                  <div className="mt-3 flex items-center justify-between">
-                  <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
-                    <span>{novel._count?.chapters ?? 0} Chapters</span>
-                    <span>-</span>
-                    <span>{novel.viewCount ?? 0} Reads</span>
-                    <span>-</span>
-                    <span>{novel.favoriteCount ?? 0} Likes</span>
-                    <span>-</span>
-                    <span>{novel.dislikeCount ?? 0} Dislikes</span>
-                    <span>-</span>
-                    <span>{novel.room?._count?.memberships ?? 0} Room Members</span>
-                  </div>
+              <div className="mt-3 flex items-center justify-between">
+                <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
+                  <span>
+                    {(novel.chapterCount ?? novel._count?.chapters ?? 0).toString()} Chapters
+                  </span>
+                  <span>-</span>
+                  <span>Source {novel.contentSourceType ?? "Unknown"}</span>
+                  <span>-</span>
+                  <span>{novel.viewCount ?? 0} Reads</span>
+                  <span>-</span>
+                  <span>{novel.favoriteCount ?? 0} Likes</span>
+                  <span>-</span>
+                  <span>{novel.dislikeCount ?? 0} Dislikes</span>
+                  <span>-</span>
+                  <span>{novel.room?._count?.memberships ?? 0} Room Members</span>
+                </div>
                   <div className="flex items-center gap-2 opacity-0 transition group-hover:opacity-100">
                     <button
                       type="button"
@@ -466,6 +475,12 @@ export default function AdminNovelsPage() {
                 {selectedNovel?.id && (
                   <p className="mt-1 text-[11px] text-slate-500">
                     ID: {selectedNovel.id}
+                  </p>
+                )}
+                {selectedNovel && (
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    Content: {selectedNovel.contentSourceType ?? "Unknown"} · Chapters{" "}
+                    {selectedNovel.chapterCount ?? selectedNovel._count?.chapters ?? 0}
                   </p>
                 )}
               </div>
