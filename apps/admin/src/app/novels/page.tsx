@@ -87,9 +87,8 @@ export default function AdminNovelsPage() {
   const [contentFile, setContentFile] = useState<File | null>(null);
   const [contentUploading, setContentUploading] = useState(false);
   const [contentStatus, setContentStatus] = useState<string | null>(null);
-  const [contentPreview, setContentPreview] = useState<
-    Array<{ index: number; title: string }>
-  >([]);
+  const [contentReviewOpen, setContentReviewOpen] = useState(false);
+  const [contentReviewChapters, setContentReviewChapters] = useState<ChapterItem[]>([]);
 
   const authHeader = useMemo(() => {
     if (!token) return null;
@@ -142,7 +141,8 @@ export default function AdminNovelsPage() {
     setCoverFile(null);
     setContentFile(null);
     setContentStatus(null);
-    setContentPreview([]);
+    setContentReviewChapters([]);
+    setContentReviewOpen(false);
   };
 
   const uploadCoverIfNeeded = async () => {
@@ -217,14 +217,16 @@ export default function AdminNovelsPage() {
       setContentStatus(
         `Parsed ${data?.chapterCount ?? 0} chapters - ${data?.wordCount ?? 0} words`
       );
-      setContentPreview(
-        (data?.previewChapters ?? []).map((chapter: { index: number; title: string }) => ({
-          index: chapter.index,
-          title: chapter.title
-        }))
-      );
       setContentFile(null);
       await loadChapters(novelId);
+      const refreshed = await fetch(`${API_BASE}/admin/novels/${novelId}/chapters`, {
+        headers: { ...authHeader }
+      });
+      if (refreshed.ok) {
+        const chaptersData = (await refreshed.json()) as ChapterItem[];
+        setContentReviewChapters(chaptersData);
+        setContentReviewOpen(true);
+      }
       return true;
     } finally {
       setContentUploading(false);
@@ -643,48 +645,8 @@ export default function AdminNovelsPage() {
                       </span>
                     )}
                   </div>
-                  {contentPreview.length > 0 && (
-                    <div className="rounded-xl border border-white/10 bg-slate-950/60">
-                      {contentPreview.map((chapter) => (
-                        <div
-                          key={`content-preview-${chapter.index}`}
-                          className="border-b border-white/5 px-3 py-2 text-[11px] text-slate-300 last:border-b-0"
-                        >
-                          {chapter.index}. {chapter.title}
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </section>
-
-              {selectedNovel && chapters.length > 0 && (
-                <section className="space-y-4">
-                  <h3 className="text-[11px] font-bold uppercase tracking-[0.3em] text-slate-500">
-                    Chapter Preview
-                  </h3>
-                  <div className="max-h-72 overflow-y-auto rounded-2xl border border-white/10 bg-slate-950/60">
-                    {chapters.map((chapter) => (
-                      <div
-                        key={chapter.id}
-                        className="border-b border-white/5 px-4 py-3"
-                      >
-                        <div className="flex items-center justify-between text-xs text-slate-200">
-                          <span>
-                            {chapter.orderIndex}. {chapter.title}
-                          </span>
-                          <span className="text-[10px] text-slate-500">
-                            {chapter.isFree ? "Free" : "Locked"}
-                          </span>
-                        </div>
-                        <p className="mt-2 text-[11px] text-slate-400 line-clamp-3">
-                          {chapter.content}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
 
               {/* Visibility & Compliance */}
               <section className="space-y-4">
@@ -759,6 +721,64 @@ export default function AdminNovelsPage() {
                     : "Create & Launch"}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {contentReviewOpen && (
+        <div className="fixed inset-0 z-[120] bg-slate-950/80 backdrop-blur-sm">
+          <div className="mx-auto flex h-full w-full max-w-5xl flex-col px-6 py-8 text-slate-100">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div>
+                <h2 className="text-lg font-semibold">Content Preview</h2>
+                {selectedNovel?.title && (
+                  <p className="mt-1 text-xs text-slate-500">{selectedNovel.title}</p>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="rounded-full border border-white/20 px-4 py-1.5 text-xs text-slate-300 hover:text-white"
+                  onClick={() => setContentReviewOpen(false)}
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  className="rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-slate-900"
+                  onClick={async () => {
+                    if (selectedNovel?.id) {
+                      await handleUpdateStatus(selectedNovel.id, "PUBLISHED");
+                    }
+                    setContentReviewOpen(false);
+                  }}
+                  disabled={!selectedNovel || selectedNovel.status === "PUBLISHED"}
+                >
+                  {selectedNovel?.status === "PUBLISHED"
+                    ? "Already published"
+                    : "Push to user side"}
+                </button>
+              </div>
+            </div>
+            <div className="mt-6 h-full overflow-y-auto rounded-2xl border border-white/10 bg-slate-950/60 p-6">
+              {contentReviewChapters.length === 0 && (
+                <p className="text-sm text-slate-500">No chapters parsed.</p>
+              )}
+              {contentReviewChapters.map((chapter) => (
+                <div key={chapter.id} className="border-b border-white/5 pb-6 pt-4">
+                  <div className="flex items-center justify-between text-sm text-slate-200">
+                    <span>
+                      {chapter.orderIndex}. {chapter.title}
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      {chapter.isFree ? "Free" : "Locked"}
+                    </span>
+                  </div>
+                  <p className="mt-4 whitespace-pre-wrap text-sm text-slate-300">
+                    {chapter.content}
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
