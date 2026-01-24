@@ -13,6 +13,8 @@ import { readFile } from "fs/promises";
 import path from "path";
 import mammoth from "mammoth";
 import pdfParse from "pdf-parse";
+import * as chardet from "chardet";
+import * as iconv from "iconv-lite";
 import { PrismaService } from "../prisma.service";
 import { AdminNovelDto } from "./dto/admin-novel.dto";
 import { AdminChapterDto } from "./dto/admin-chapter.dto";
@@ -547,7 +549,7 @@ export class NovelsService {
     }
 
     if (sourceType === "MD" || sourceType === "TXT") {
-      const rawText = this.normalizeRawText(buffer.toString("utf8"));
+      const rawText = this.normalizeRawText(this.decodeTextBuffer(buffer, mimeType));
       const chapters = this.extractChaptersFromText(rawText, fallbackTitle);
       return {
         sourceType,
@@ -569,6 +571,40 @@ export class NovelsService {
     const trimmedBom = text.replace(/^\uFEFF/, "");
     const normalized = trimmedBom.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
     return normalized.replace(/\n{3,}/g, "\n\n").trim();
+  }
+
+  private decodeTextBuffer(buffer: Buffer, mimeType?: string) {
+    const utf8Text = buffer.toString("utf8");
+    if (this.looksLikeValidUtf8(utf8Text)) {
+      return utf8Text;
+    }
+    const detected = chardet.detect(buffer) as string | null;
+    const normalized = this.normalizeEncoding(detected ?? mimeType);
+    if (normalized && iconv.encodingExists(normalized)) {
+      try {
+        return iconv.decode(buffer, normalized);
+      } catch {
+        return utf8Text;
+      }
+    }
+    return utf8Text;
+  }
+
+  private looksLikeValidUtf8(text: string) {
+    if (!text) return false;
+    const replacementCount = (text.match(/\uFFFD/g) ?? []).length;
+    if (replacementCount === 0) return true;
+    return replacementCount / text.length < 0.01;
+  }
+
+  private normalizeEncoding(value?: string | null) {
+    if (!value) return null;
+    const normalized = value.toLowerCase();
+    if (normalized.includes("gbk") || normalized.includes("gb2312")) return "gb18030";
+    if (normalized.includes("gb18030")) return "gb18030";
+    if (normalized.includes("utf-8") || normalized.includes("utf8")) return "utf8";
+    if (normalized.includes("ascii")) return "ascii";
+    return normalized;
   }
 
   private extractChaptersFromText(text: string, fallbackTitle: string) {
