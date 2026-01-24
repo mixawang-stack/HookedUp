@@ -183,6 +183,12 @@ export default function AdminNovelsPage() {
 
   const uploadContentFile = async (novelId: string, file: File) => {
     if (!authHeader) return false;
+    console.debug("Upload content file", {
+      novelId,
+      name: file.name,
+      size: file.size,
+      type: file.type
+    });
     setContentUploading(true);
     setStatus(null);
     setContentStatus(null);
@@ -199,6 +205,11 @@ export default function AdminNovelsPage() {
         body: form
       });
       const data = await res.json().catch(() => ({}));
+      console.debug("Upload content response", {
+        status: res.status,
+        ok: res.ok,
+        data
+      });
       if (!res.ok) {
         setStatus(data?.message ?? "Failed to upload content.");
         return false;
