@@ -142,6 +142,8 @@ export class NovelsService {
       let roomId = existing.roomId ?? null;
 
       if (shouldUnpublish && existing.hallTraceId) {
+        await tx.traceLike.deleteMany({ where: { traceId: existing.hallTraceId } });
+        await tx.traceReply.deleteMany({ where: { traceId: existing.hallTraceId } });
         await tx.trace.deleteMany({ where: { id: existing.hallTraceId } });
         hallTraceId = null;
       }
@@ -157,6 +159,8 @@ export class NovelsService {
       }
 
       if (isPublished && !nextAutoHallPost && hallTraceId) {
+        await tx.traceLike.deleteMany({ where: { traceId: hallTraceId } });
+        await tx.traceReply.deleteMany({ where: { traceId: hallTraceId } });
         await tx.trace.deleteMany({ where: { id: hallTraceId } });
         hallTraceId = null;
       }
