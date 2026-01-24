@@ -40,7 +40,6 @@
     "nodemailer": "^7.0.12",
     "pdf-parse": "^1.1.1",
     "word-extractor": "^1.0.4",
-    "word-list": "^4.1.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "socket.io": "^4.7.5"

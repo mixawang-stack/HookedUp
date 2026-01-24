@@ -129,9 +129,6 @@ importers:
       word-extractor:
         specifier: ^1.0.4
         version: 1.0.4
-      word-list:
-        specifier: ^4.1.0
-        version: 4.1.0
     devDependencies:
       '@nestjs/testing':
         specifier: ^10.3.9
@@ -3103,10 +3100,6 @@ packages:
 
   word-extractor@1.0.4:
     resolution: {integrity: sha512-PyAGZQ2gjnVA5kcZAOAxoYciCMaAvu0dbVlw/zxHphhy+3be8cDeYKHJPO8iedIM3Sx0arA/ugKTJyXhZNgo6g==}
-
-  word-list@4.1.0:
-    resolution: {integrity: sha512-4vtKyH8lGfaY8DHLTKQDfDxPixdK6BC/2W38TsPE07Wc8uPrMIbEO3quxBFSa2BfsDyG6pW47UEN/9tfYxN6BA==}
-    engines: {node: '>=18'}
 
   wordwrap@1.0.0:
     resolution: {integrity: sha512-gvVzJFlPycKc5dZN4yPkP8w7Dc37BtP1yczEneOb4uq34pXZcvrtRTmWV8W+Ume+XCxKgbjM+nevkyFPMybd4Q==}
@@ -6839,8 +6832,6 @@ snapshots:
     dependencies:
       saxes: 5.0.1
       yauzl: 2.10.0
-
-  word-list@4.1.0: {}
 
   wordwrap@1.0.0: {}
 

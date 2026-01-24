@@ -14,8 +14,6 @@ import path from "path";
 import mammoth from "mammoth";
 import pdfParse from "pdf-parse";
 import WordExtractor from "word-extractor";
-import { readFileSync } from "fs";
-import wordListPath from "word-list";
 import * as chardet from "chardet";
 import * as iconv from "iconv-lite";
 import { PrismaService } from "../prisma.service";
@@ -25,12 +23,6 @@ import { API_PUBLIC_BASE_URL } from "../auth/auth.constants";
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
-const ENGLISH_WORD_SET = new Set(
-  readFileSync(wordListPath, "utf8")
-    .split("\n")
-    .map((word) => word.trim().toLowerCase())
-    .filter(Boolean)
-);
 
 @Injectable()
 export class NovelsService {
@@ -562,13 +554,12 @@ export class NovelsService {
       const extractor = new WordExtractor();
       const doc = await extractor.extract(filePath ?? buffer);
       const rawText = this.normalizeRawText(doc.getBody() ?? "");
-      const repairedText = this.repairSpacingIfNeeded(rawText);
-      const chapters = this.extractChaptersFromText(repairedText, fallbackTitle);
+      const chapters = this.extractChaptersFromText(rawText, fallbackTitle);
       return {
         sourceType,
-        rawText: repairedText,
+        rawText,
         chapters,
-        wordCount: this.countWords(repairedText)
+        wordCount: this.countWords(rawText)
       };
     }
 
@@ -609,57 +600,6 @@ export class NovelsService {
     return normalized.replace(/\n{3,}/g, "\n\n").trim();
   }
 
-  private repairSpacingIfNeeded(text: string) {
-    const letterCount = (text.match(/[A-Za-z]/g) ?? []).length;
-    const spaceCount = (text.match(/ /g) ?? []).length;
-    if (letterCount < 200) return text;
-    if (spaceCount / letterCount >= 0.02) return text;
-
-    return text
-      .split("\n")
-      .map((line) => this.repairLineSpacing(line))
-      .join("\n");
-  }
-
-  private repairLineSpacing(line: string) {
-    if (line.length < 12) return line;
-    return line.replace(/[A-Za-z][A-Za-z']{10,}/g, (word) => {
-      if (/[a-z][A-Z]/.test(word)) {
-        return word.replace(/([a-z])([A-Z])/g, "$1 $2");
-      }
-      const segmented = this.segmentEnglishWord(word);
-      if (!segmented || segmented.length <= 1) return word;
-      let cursor = 0;
-      const rebuilt = segmented.map((segment) => {
-        const part = word.slice(cursor, cursor + segment.length);
-        cursor += segment.length;
-        return part;
-      });
-      return rebuilt.join(" ");
-    });
-  }
-
-  private segmentEnglishWord(word: string) {
-    const lower = word.toLowerCase();
-    const length = lower.length;
-    const maxWordLength = 20;
-    const best: Array<string[] | null> = Array.from({ length: length + 1 }, () => null);
-    best[0] = [];
-
-    for (let i = 0; i < length; i += 1) {
-      if (!best[i]) continue;
-      for (let j = i + 1; j <= Math.min(length, i + maxWordLength); j += 1) {
-        const chunk = lower.slice(i, j);
-        if (!ENGLISH_WORD_SET.has(chunk)) continue;
-        const candidate = [...(best[i] as string[]), chunk];
-        if (!best[j] || candidate.length < (best[j] as string[]).length) {
-          best[j] = candidate;
-        }
-      }
-    }
-
-    return best[length] ?? [word];
-  }
 
   private decodeTextBuffer(buffer: Buffer, mimeType?: string) {
     const bom = buffer.slice(0, 2);
@@ -743,12 +683,8 @@ export class NovelsService {
     let currentTitle: string | null = null;
     let buffer: string[] = [];
 
-    const chapterLineRegex =
-      /^(Chapter|CHAPTER)\s+(\d+)\b[:.\-]?\s*(.*)$|^第\s*([0-9一二三四五六七八九十百千]+)\s*章\s*(.*)$/;
-    const markdownHeadingRegex = /^#{1,2}\s+(.+)$/;
-    const standaloneHeadingRegex = /^[A-Za-z0-9][A-Za-z0-9'’\-\s]+$/;
-    const introHeadingRegex = /^(INTRO|PROLOGUE|EPILOGUE|PREFACE)\b[:.\-]?\s*(.*)$/i;
-    const pipeHeadingRegex = /^(INTRO|PROLOGUE|EPILOGUE|PREFACE)\s*\|\s*(.+)$/i;
+    const chapterLineRegex = /^(Chapter|CHAPTER)\s*(\d+)?\b[:.\-]?\s*(.*)$/;
+    const numberedHeadingRegex = /^\d+\s*[.)-]\s*(.+)$/;
 
     const flush = () => {
       const content = buffer.join("\n").replace(/\n{3,}/g, "\n\n").trim();
@@ -768,61 +704,21 @@ export class NovelsService {
       const prevLine = lines[index - 1] ?? "";
       const isPrevEmpty = prevLine.trim().length === 0;
       const isNextEmpty = nextLine.trim().length === 0;
-      const headingMatch = line.match(markdownHeadingRegex);
-      if (headingMatch) {
-        flush();
-        currentTitle = headingMatch[1].trim();
-        return;
-      }
-
-      const pipeHeadingMatch = line.match(pipeHeadingRegex);
-      if (pipeHeadingMatch) {
-        flush();
-        currentTitle = pipeHeadingMatch[1].trim();
-        if (pipeHeadingMatch[2]) {
-          buffer.push(pipeHeadingMatch[2].trim());
-        }
-        return;
-      }
-
-      const introMatch = line.match(introHeadingRegex);
-      if (introMatch) {
-        flush();
-        currentTitle = introMatch[1].trim();
-        if (introMatch[2]) {
-          buffer.push(introMatch[2].trim());
-        }
-        return;
-      }
-
       const chapterMatch = line.match(chapterLineRegex);
       if (chapterMatch) {
         flush();
-        if (chapterMatch[1]) {
-          const index = chapterMatch[2];
-          const suffix = chapterMatch[3]?.trim();
-          currentTitle = `Chapter ${index}${suffix ? ` - ${suffix}` : ""}`;
-          return;
-        }
-        if (chapterMatch[4]) {
-          const suffix = chapterMatch[5]?.trim();
-          currentTitle = "第" + chapterMatch[4] + "章" + (suffix ? " " + suffix : "");
-          return;
-        }
+        const index = chapterMatch[2];
+        const suffix = chapterMatch[3]?.trim();
+        currentTitle = index
+          ? `Chapter ${index}${suffix ? ` - ${suffix}` : ""}`
+          : chapterMatch[1];
+        return;
       }
 
-      const trimmedLine = line.trim();
-      if (
-        trimmedLine &&
-        standaloneHeadingRegex.test(trimmedLine) &&
-        trimmedLine.length <= 60 &&
-        trimmedLine.split(/\s+/).length <= 10 &&
-        !/[.!?;,:]$/.test(trimmedLine) &&
-        isPrevEmpty &&
-        isNextEmpty
-      ) {
+      const numberedMatch = line.match(numberedHeadingRegex);
+      if (numberedMatch) {
         flush();
-        currentTitle = trimmedLine;
+        currentTitle = line.trim();
         return;
       }
 
@@ -836,10 +732,13 @@ export class NovelsService {
       if (!content) {
         return [];
       }
+      const lines = content.split("\n");
+      const firstLine = lines.find((line) => line.trim().length > 0) ?? "";
+      const remaining = lines.slice(lines.indexOf(firstLine) + 1).join("\n").trim();
       return [
         {
-          title: fallbackTitle || "Chapter 1",
-          content
+          title: firstLine.trim() || fallbackTitle || "Story",
+          content: remaining.length > 0 ? remaining : content
         }
       ];
     }
