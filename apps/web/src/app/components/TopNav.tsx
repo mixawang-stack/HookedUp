@@ -167,16 +167,8 @@ export default function TopNav() {
 
   return (
     <nav className="sticky top-0 z-50 border-b border-border-default bg-card/90 backdrop-blur-lg">
-      <div className="ui-container grid grid-cols-[1fr_auto_1fr] items-center py-3">
-        <div className="flex items-center gap-3 text-text-primary">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full border border-border-default bg-surface text-sm font-semibold">
-            S
-          </div>
-          <div className="text-sm font-semibold tracking-tight">
-            Stories &amp; Spaces
-          </div>
-        </div>
-        <div className="flex items-center justify-center gap-3">
+      <div className="ui-container relative flex items-center justify-end py-3">
+        <div className="absolute left-1/2 -translate-x-1/2">
           <div className="ui-tab-list">
             {NAV_ITEMS.map((item) => {
               const isActive =
@@ -283,18 +275,9 @@ export default function TopNav() {
           </div>
         )}
       </div>
-      <Link
-        href="/private"
-        className="fixed bottom-6 right-6 z-40 flex h-12 w-12 items-center justify-center rounded-full border border-border-default bg-card text-sm font-semibold text-text-primary shadow-sm transition hover:-translate-y-0.5"
-        aria-label="Open private chat"
-      >
-        <span>DM</span>
-        {unreadTotal > 0 && (
-          <span className="absolute -top-1 -right-1 rounded-full bg-brand-primary px-1.5 py-0.5 text-[10px] font-semibold text-card">
-            {unreadTotal > 99 ? "99+" : unreadTotal}
-          </span>
-        )}
-      </Link>
+      {unreadTotal > 0 ? (
+        <span className="sr-only">You have unread messages.</span>
+      ) : null}
       {showOnboarding && me && token && (
         <ProfileOnboardingModal
           token={token}
