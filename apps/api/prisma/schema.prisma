@@ -106,6 +106,7 @@ enum NovelSourceType {
 }
 
 enum NovelContentSourceType {
+  DOC
   DOCX
   TXT
   MD

@@ -51,11 +51,12 @@ const contentUploadInterceptor = FileInterceptor("file", {
   fileFilter: (_req, file, cb) => {
     const mime = file.mimetype.toLowerCase();
     const ext = path.extname(file.originalname).toLowerCase();
+    const isDoc = mime.includes("application/msword") || ext === ".doc";
     const isDocx = mime.includes("wordprocessingml") || ext === ".docx";
     const isTxt = mime.includes("text/plain") || ext === ".txt";
     const isMd = mime.includes("text/markdown") || ext === ".md";
     const isPdf = mime.includes("application/pdf") || ext === ".pdf";
-    if (!isDocx && !isTxt && !isMd && !isPdf) {
+    if (!isDoc && !isDocx && !isTxt && !isMd && !isPdf) {
       return cb(new Error("UNSUPPORTED_CONTENT_TYPE"), false);
     }
     return cb(null, true);

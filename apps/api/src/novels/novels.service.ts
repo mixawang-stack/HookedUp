@@ -13,6 +13,7 @@ import { readFile } from "fs/promises";
 import path from "path";
 import mammoth from "mammoth";
 import pdfParse from "pdf-parse";
+import WordExtractor from "word-extractor";
 import * as chardet from "chardet";
 import * as iconv from "iconv-lite";
 import { PrismaService } from "../prisma.service";
@@ -286,7 +287,8 @@ export class NovelsService {
       file.originalname,
       file.mimetype,
       inferredType,
-      novel.title
+      novel.title,
+      file.path
     );
 
     if (parsed.chapters.length === 0) {
@@ -504,18 +506,21 @@ export class NovelsService {
     sourceTypeInput?: string
   ): NovelContentSourceType {
     const normalizedInput = sourceTypeInput?.trim().toLowerCase();
+    if (normalizedInput === "doc") return "DOC";
     if (normalizedInput === "docx") return "DOCX";
     if (normalizedInput === "txt") return "TXT";
     if (normalizedInput === "md" || normalizedInput === "markdown") return "MD";
     if (normalizedInput === "pdf") return "PDF";
 
     const ext = path.extname(filename).toLowerCase();
+    if (ext === ".doc") return "DOC";
     if (ext === ".docx") return "DOCX";
     if (ext === ".txt") return "TXT";
     if (ext === ".md") return "MD";
     if (ext === ".pdf") return "PDF";
 
     const normalizedMime = (mimeType ?? "").toLowerCase();
+    if (normalizedMime.includes("application/msword")) return "DOC";
     if (normalizedMime.includes("wordprocessingml")) return "DOCX";
     if (normalizedMime.includes("text/plain")) return "TXT";
     if (normalizedMime.includes("text/markdown")) return "MD";
@@ -529,13 +534,27 @@ export class NovelsService {
     filename: string,
     mimeType: string | undefined,
     sourceType: NovelContentSourceType,
-    fallbackTitle: string
+    fallbackTitle: string,
+    filePath?: string
   ): Promise<{
     sourceType: NovelContentSourceType;
     rawText: string;
     chapters: Array<{ title: string; content: string }>;
     wordCount: number;
   }> {
+    if (sourceType === "DOC") {
+      const extractor = new WordExtractor();
+      const doc = await extractor.extract(filePath ?? buffer);
+      const rawText = this.normalizeRawText(doc.getBody() ?? "");
+      const chapters = this.extractChaptersFromText(rawText, fallbackTitle);
+      return {
+        sourceType,
+        rawText,
+        chapters,
+        wordCount: this.countWords(rawText)
+      };
+    }
+
     if (sourceType === "DOCX") {
       const rawResult = await mammoth.extractRawText({ buffer });
       const rawText = this.normalizeRawText(rawResult.value ?? "");
@@ -586,6 +605,10 @@ export class NovelsService {
       } catch {
         return utf8Text;
       }
+    }
+    const latinFallback = buffer.toString("latin1");
+    if (latinFallback && this.looksLikeValidUtf8(latinFallback)) {
+      return latinFallback;
     }
     return utf8Text;
   }

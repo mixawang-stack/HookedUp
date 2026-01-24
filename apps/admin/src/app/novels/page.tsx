@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 export const dynamic = "force-dynamic";
@@ -16,10 +17,8 @@ type NovelItem = {
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED" | "SCHEDULED";
   audience: "ALL" | "MATURE";
   category: "DRAMA" | "AFTER_DARK";
-  contentSourceType?: "DOCX" | "TXT" | "MD" | "PDF";
-  attachmentUrl?: string | null;
+  contentSourceType?: "DOC" | "DOCX" | "TXT" | "MD" | "PDF";
   chapterCount?: number;
-  wordCount?: number;
   isFeatured: boolean;
   authorName: string | null;
   language: string | null;
@@ -29,21 +28,6 @@ type NovelItem = {
   _count?: { chapters: number };
   room?: { id: string; _count: { memberships: number } } | null;
 };
-
-type ChapterItem = {
-  id: string;
-  title: string;
-  content: string;
-  orderIndex: number;
-  isFree: boolean;
-  isPublished: boolean;
-};
-
-const parseTags = (value: string) =>
-  value
-    .split(",")
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0);
 
 const resolveMediaUrl = (value?: string | null) => {
   if (!value) return null;
@@ -67,28 +51,7 @@ const resolveMediaUrl = (value?: string | null) => {
 export default function AdminNovelsPage() {
   const [token, setToken] = useState<string | null>(null);
   const [novels, setNovels] = useState<NovelItem[]>([]);
-  const [selectedNovel, setSelectedNovel] = useState<NovelItem | null>(null);
-  const [chapters, setChapters] = useState<ChapterItem[]>([]);
   const [status, setStatus] = useState<string | null>(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-
-  // Form states
-  const [title, setTitle] = useState("");
-  const [coverImageUrl, setCoverImageUrl] = useState("");
-  const [description, setDescription] = useState("");
-  const [tags, setTags] = useState("");
-  const [audience, setAudience] = useState<NovelItem["audience"]>("ALL");
-  const [category, setCategory] = useState<NovelItem["category"]>("DRAMA");
-  const [isFeatured, setIsFeatured] = useState(false);
-  const [autoPostHall, setAutoPostHall] = useState(true);
-  const [coverFile, setCoverFile] = useState<File | null>(null);
-  const [coverUploading, setCoverUploading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [contentFile, setContentFile] = useState<File | null>(null);
-  const [contentUploading, setContentUploading] = useState(false);
-  const [contentStatus, setContentStatus] = useState<string | null>(null);
-  const [contentReviewOpen, setContentReviewOpen] = useState(false);
-  const [contentReviewChapters, setContentReviewChapters] = useState<ChapterItem[]>([]);
 
   const authHeader = useMemo(() => {
     if (!token) return null;
@@ -114,232 +77,10 @@ export default function AdminNovelsPage() {
     setNovels(data);
   };
 
-  const loadChapters = async (novelId: string) => {
-    if (!authHeader) return;
-    const res = await fetch(`${API_BASE}/admin/novels/${novelId}/chapters`, {
-      headers: { ...authHeader }
-    });
-    if (!res.ok) return;
-    const data = (await res.json()) as ChapterItem[];
-    setChapters(data);
-  };
-
   useEffect(() => {
     if (!authHeader) return;
     loadNovels().catch(() => undefined);
   }, [authHeader]);
-
-  const resetForm = () => {
-    setTitle("");
-    setCoverImageUrl("");
-    setDescription("");
-    setTags("");
-    setAudience("ALL");
-    setCategory("DRAMA");
-    setIsFeatured(false);
-    setAutoPostHall(true);
-    setCoverFile(null);
-    setContentFile(null);
-    setContentStatus(null);
-    setContentReviewChapters([]);
-    setContentReviewOpen(false);
-  };
-
-  const uploadCoverIfNeeded = async () => {
-    if (!authHeader || !coverFile) return coverImageUrl;
-    if (coverFile.size > 10 * 1024 * 1024) {
-      setStatus("Cover image must be 10MB or smaller.");
-      throw new Error("COVER_TOO_LARGE");
-    }
-    setCoverUploading(true);
-    setStatus(null);
-    const form = new FormData();
-    form.append("file", coverFile);
-    try {
-      const res = await fetch(`${API_BASE}/uploads/image`, {
-        method: "POST",
-        headers: { ...authHeader },
-        body: form
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        if (res.status === 413) {
-          setStatus("Cover image too large. Please use 10MB or smaller.");
-        } else {
-          setStatus(data?.message ?? "Failed to upload cover.");
-        }
-        throw new Error("UPLOAD_FAILED");
-      }
-      if (data?.imageUrl) {
-        setCoverImageUrl(data.imageUrl);
-        setCoverFile(null);
-        return data.imageUrl as string;
-      }
-      return coverImageUrl;
-    } finally {
-      setCoverUploading(false);
-    }
-  };
-
-  const uploadContentFile = async (novelId: string, file: File) => {
-    if (!authHeader) return false;
-    console.debug("Upload content file", {
-      novelId,
-      name: file.name,
-      size: file.size,
-      type: file.type
-    });
-    setContentUploading(true);
-    setStatus(null);
-    setContentStatus(null);
-    const form = new FormData();
-    form.append("file", file);
-    const isPdf = file.name.toLowerCase().endsWith(".pdf");
-    if (isPdf) {
-      form.append("asAttachmentOnly", "true");
-    }
-    try {
-      const res = await fetch(`${API_BASE}/admin/novels/${novelId}/content`, {
-        method: "POST",
-        headers: { ...authHeader },
-        body: form
-      });
-      const data = await res.json().catch(() => ({}));
-      console.debug("Upload content response", {
-        status: res.status,
-        ok: res.ok,
-        data
-      });
-      if (!res.ok) {
-        setStatus(data?.message ?? "Failed to upload content.");
-        return false;
-      }
-      setContentStatus(
-        `Parsed ${data?.chapterCount ?? 0} chapters - ${data?.wordCount ?? 0} words`
-      );
-      setContentFile(null);
-      await loadChapters(novelId);
-      const refreshed = await fetch(`${API_BASE}/admin/novels/${novelId}/chapters`, {
-        headers: { ...authHeader }
-      });
-      if (refreshed.ok) {
-        const chaptersData = (await refreshed.json()) as ChapterItem[];
-        setContentReviewChapters(chaptersData);
-        setContentReviewOpen(true);
-      }
-      return true;
-    } finally {
-      setContentUploading(false);
-    }
-  };
-
-  const handleUploadContent = async () => {
-    if (!authHeader || !contentFile) return;
-    if (!selectedNovel) {
-      setStatus("Save the novel first, then upload content.");
-      return;
-    }
-    await uploadContentFile(selectedNovel.id, contentFile);
-  };
-
-  const handleSaveNovel = async () => {
-    if (!authHeader) return;
-    setStatus(null);
-    if (!title.trim()) {
-      setStatus("Title is required.");
-      return;
-    }
-    setSaving(true);
-    setStatus("Saving...");
-    try {
-      const uploadedCoverUrl = await uploadCoverIfNeeded();
-      const payload = {
-        title,
-        coverImageUrl: uploadedCoverUrl ?? coverImageUrl,
-        description,
-        tagsJson: parseTags(tags),
-        audience,
-        category,
-        isFeatured,
-        autoHallPost: autoPostHall
-      };
-      const res = await fetch(
-        `${API_BASE}/admin/novels${selectedNovel ? `/${selectedNovel.id}` : ""}`,
-        {
-          method: selectedNovel ? "PATCH" : "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...authHeader
-          },
-          body: JSON.stringify(payload)
-        }
-      );
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const message =
-          Array.isArray(body?.message) ? body.message.join(" / ") : body?.message;
-        setStatus(message ?? "Failed to save novel.");
-        return;
-      }
-
-      const savedNovelId = selectedNovel?.id ?? body?.id;
-      if (contentFile && savedNovelId) {
-        const uploaded = await uploadContentFile(savedNovelId, contentFile);
-        if (!uploaded) {
-          return;
-        }
-      }
-
-      setDrawerOpen(false);
-      resetForm();
-      setSelectedNovel(null);
-      await loadNovels();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to save novel.";
-      setStatus(message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleOpenCreate = () => {
-    setSelectedNovel(null);
-    resetForm();
-    setDrawerOpen(true);
-  };
-
-  const handleEditNovel = (novel: NovelItem) => {
-    setSelectedNovel(novel);
-    setTitle(novel.title);
-    setCoverImageUrl(novel.coverImageUrl ?? "");
-    setDescription(novel.description ?? "");
-    setTags((novel.tagsJson ?? []).join(", "));
-    setAudience(novel.audience);
-    setCategory(novel.category ?? "DRAMA");
-    setIsFeatured(novel.isFeatured);
-    setDrawerOpen(true);
-    loadChapters(novel.id).catch(() => undefined);
-  };
-
-  const handleUpdateStatus = async (novelId: string, nextStatus: NovelItem["status"]) => {
-    if (!authHeader) return;
-    const res = await fetch(`${API_BASE}/admin/novels/${novelId}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        ...authHeader
-      },
-      body: JSON.stringify({ status: nextStatus })
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      const message =
-        Array.isArray(body?.message) ? body.message.join(" / ") : body?.message;
-      setStatus(message ?? "Failed to update novel status.");
-      return;
-    }
-    await loadNovels();
-  };
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-10 text-slate-100">
@@ -347,7 +88,7 @@ export default function AdminNovelsPage() {
         <div>
           <h1 className="text-2xl font-semibold">Novel library</h1>
           <p className="mt-1 text-sm text-slate-400">
-            Manage operational status, visibility, and hall promotion.
+            Manage operational status, visibility, and content flow.
           </p>
           <p className="mt-2 text-[11px] text-slate-500">API: {API_BASE}</p>
         </div>
@@ -359,13 +100,12 @@ export default function AdminNovelsPage() {
           >
             Refresh
           </button>
-          <button
-            type="button"
+          <Link
+            href="/novels/new"
             className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-slate-900 shadow-[0_0_20px_rgba(255,255,255,0.3)]"
-            onClick={handleOpenCreate}
           >
             + Create Novel
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -400,7 +140,9 @@ export default function AdminNovelsPage() {
                 <div>
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className="font-semibold text-slate-100 line-clamp-1">{novel.title}</h3>
+                      <h3 className="font-semibold text-slate-100 line-clamp-1">
+                        {novel.title}
+                      </h3>
                       <div className="mt-1 flex flex-wrap gap-2">
                         <span
                           className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
@@ -433,361 +175,32 @@ export default function AdminNovelsPage() {
                     {novel.description || "No description provided."}
                   </p>
                 </div>
-              <div className="mt-3 flex items-center justify-between">
-                <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
-                  <span>
-                    {(novel.chapterCount ?? novel._count?.chapters ?? 0).toString()} Chapters
-                  </span>
-                  <span>-</span>
-                  <span>Source {novel.contentSourceType ?? "Unknown"}</span>
-                  <span>-</span>
-                  <span>{novel.viewCount ?? 0} Reads</span>
-                  <span>-</span>
-                  <span>{novel.favoriteCount ?? 0} Likes</span>
-                  <span>-</span>
-                  <span>{novel.dislikeCount ?? 0} Dislikes</span>
-                  <span>-</span>
-                  <span>{novel.room?._count?.memberships ?? 0} Room Members</span>
-                </div>
-                  <div className="flex items-center gap-2 opacity-0 transition group-hover:opacity-100">
-                    <button
-                      type="button"
-                      className="rounded-full border border-white/20 px-3 py-1 text-[10px] text-slate-200 hover:bg-white/10"
-                      onClick={() => handleEditNovel(novel)}
-                    >
-                      Edit
-                    </button>
-                    {novel.status === "DRAFT" && (
-                      <button
-                        type="button"
-                        className="rounded-full border border-emerald-500/30 px-3 py-1 text-[10px] text-emerald-300 hover:bg-emerald-500/10"
-                        onClick={() => handleUpdateStatus(novel.id, "PUBLISHED")}
-                      >
-                        Publish to Hall
-                      </button>
-                    )}
-                    {novel.status === "PUBLISHED" && (
-                      <button
-                        type="button"
-                        className="rounded-full border border-rose-500/30 px-3 py-1 text-[10px] text-rose-300 hover:bg-rose-500/10"
-                        onClick={() => handleUpdateStatus(novel.id, "ARCHIVED")}
-                      >
-                        Unpublish
-                      </button>
-                    )}
-                    {novel.status === "ARCHIVED" && (
-                      <button
-                        type="button"
-                        className="rounded-full border border-emerald-500/30 px-3 py-1 text-[10px] text-emerald-300 hover:bg-emerald-500/10"
-                        onClick={() => handleUpdateStatus(novel.id, "PUBLISHED")}
-                      >
-                        Publish to Hall
-                      </button>
-                    )}
+                <div className="mt-3 flex items-center justify-between">
+                  <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
+                    <span>
+                      {novel.chapterCount ?? novel._count?.chapters ?? 0} Chapters
+                    </span>
+                    <span>-</span>
+                    <span>Source {novel.contentSourceType ?? "Unknown"}</span>
+                    <span>-</span>
+                    <span>{novel.viewCount ?? 0} Reads</span>
+                    <span>-</span>
+                    <span>{novel.favoriteCount ?? 0} Likes</span>
+                    <span>-</span>
+                    <span>{novel.dislikeCount ?? 0} Dislikes</span>
                   </div>
+                  <Link
+                    href={`/novels/${novel.id}`}
+                    className="rounded-full border border-white/20 px-3 py-1 text-[10px] text-slate-200 hover:bg-white/10"
+                  >
+                    Edit
+                  </Link>
                 </div>
               </div>
             </div>
           ))}
         </div>
       </div>
-
-      {/* Drawer */}
-      {drawerOpen && (
-        <div className="fixed inset-0 z-[100] flex justify-end bg-slate-950/60 backdrop-blur-sm">
-          <div className="absolute inset-0" onClick={() => setDrawerOpen(false)} />
-          <div className="relative h-full w-full max-w-xl overflow-y-auto border-l border-white/10 bg-slate-950 p-8 shadow-[0_0_100px_rgba(0,0,0,0.8)]">
-            <div className="flex items-center justify-between border-b border-white/10 pb-6">
-              <div>
-                <h2 className="text-xl font-semibold">
-                  {selectedNovel ? "Novel Operations" : "New Novel Entry"}
-                </h2>
-                {selectedNovel?.id && (
-                  <p className="mt-1 text-[11px] text-slate-500">
-                    ID: {selectedNovel.id}
-                  </p>
-                )}
-                {selectedNovel && (
-                  <p className="mt-1 text-[11px] text-slate-500">
-                    Content: {selectedNovel.contentSourceType ?? "Unknown"} - Chapters{" "}
-                    {selectedNovel.chapterCount ?? selectedNovel._count?.chapters ?? 0}
-                  </p>
-                )}
-              </div>
-              <button
-                type="button"
-                className="rounded-full border border-white/20 px-4 py-1.5 text-xs text-slate-300 hover:text-white"
-                onClick={() => setDrawerOpen(false)}
-              >
-                Close
-              </button>
-            </div>
-
-            <div className="mt-8 space-y-8">
-              {/* Basic Info */}
-              <section className="space-y-4">
-                <h3 className="text-[11px] font-bold uppercase tracking-[0.3em] text-slate-500">
-                  Basic Information
-                </h3>
-                <div className="grid gap-4">
-                  <label className="text-xs text-slate-300">
-                    Title
-                    <input
-                      className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-white focus:border-amber-400"
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                    />
-                  </label>
-                  <label className="text-xs text-slate-300">
-                    Cover Image (upload)
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-white"
-                      onChange={(event) =>
-                        setCoverFile(event.target.files?.[0] ?? null)
-                      }
-                    />
-                    {coverFile && (
-                      <p className="mt-2 text-[10px] text-slate-500">
-                        Selected: {coverFile.name} - 
-                        {(coverFile.size / (1024 * 1024)).toFixed(2)} MB
-                      </p>
-                    )}
-                    {coverUploading && (
-                      <p className="mt-3 text-[10px] text-slate-400">
-                        Uploading cover...
-                      </p>
-                    )}
-                    {coverImageUrl && (
-                      <div className="mt-3 h-28 w-20 overflow-hidden rounded-lg border border-white/10 bg-slate-900">
-                        <img
-                          src={resolveMediaUrl(coverImageUrl) ?? ""}
-                          alt="Cover preview"
-                          className="h-full w-full object-cover"
-                        />
-                      </div>
-                    )}
-                  </label>
-                  <label className="text-xs text-slate-300">
-                    Description
-                    <textarea
-                      className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-white"
-                      rows={4}
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                    />
-                  </label>
-                  <label className="text-xs text-slate-300">
-                    Tags (comma separated)
-                    <input
-                      className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-white"
-                      value={tags}
-                      onChange={(e) => setTags(e.target.value)}
-                      placeholder="Romance, Fantasy, Mystery"
-                    />
-                  </label>
-                  <label className="text-xs text-slate-300">
-                    Category
-                    <select
-                      className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-white"
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value as NovelItem["category"])}
-                    >
-                      <option value="DRAMA">Drama</option>
-                      <option value="AFTER_DARK">After Dark</option>
-                    </select>
-                  </label>
-                </div>
-              </section>
-
-              {/* Content Import */}
-              <section className="space-y-4">
-                <h3 className="text-[11px] font-bold uppercase tracking-[0.3em] text-slate-500">
-                  Upload content
-                </h3>
-                <div className="rounded-2xl border border-white/5 bg-white/5 p-4 space-y-3">
-                  <p className="text-[10px] text-slate-500">
-                    Recommended: .docx / .txt / .md for best reading experience.
-                  </p>
-                  <p className="text-[10px] text-slate-500">
-                    PDF is saved as attachment only.
-                  </p>
-                  <label className="text-xs text-slate-300">
-                    Upload file
-                    <input
-                      type="file"
-                      accept=".doc,.docx,.txt,.md,.pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,application/pdf"
-                      className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-white"
-                      onChange={(event) =>
-                        setContentFile(event.target.files?.[0] ?? null)
-                      }
-                    />
-                  </label>
-                  {contentFile && (
-                    <p className="text-[10px] text-slate-500">
-                      Selected: {contentFile.name} -{" "}
-                      {(contentFile.size / (1024 * 1024)).toFixed(2)} MB
-                    </p>
-                  )}
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      className="rounded-full border border-white/20 px-4 py-1.5 text-xs text-slate-200"
-                      disabled={!contentFile || contentUploading}
-                      onClick={handleUploadContent}
-                    >
-                      {contentUploading ? "Uploading..." : "Upload content"}
-                    </button>
-                    {contentStatus && (
-                      <span className="text-[10px] text-slate-400">
-                        {contentStatus}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </section>
-
-              {/* Visibility & Compliance */}
-              <section className="space-y-4">
-                <h3 className="text-[11px] font-bold uppercase tracking-[0.3em] text-slate-500">
-                  Visibility & Compliance
-                </h3>
-                <div className="flex flex-wrap gap-6 rounded-2xl border border-white/5 bg-white/5 p-4">
-                  <div className="flex flex-col gap-2">
-                    <span className="text-[10px] text-slate-500 uppercase">Audience</span>
-                    <select
-                      className="rounded-full border border-white/10 bg-slate-900 px-3 py-1.5 text-xs text-white"
-                      value={audience}
-                      onChange={(e) => setAudience(e.target.value as any)}
-                    >
-                      <option value="ALL">All Audiences</option>
-                      <option value="MATURE">Mature (18+)</option>
-                    </select>
-                  </div>
-                  <div className="flex items-center gap-4 pt-4">
-                    <label className="flex items-center gap-2 text-xs text-slate-300">
-                      <input
-                        type="checkbox"
-                        checked={isFeatured}
-                        onChange={(e) => setIsFeatured(e.target.checked)}
-                        className="h-4 w-4 rounded bg-slate-900"
-                      />
-                      Featured
-                    </label>
-                  </div>
-                </div>
-              </section>
-
-              {/* Operational Settings */}
-              <section className="space-y-4">
-                <h3 className="text-[11px] font-bold uppercase tracking-[0.3em] text-slate-500">
-                  Operational Settings
-                </h3>
-                <div className="rounded-2xl border border-white/5 bg-white/5 p-4">
-                  <label className="flex items-center gap-2 text-xs text-slate-300">
-                    <input
-                      type="checkbox"
-                      checked={autoPostHall}
-                      onChange={(e) => setAutoPostHall(e.target.checked)}
-                      className="h-4 w-4 rounded bg-slate-900"
-                    />
-                    Auto-post to Hall upon publishing
-                  </label>
-                  <p className="mt-2 text-[10px] text-slate-500 leading-relaxed">
-                    When this novel status changes to Published, an official post will be created automatically in the Hall with the cover and description.
-                  </p>
-                </div>
-              </section>
-
-              <div className="flex items-center justify-end gap-3 pt-6">
-                <button
-                  type="button"
-                  className="rounded-full border border-white/20 px-6 py-2.5 text-xs font-semibold text-white hover:bg-white/5"
-                  onClick={() => setDrawerOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="rounded-full bg-white px-8 py-2.5 text-xs font-bold text-slate-900 shadow-[0_10px_30px_rgba(255,255,255,0.2)]"
-                  onClick={handleSaveNovel}
-                  disabled={saving || coverUploading}
-                >
-                  {saving
-                    ? "Saving..."
-                    : selectedNovel
-                    ? "Save Changes"
-                    : "Create & Launch"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      {contentReviewOpen && (
-        <div className="fixed inset-0 z-[120] bg-slate-950/80 backdrop-blur-sm">
-          <div className="mx-auto flex h-full w-full max-w-5xl flex-col px-6 py-8 text-slate-100">
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
-              <div>
-                <h2 className="text-lg font-semibold">Content Preview</h2>
-                {selectedNovel?.title && (
-                  <p className="mt-1 text-xs text-slate-500">{selectedNovel.title}</p>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  className="rounded-full border border-white/20 px-4 py-1.5 text-xs text-slate-300 hover:text-white"
-                  onClick={() => setContentReviewOpen(false)}
-                >
-                  Close
-                </button>
-                <button
-                  type="button"
-                  className="rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-slate-900"
-                  onClick={async () => {
-                    if (selectedNovel?.id) {
-                      await handleUpdateStatus(selectedNovel.id, "PUBLISHED");
-                    }
-                    setContentReviewOpen(false);
-                  }}
-                  disabled={!selectedNovel || selectedNovel.status === "PUBLISHED"}
-                >
-                  {selectedNovel?.status === "PUBLISHED"
-                    ? "Already published"
-                    : "Push to user side"}
-                </button>
-              </div>
-            </div>
-            <div className="mt-6 h-full overflow-y-auto rounded-2xl border border-white/10 bg-slate-950/60 p-6">
-              {contentReviewChapters.length === 0 && (
-                <p className="text-sm text-slate-500">No chapters parsed.</p>
-              )}
-              {contentReviewChapters.map((chapter) => (
-                <div key={chapter.id} className="border-b border-white/5 pb-6 pt-4">
-                  <div className="flex items-center justify-between text-sm text-slate-200">
-                    <span>
-                      {chapter.orderIndex}. {chapter.title}
-                    </span>
-                    <span className="text-[11px] text-slate-500">
-                      {chapter.isFree ? "Free" : "Locked"}
-                    </span>
-                  </div>
-                  <p className="mt-4 whitespace-pre-wrap text-sm text-slate-300">
-                    {chapter.content}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
-
-
-
-
-
