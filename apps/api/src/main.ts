@@ -44,7 +44,15 @@ async function bootstrap() {
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
+    allowedHeaders: [
+      "Authorization",
+      "Content-Type",
+      "Accept",
+      "Origin",
+      "X-Requested-With",
+      "Cache-Control",
+      "Pragma"
+    ],
     exposedHeaders: ["Authorization"],
     optionsSuccessStatus: 204
   });
