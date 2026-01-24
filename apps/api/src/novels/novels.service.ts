@@ -142,7 +142,7 @@ export class NovelsService {
       let roomId = existing.roomId ?? null;
 
       if (shouldUnpublish && existing.hallTraceId) {
-        await tx.trace.delete({ where: { id: existing.hallTraceId } }).catch(() => undefined);
+        await tx.trace.deleteMany({ where: { id: existing.hallTraceId } });
         hallTraceId = null;
       }
 
@@ -157,7 +157,7 @@ export class NovelsService {
       }
 
       if (isPublished && !nextAutoHallPost && hallTraceId) {
-        await tx.trace.delete({ where: { id: hallTraceId } }).catch(() => undefined);
+        await tx.trace.deleteMany({ where: { id: hallTraceId } });
         hallTraceId = null;
       }
 
