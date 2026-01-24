@@ -349,7 +349,7 @@ export default function AdminNovelsPage() {
               Upload content
               <input
                 type="file"
-                accept=".docx,.txt,.md,.pdf"
+                accept=".doc,.docx,.txt,.md,.pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,application/pdf"
                 className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
                 onChange={(event) =>
                   setContentFile(event.target.files?.[0] ?? null)
