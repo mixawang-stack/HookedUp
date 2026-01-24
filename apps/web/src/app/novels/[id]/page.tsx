@@ -137,7 +137,7 @@ export default function NovelDetailPage() {
           href="/novels"
           className="text-sm text-text-secondary transition hover:text-text-primary"
         >
-          <- Back
+          &larr; Back
         </Link>
         {status && <p className="mt-4 text-sm text-text-secondary">{status}</p>}
         {novel && (
