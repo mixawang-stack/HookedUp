@@ -7,7 +7,7 @@ export const AUTH_ALLOW_UNVERIFIED_LOGIN =
 export const AUTH_RETURN_VERIFY_TOKEN =
   (process.env.AUTH_RETURN_VERIFY_TOKEN ?? "false").toLowerCase() === "true";
 
-const accessTtlRaw = Number(process.env.JWT_ACCESS_TTL ?? 900);
+const accessTtlRaw = Number(process.env.JWT_ACCESS_TTL ?? 86400);
 const refreshTtlRaw = Number(process.env.JWT_REFRESH_TTL ?? 604800);
 const verifyTtlRaw = Number(process.env.EMAIL_VERIFY_TTL ?? 86400);
 
