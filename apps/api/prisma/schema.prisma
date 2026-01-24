@@ -105,6 +105,11 @@ enum NovelSourceType {
   PDF
 }
 
+enum NovelCategory {
+  DRAMA
+  AFTER_DARK
+}
+
 enum NovelReactionType {
   LIKE
   DISLIKE
@@ -517,6 +522,7 @@ model Novel {
   status             NovelStatus     @default(DRAFT)
   audience           NovelAudience   @default(ALL)
   sourceType         NovelSourceType @default(TEXT)
+  category           NovelCategory   @default(DRAMA)
   isFeatured         Boolean         @default(false)
   autoHallPost       Boolean         @default(true)
   autoRoom           Boolean         @default(true)

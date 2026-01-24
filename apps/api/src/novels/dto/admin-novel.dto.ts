@@ -1,5 +1,5 @@
 import { IsBoolean, IsEnum, IsISO8601, IsOptional, IsString, MaxLength } from "class-validator";
-import { NovelAudience, NovelStatus, NovelSourceType } from "@prisma/client";
+import { NovelAudience, NovelCategory, NovelStatus, NovelSourceType } from "@prisma/client";
 
 export class AdminNovelDto {
   @IsOptional()
@@ -34,6 +34,10 @@ export class AdminNovelDto {
   @IsOptional()
   @IsEnum(NovelSourceType)
   sourceType?: NovelSourceType;
+
+  @IsOptional()
+  @IsEnum(NovelCategory)
+  category?: NovelCategory;
 
   @IsOptional()
   @IsBoolean()

@@ -1,6 +1,7 @@
 import { Controller, Get, Param, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { Request } from "express";
 import { JwtService } from "@nestjs/jwt";
+import { NovelCategory } from "@prisma/client";
 import { JWT_ACCESS_SECRET } from "../auth/auth.constants";
 import { JwtAuthGuard, AuthenticatedRequest } from "../auth/jwt-auth.guard";
 import { NovelsService } from "./novels.service";
@@ -15,14 +16,21 @@ export class NovelsController {
   @Get("novels")
   async listNovels(
     @Query("limit") limit?: string,
-    @Query("featured") featured?: string
+    @Query("featured") featured?: string,
+    @Query("category") category?: string
   ) {
     const parsedLimit = limit ? Number(limit) : undefined;
     const parsedFeatured =
       featured === undefined ? undefined : featured === "true";
+    const normalizedCategory = category?.toUpperCase() ?? undefined;
+    const parsedCategory =
+      normalizedCategory === "DRAMA" || normalizedCategory === "AFTER_DARK"
+        ? (normalizedCategory as NovelCategory)
+        : undefined;
     return this.novelsService.listNovels(
       Number.isFinite(parsedLimit) ? parsedLimit : undefined,
-      parsedFeatured
+      parsedFeatured,
+      parsedCategory
     );
   }
 

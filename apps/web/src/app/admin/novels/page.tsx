@@ -14,6 +14,7 @@ type NovelItem = {
   description: string | null;
   tagsJson?: string[] | null;
   status: "DRAFT" | "PUBLISHED";
+  category: "DRAMA" | "AFTER_DARK";
   isFeatured: boolean;
   _count?: { chapters: number };
 };
@@ -45,6 +46,7 @@ export default function AdminNovelsPage() {
   const [description, setDescription] = useState("");
   const [tags, setTags] = useState("");
   const [novelStatus, setNovelStatus] = useState<"DRAFT" | "PUBLISHED">("DRAFT");
+  const [category, setCategory] = useState<NovelItem["category"]>("DRAMA");
   const [isFeatured, setIsFeatured] = useState(false);
 
   const [chapterTitle, setChapterTitle] = useState("");
@@ -100,6 +102,7 @@ export default function AdminNovelsPage() {
     setDescription("");
     setTags("");
     setNovelStatus("DRAFT");
+    setCategory("DRAMA");
     setIsFeatured(false);
   };
 
@@ -112,6 +115,7 @@ export default function AdminNovelsPage() {
       description,
       tagsJson: parseTags(tags),
       status: novelStatus,
+      category,
       isFeatured
     };
     const res = await fetch(
@@ -142,6 +146,7 @@ export default function AdminNovelsPage() {
     setDescription(novel.description ?? "");
     setTags((novel.tagsJson ?? []).join(", "));
     setNovelStatus(novel.status);
+    setCategory(novel.category ?? "DRAMA");
     setIsFeatured(novel.isFeatured);
     loadChapters(novel.id).catch(() => undefined);
   };
@@ -288,6 +293,17 @@ export default function AdminNovelsPage() {
               value={tags}
               onChange={(event) => setTags(event.target.value)}
             />
+          </label>
+          <label className="text-xs text-slate-300">
+            Category
+            <select
+              className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
+              value={category}
+              onChange={(event) => setCategory(event.target.value as NovelItem["category"])}
+            >
+              <option value="DRAMA">Drama</option>
+              <option value="AFTER_DARK">After Dark</option>
+            </select>
           </label>
           <div className="flex items-center gap-3 text-xs text-slate-300">
             <label className="flex items-center gap-2">

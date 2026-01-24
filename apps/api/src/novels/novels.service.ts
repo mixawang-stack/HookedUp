@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
-import { NovelSourceType, NovelStatus, Prisma, Role } from "@prisma/client";
+import { NovelCategory, NovelSourceType, NovelStatus, Prisma, Role } from "@prisma/client";
 import * as argon2 from "argon2";
 import { randomBytes } from "crypto";
 import { readFile } from "fs/promises";
@@ -94,6 +94,7 @@ export class NovelsService {
           status: (dto.status as NovelStatus | undefined) ?? "DRAFT",
           audience: dto.audience ?? "ALL",
           sourceType: dto.sourceType ?? "TEXT",
+          category: dto.category ?? "DRAMA",
           isFeatured: dto.isFeatured ?? false,
           autoHallPost,
           autoRoom,
@@ -195,6 +196,7 @@ export class NovelsService {
           status: dto.status as NovelStatus | undefined,
           audience: dto.audience ?? undefined,
           sourceType: dto.sourceType ?? undefined,
+          category: dto.category ?? undefined,
           isFeatured: dto.isFeatured,
           autoHallPost: dto.autoHallPost,
           autoRoom: dto.autoRoom,
@@ -379,12 +381,13 @@ export class NovelsService {
     return parsed;
   }
 
-  async listNovels(limit?: number, featured?: boolean) {
+  async listNovels(limit?: number, featured?: boolean, category?: NovelCategory) {
     const take = Math.min(limit ?? DEFAULT_LIMIT, MAX_LIMIT);
     return this.prisma.novel.findMany({
       where: {
         status: "PUBLISHED",
-        ...(featured !== undefined ? { isFeatured: featured } : {})
+        ...(featured !== undefined ? { isFeatured: featured } : {}),
+        ...(category ? { category } : {})
       },
       orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
       take

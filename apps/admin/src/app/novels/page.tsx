@@ -15,6 +15,7 @@ type NovelItem = {
   tagsJson?: string[] | null;
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED" | "SCHEDULED";
   audience: "ALL" | "MATURE";
+  category: "DRAMA" | "AFTER_DARK";
   isFeatured: boolean;
   authorName: string | null;
   language: string | null;
@@ -73,6 +74,7 @@ export default function AdminNovelsPage() {
   const [description, setDescription] = useState("");
   const [tags, setTags] = useState("");
   const [audience, setAudience] = useState<NovelItem["audience"]>("ALL");
+  const [category, setCategory] = useState<NovelItem["category"]>("DRAMA");
   const [isFeatured, setIsFeatured] = useState(false);
   const [autoPostHall, setAutoPostHall] = useState(true);
   const [coverFile, setCoverFile] = useState<File | null>(null);
@@ -126,6 +128,7 @@ export default function AdminNovelsPage() {
     setDescription("");
     setTags("");
     setAudience("ALL");
+    setCategory("DRAMA");
     setIsFeatured(false);
     setAutoPostHall(true);
     setCoverFile(null);
@@ -216,6 +219,7 @@ export default function AdminNovelsPage() {
         description,
         tagsJson: parseTags(tags),
         audience,
+        category,
         isFeatured,
         autoHallPost: autoPostHall
       };
@@ -280,6 +284,7 @@ export default function AdminNovelsPage() {
     setDescription(novel.description ?? "");
     setTags((novel.tagsJson ?? []).join(", "));
     setAudience(novel.audience);
+    setCategory(novel.category ?? "DRAMA");
     setIsFeatured(novel.isFeatured);
     setDrawerOpen(true);
     loadChapters(novel.id).catch(() => undefined);
@@ -380,6 +385,9 @@ export default function AdminNovelsPage() {
                         </span>
                         <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-slate-400">
                           {novel.audience}
+                        </span>
+                        <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-slate-400">
+                          {novel.category === "AFTER_DARK" ? "After Dark" : "Drama"}
                         </span>
                         {novel.isFeatured && (
                           <span className="rounded-full bg-amber-400/20 px-2 py-0.5 text-[10px] text-amber-300">
@@ -529,6 +537,17 @@ export default function AdminNovelsPage() {
                       onChange={(e) => setTags(e.target.value)}
                       placeholder="Romance, Fantasy, Mystery"
                     />
+                  </label>
+                  <label className="text-xs text-slate-300">
+                    Category
+                    <select
+                      className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-white"
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value as NovelItem["category"])}
+                    >
+                      <option value="DRAMA">Drama</option>
+                      <option value="AFTER_DARK">After Dark</option>
+                    </select>
                   </label>
                 </div>
               </section>

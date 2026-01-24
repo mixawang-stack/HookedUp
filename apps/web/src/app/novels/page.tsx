@@ -11,7 +11,13 @@ type NovelItem = {
   title: string;
   coverImageUrl: string | null;
   description: string | null;
+  category?: "DRAMA" | "AFTER_DARK";
 };
+
+const CATEGORY_TABS: Array<{ id: "DRAMA" | "AFTER_DARK"; label: string }> = [
+  { id: "DRAMA", label: "Drama" },
+  { id: "AFTER_DARK", label: "After Dark" }
+];
 
 const resolveMediaUrl = (value?: string | null) => {
   if (!value) return null;
@@ -36,10 +42,13 @@ export default function StoriesPage() {
   const router = useRouter();
   const [novels, setNovels] = useState<NovelItem[]>([]);
   const [status, setStatus] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"DRAMA" | "AFTER_DARK">("DRAMA");
 
   useEffect(() => {
     const load = async () => {
-      const res = await fetch(`${API_BASE}/novels?limit=30`);
+      const res = await fetch(
+        `${API_BASE}/novels?limit=30&category=${activeTab}`
+      );
       if (!res.ok) {
         setStatus("Failed to load stories.");
         return;
@@ -48,24 +57,33 @@ export default function StoriesPage() {
       setNovels(data);
     };
     load().catch(() => setStatus("Failed to load stories."));
-  }, []);
+  }, [activeTab]);
 
   return (
     <main className="ui-page mx-auto w-full max-w-6xl px-4 py-10 text-text-primary">
-      <button
-        type="button"
-        className="btn-secondary px-3 py-1 text-xs"
-        onClick={() => router.push("/hall")}
-      >
-        Back
-      </button>
-      <div className="mt-4">
+      <div>
         <h1 className="text-2xl font-semibold">Stories worth staying up for</h1>
         <p className="mt-2 text-sm text-text-secondary">
           Short reads, strange thoughts, guilty pleasures.
           <br />
           Read a little. Stay longer if you like.
         </p>
+        <div className="mt-4 ui-tab-list">
+          {CATEGORY_TABS.map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                className={`ui-tab ${isActive ? "ui-tab-active" : ""}`}
+                onClick={() => setActiveTab(tab.id)}
+                aria-pressed={isActive}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
       {status && <p className="mt-3 text-sm text-brand-secondary">{status}</p>}
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -83,10 +101,10 @@ export default function StoriesPage() {
                     <img
                       src={resolveMediaUrl(novel.coverImageUrl) ?? ""}
                       alt={novel.title}
-                      className="w-full aspect-[3/4] object-cover"
+                      className="h-auto w-full object-contain"
                     />
                   ) : (
-                    <div className="flex aspect-[3/4] items-center justify-center text-xs text-text-muted">
+                    <div className="flex items-center justify-center p-6 text-xs text-text-muted">
                       No cover
                     </div>
                   )}
