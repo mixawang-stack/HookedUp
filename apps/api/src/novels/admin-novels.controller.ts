@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards, UseInterceptors } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Req,
+  UseGuards,
+  UseInterceptors
+} from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { randomBytes } from "crypto";
 import path from "path";
@@ -22,6 +33,30 @@ const pdfUploadInterceptor = FileInterceptor("file", {
   fileFilter: (_req, file, cb) => {
     if (file.mimetype !== "application/pdf") {
       return cb(new Error("UNSUPPORTED_PDF_TYPE"), false);
+    }
+    return cb(null, true);
+  }
+});
+
+const contentUploadInterceptor = FileInterceptor("file", {
+  storage: diskStorage({
+    destination: STORAGE_DIR,
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname).toLowerCase();
+      const token = randomBytes(16).toString("hex");
+      cb(null, `${Date.now()}-${token}${ext}`);
+    }
+  }),
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const mime = file.mimetype.toLowerCase();
+    const ext = path.extname(file.originalname).toLowerCase();
+    const isDocx = mime.includes("wordprocessingml") || ext === ".docx";
+    const isTxt = mime.includes("text/plain") || ext === ".txt";
+    const isMd = mime.includes("text/markdown") || ext === ".md";
+    const isPdf = mime.includes("application/pdf") || ext === ".pdf";
+    if (!isDocx && !isTxt && !isMd && !isPdf) {
+      return cb(new Error("UNSUPPORTED_CONTENT_TYPE"), false);
     }
     return cb(null, true);
   }
@@ -92,15 +127,32 @@ export class AdminNovelsController {
   @UseInterceptors(pdfUploadInterceptor)
   async uploadPdf(
     @Req() req: AuthenticatedRequest,
-    @Param("id") id: string,
-    @Body("freeCount") freeCount?: string
+    @Param("id") id: string
   ) {
-    const parsedFree = freeCount ? Number(freeCount) : undefined;
-    return this.novelsService.importPdfChapters(
+    return this.novelsService.uploadAdminContent(
       req.user.role,
       id,
       req.file,
-      Number.isFinite(parsedFree) ? parsedFree : undefined
+      "pdf",
+      true
+    );
+  }
+
+  @Post(":id/content")
+  @UseInterceptors(contentUploadInterceptor)
+  async uploadContent(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") id: string,
+    @Body("sourceType") sourceType?: string,
+    @Body("asAttachmentOnly") asAttachmentOnly?: string
+  ) {
+    const attachmentOnly = asAttachmentOnly === "true";
+    return this.novelsService.uploadAdminContent(
+      req.user.role,
+      id,
+      req.file,
+      sourceType,
+      attachmentOnly
     );
   }
 }

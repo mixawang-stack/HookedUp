@@ -17,6 +17,10 @@ type NovelPreview = {
   favoriteCount?: number;
   dislikeCount?: number;
   myReaction?: "LIKE" | "DISLIKE" | null;
+  contentSourceType?: "DOCX" | "TXT" | "MD" | "PDF";
+  attachmentUrl?: string | null;
+  wordCount?: number | null;
+  chapterCount?: number | null;
   room?: { id: string; title: string; _count: { memberships: number } } | null;
   chapters: Array<{
     id: string;
@@ -37,6 +41,7 @@ export default function NovelDetailPage() {
   const [novel, setNovel] = useState<NovelPreview | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [reactionLoading, setReactionLoading] = useState(false);
+  const [activeChapterIndex, setActiveChapterIndex] = useState(0);
 
   const authHeader = useMemo(
     () => (token ? { Authorization: `Bearer ${token}` } : null),
@@ -63,6 +68,13 @@ export default function NovelDetailPage() {
     };
     load().catch(() => setStatus("Failed to load novel."));
   }, [novelId, authHeader]);
+
+  useEffect(() => {
+    if (!novel?.chapters?.length) {
+      return;
+    }
+    setActiveChapterIndex(0);
+  }, [novel?.chapters]);
 
   const handleReaction = async (type: "LIKE" | "DISLIKE") => {
     if (!authHeader) {
@@ -113,13 +125,9 @@ export default function NovelDetailPage() {
     }
   };
 
-  const readingText = novel?.chapters
-    ? novel.chapters.map((chapter) => chapter.content).join("\n\n")
-    : "";
-  const readingParagraphs = readingText
-    .split(/\n\s*\n/g)
-    .map((paragraph) => paragraph.trim())
-    .filter((paragraph) => paragraph.length > 0);
+  const chapters = novel?.chapters ?? [];
+  const activeChapter = chapters[activeChapterIndex] ?? null;
+  const readingText = activeChapter?.content ?? "";
   const likeCount = novel?.favoriteCount ?? 0;
 
   return (
@@ -129,7 +137,7 @@ export default function NovelDetailPage() {
           href="/novels"
           className="text-sm text-text-secondary transition hover:text-text-primary"
         >
-          ← Back
+          <- Back
         </Link>
         {status && <p className="mt-4 text-sm text-text-secondary">{status}</p>}
         {novel && (
@@ -139,8 +147,28 @@ export default function NovelDetailPage() {
                 {novel.title}
               </h1>
               <p className="text-sm text-text-secondary">
-                Chapter 1 · Free / Grown-up
+                Chapter 1 - Free / Grown-up
               </p>
+              {chapters.length > 0 && (
+                <div className="mt-3">
+                  <label className="text-xs text-text-muted">
+                    Chapter
+                    <select
+                      className="ml-2 rounded-full border border-border-default bg-card px-3 py-1 text-xs text-text-primary"
+                      value={activeChapterIndex}
+                      onChange={(event) =>
+                        setActiveChapterIndex(Number(event.target.value))
+                      }
+                    >
+                      {chapters.map((chapter, index) => (
+                        <option key={chapter.id} value={index}>
+                          {chapter.title || `Chapter ${index + 1}`}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              )}
             </section>
 
             <div className="relative">
@@ -262,17 +290,29 @@ export default function NovelDetailPage() {
                   <p className="text-xs text-text-muted">
                     Take your time. This isn't a race.
                   </p>
-                  <div className="mt-6 space-y-6 text-base leading-8 text-text-primary">
-                    {readingParagraphs.length > 0 ? (
-                      readingParagraphs.map((paragraph, index) => (
-                        <p key={`${novel.id}-paragraph-${index}`}>
-                          {paragraph}
-                        </p>
-                      ))
+                  <div className="mt-6 text-base leading-8 text-text-primary whitespace-pre-wrap">
+                    {readingText ? (
+                      readingText
                     ) : (
-                      <p className="text-sm text-text-muted">
-                        No story content yet.
-                      </p>
+                      <div className="space-y-3">
+                        <p className="text-sm text-text-muted">
+                          This story isn't ready yet.
+                        </p>
+                        <p className="text-sm text-text-muted">
+                          Ask the host to upload the content.
+                        </p>
+                        {novel.attachmentUrl && (
+                          <button
+                            type="button"
+                            className="btn-secondary px-3 py-2 text-xs"
+                            onClick={() =>
+                              window.open(novel.attachmentUrl ?? "", "_blank")
+                            }
+                          >
+                            Open attachment
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
 
@@ -349,7 +389,7 @@ export default function NovelDetailPage() {
             type="button"
             className={`flex flex-col items-center gap-1 px-3 py-2 transition ${
               novel?.myReaction === "DISLIKE"
-                ? "text-brand-secondary"
+                ? "text-text-primary"
                 : "text-text-muted"
             }`}
             onClick={() => handleReaction("DISLIKE")}

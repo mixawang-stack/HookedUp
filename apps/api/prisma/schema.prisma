@@ -105,6 +105,13 @@ enum NovelSourceType {
   PDF
 }
 
+enum NovelContentSourceType {
+  DOCX
+  TXT
+  MD
+  PDF
+}
+
 enum NovelCategory {
   DRAMA
   AFTER_DARK
@@ -523,6 +530,11 @@ model Novel {
   audience           NovelAudience   @default(ALL)
   sourceType         NovelSourceType @default(TEXT)
   category           NovelCategory   @default(DRAMA)
+  contentSourceType  NovelContentSourceType @default(PDF)
+  contentRawText     String?         @db.Text
+  attachmentUrl      String?         @db.Text
+  wordCount          Int             @default(0)
+  chapterCount       Int             @default(0)
   isFeatured         Boolean         @default(false)
   autoHallPost       Boolean         @default(true)
   autoRoom           Boolean         @default(true)

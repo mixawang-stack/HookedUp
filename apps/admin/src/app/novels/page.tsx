@@ -79,9 +79,12 @@ export default function AdminNovelsPage() {
   const [autoPostHall, setAutoPostHall] = useState(true);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverUploading, setCoverUploading] = useState(false);
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const [pdfUploading, setPdfUploading] = useState(false);
-  const [freeCount, setFreeCount] = useState("2");
+  const [contentFile, setContentFile] = useState<File | null>(null);
+  const [contentUploading, setContentUploading] = useState(false);
+  const [contentStatus, setContentStatus] = useState<string | null>(null);
+  const [contentPreview, setContentPreview] = useState<
+    Array<{ index: number; title: string }>
+  >([]);
 
   const authHeader = useMemo(() => {
     if (!token) return null;
@@ -132,8 +135,9 @@ export default function AdminNovelsPage() {
     setIsFeatured(false);
     setAutoPostHall(true);
     setCoverFile(null);
-    setPdfFile(null);
-    setFreeCount("2");
+    setContentFile(null);
+    setContentStatus(null);
+    setContentPreview([]);
   };
 
   const uploadCoverIfNeeded = async () => {
@@ -172,35 +176,48 @@ export default function AdminNovelsPage() {
     }
   };
 
-  const handleUploadPdf = async () => {
-    if (!authHeader || !pdfFile) return;
+  const handleUploadContent = async () => {
+    if (!authHeader || !contentFile) return;
     if (!selectedNovel) {
-      setStatus("Save the novel first, then upload the PDF.");
+      setStatus("Save the novel first, then upload content.");
       return;
     }
-    setPdfUploading(true);
+    setContentUploading(true);
     setStatus(null);
+    setContentStatus(null);
     const form = new FormData();
-    form.append("file", pdfFile);
-    form.append("freeCount", freeCount.trim() || "2");
+    form.append("file", contentFile);
+    const isPdf = contentFile.name.toLowerCase().endsWith(".pdf");
+    if (isPdf) {
+      form.append("asAttachmentOnly", "true");
+    }
     try {
-      const res = await fetch(`${API_BASE}/admin/novels/${selectedNovel.id}/pdf`, {
-        method: "POST",
-        headers: { ...authHeader },
-        body: form
-      });
+      const res = await fetch(
+        `${API_BASE}/admin/novels/${selectedNovel.id}/content`,
+        {
+          method: "POST",
+          headers: { ...authHeader },
+          body: form
+        }
+      );
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setStatus(data?.message ?? "Failed to import PDF.");
+        setStatus(data?.message ?? "Failed to upload content.");
         return;
       }
-      setStatus(
-        `Imported ${data?.chapterCount ?? 0} chapters from PDF.`
+      setContentStatus(
+        `Parsed ${data?.chapterCount ?? 0} chapters - ${data?.wordCount ?? 0} words`
       );
-      setPdfFile(null);
+      setContentPreview(
+        (data?.previewChapters ?? []).map((chapter: { index: number; title: string }) => ({
+          index: chapter.index,
+          title: chapter.title
+        }))
+      );
+      setContentFile(null);
       await loadChapters(selectedNovel.id);
     } finally {
-      setPdfUploading(false);
+      setContentUploading(false);
     }
   };
 
@@ -242,32 +259,12 @@ export default function AdminNovelsPage() {
         return;
       }
 
-      const savedNovelId = body?.id ?? selectedNovel?.id ?? null;
-      if (savedNovelId && pdfFile) {
-        setPdfUploading(true);
-        const form = new FormData();
-        form.append("file", pdfFile);
-        form.append("freeCount", freeCount.trim() || "2");
-        const pdfRes = await fetch(`${API_BASE}/admin/novels/${savedNovelId}/pdf`, {
-          method: "POST",
-          headers: { ...authHeader },
-          body: form
-        });
-        const pdfBody = await pdfRes.json().catch(() => ({}));
-        if (!pdfRes.ok) {
-          setStatus(pdfBody?.message ?? "Failed to import PDF.");
-          return;
-        }
-        setPdfFile(null);
-        await loadChapters(savedNovelId);
-      }
-
       setDrawerOpen(false);
       resetForm();
       setSelectedNovel(null);
       await loadNovels();
     } finally {
-      setPdfUploading(false);
+      setContentUploading(false);
     }
   };
 
@@ -404,13 +401,13 @@ export default function AdminNovelsPage() {
                   <div className="mt-3 flex items-center justify-between">
                   <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
                     <span>{novel._count?.chapters ?? 0} Chapters</span>
-                    <span>â€¢</span>
+                    <span>â€?/span>
                     <span>{novel.viewCount ?? 0} Reads</span>
-                    <span>â€¢</span>
+                    <span>â€?/span>
                     <span>{novel.favoriteCount ?? 0} Likes</span>
-                    <span>â€¢</span>
+                    <span>â€?/span>
                     <span>{novel.dislikeCount ?? 0} Dislikes</span>
-                    <span>â€¢</span>
+                    <span>â€?/span>
                     <span>{novel.room?._count?.memberships ?? 0} Room Members</span>
                   </div>
                   <div className="flex items-center gap-2 opacity-0 transition group-hover:opacity-100">
@@ -555,43 +552,53 @@ export default function AdminNovelsPage() {
               {/* Content Import */}
               <section className="space-y-4">
                 <h3 className="text-[11px] font-bold uppercase tracking-[0.3em] text-slate-500">
-                  Novel Content (PDF)
+                  Upload content
                 </h3>
-                <div className="rounded-2xl border border-white/5 bg-white/5 p-4">
+                <div className="rounded-2xl border border-white/5 bg-white/5 p-4 space-y-3">
+                  <p className="text-[10px] text-slate-500">
+                    Recommended: .docx / .txt / .md for best reading experience.
+                  </p>
+                  <p className="text-[10px] text-slate-500">
+                    PDF is saved as attachment only.
+                  </p>
                   <label className="text-xs text-slate-300">
-                    Upload PDF
+                    Upload file
                     <input
                       type="file"
-                      accept="application/pdf"
+                      accept=".docx,.txt,.md,application/pdf,text/plain,text/markdown,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                       className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-white"
                       onChange={(event) =>
-                        setPdfFile(event.target.files?.[0] ?? null)
+                        setContentFile(event.target.files?.[0] ?? null)
                       }
                     />
                   </label>
-                  <label className="mt-3 block text-xs text-slate-300">
-                    Free chapters count
-                    <input
-                      type="number"
-                      min={0}
-                      className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-white"
-                      value={freeCount}
-                      onChange={(event) => setFreeCount(event.target.value)}
-                    />
-                  </label>
-                  <div className="mt-3 flex items-center gap-3">
+                  <div className="flex items-center gap-3">
                     <button
                       type="button"
                       className="rounded-full border border-white/20 px-4 py-1.5 text-xs text-slate-200"
-                      disabled={!pdfFile || pdfUploading}
-                      onClick={handleUploadPdf}
+                      disabled={!contentFile || contentUploading}
+                      onClick={handleUploadContent}
                     >
-                      {pdfUploading ? "Importing..." : "Import PDF"}
+                      {contentUploading ? "Uploading..." : "Upload content"}
                     </button>
-                    <span className="text-[10px] text-slate-500">
-                      PDF will be parsed into chapters automatically.
-                    </span>
+                    {contentStatus && (
+                      <span className="text-[10px] text-slate-400">
+                        {contentStatus}
+                      </span>
+                    )}
                   </div>
+                  {contentPreview.length > 0 && (
+                    <div className="rounded-xl border border-white/10 bg-slate-950/60">
+                      {contentPreview.map((chapter) => (
+                        <div
+                          key={`content-preview-${chapter.index}`}
+                          className="border-b border-white/5 px-3 py-2 text-[11px] text-slate-300 last:border-b-0"
+                        >
+                          {chapter.index}. {chapter.title}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </section>
 
@@ -698,3 +705,5 @@ export default function AdminNovelsPage() {
     </div>
   );
 }
+
+

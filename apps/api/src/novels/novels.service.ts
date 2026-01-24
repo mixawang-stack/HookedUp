@@ -1,12 +1,22 @@
 import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
-import { NovelCategory, NovelSourceType, NovelStatus, Prisma, Role } from "@prisma/client";
+import {
+  NovelCategory,
+  NovelContentSourceType,
+  NovelSourceType,
+  NovelStatus,
+  Prisma,
+  Role
+} from "@prisma/client";
 import * as argon2 from "argon2";
 import { randomBytes } from "crypto";
 import { readFile } from "fs/promises";
+import path from "path";
+import mammoth from "mammoth";
 import pdfParse from "pdf-parse";
 import { PrismaService } from "../prisma.service";
 import { AdminNovelDto } from "./dto/admin-novel.dto";
 import { AdminChapterDto } from "./dto/admin-chapter.dto";
+import { API_PUBLIC_BASE_URL } from "../auth/auth.constants";
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
@@ -215,6 +225,103 @@ export class NovelsService {
     return this.prisma.novel.delete({ where: { id } });
   }
 
+  async uploadAdminContent(
+    role: string,
+    novelId: string,
+    file: Express.Multer.File | undefined,
+    sourceTypeInput?: string,
+    asAttachmentOnly?: boolean
+  ) {
+    this.ensureAdmin(role);
+    if (!file) {
+      throw new BadRequestException("MISSING_FILE");
+    }
+
+    const novel = await this.prisma.novel.findUnique({
+      where: { id: novelId },
+      select: { id: true, title: true, chapterCount: true, wordCount: true }
+    });
+    if (!novel) {
+      throw new BadRequestException("NOVEL_NOT_FOUND");
+    }
+
+    const inferredType = this.inferContentSourceType(
+      file.originalname,
+      file.mimetype,
+      sourceTypeInput
+    );
+
+    const attachmentUrl =
+      inferredType === "PDF"
+        ? `${API_PUBLIC_BASE_URL}/uploads/${file.filename}`
+        : null;
+
+    if (inferredType === "PDF") {
+      if (!asAttachmentOnly) {
+        throw new BadRequestException("PDF_CONTENT_UNSUPPORTED");
+      }
+      await this.prisma.novel.update({
+        where: { id: novelId },
+        data: {
+          contentSourceType: "PDF",
+          attachmentUrl: attachmentUrl ?? undefined
+        }
+      });
+      return {
+        chapterCount: novel.chapterCount ?? 0,
+        wordCount: novel.wordCount ?? 0,
+        previewChapters: []
+      };
+    }
+
+    const buffer = await readFile(file.path);
+    const parsed = await this.parseNovelFile(
+      buffer,
+      file.originalname,
+      file.mimetype,
+      inferredType,
+      novel.title
+    );
+
+    if (parsed.chapters.length === 0) {
+      throw new BadRequestException("CONTENT_PARSE_FAILED");
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.novelChapter.deleteMany({ where: { novelId } });
+      await tx.novelChapter.createMany({
+        data: parsed.chapters.map((chapter, index) => ({
+          novelId,
+          title: chapter.title,
+          content: chapter.content,
+          orderIndex: index + 1,
+          isFree: true,
+          isPublished: true
+        }))
+      });
+      await tx.novel.update({
+        where: { id: novelId },
+        data: {
+          contentSourceType: parsed.sourceType,
+          contentRawText: parsed.rawText || null,
+          chapterCount: parsed.chapters.length,
+          wordCount: parsed.wordCount,
+          attachmentUrl: attachmentUrl ?? undefined
+        }
+      });
+    });
+
+    return {
+      chapterCount: parsed.chapters.length,
+      wordCount: parsed.wordCount,
+      previewChapters: parsed.chapters.slice(0, 2).map((chapter, index) => ({
+        index: index + 1,
+        title: chapter.title,
+        content: chapter.content.slice(0, 300)
+      }))
+    };
+  }
+
   async listAdminChapters(role: string, novelId: string) {
     this.ensureAdmin(role);
     return this.prisma.novelChapter.findMany({
@@ -381,6 +488,176 @@ export class NovelsService {
     return parsed;
   }
 
+  private inferContentSourceType(
+    filename: string,
+    mimeType?: string,
+    sourceTypeInput?: string
+  ): NovelContentSourceType {
+    const normalizedInput = sourceTypeInput?.trim().toLowerCase();
+    if (normalizedInput === "docx") return "DOCX";
+    if (normalizedInput === "txt") return "TXT";
+    if (normalizedInput === "md" || normalizedInput === "markdown") return "MD";
+    if (normalizedInput === "pdf") return "PDF";
+
+    const ext = path.extname(filename).toLowerCase();
+    if (ext === ".docx") return "DOCX";
+    if (ext === ".txt") return "TXT";
+    if (ext === ".md") return "MD";
+    if (ext === ".pdf") return "PDF";
+
+    const normalizedMime = (mimeType ?? "").toLowerCase();
+    if (normalizedMime.includes("wordprocessingml")) return "DOCX";
+    if (normalizedMime.includes("text/plain")) return "TXT";
+    if (normalizedMime.includes("text/markdown")) return "MD";
+    if (normalizedMime.includes("application/pdf")) return "PDF";
+
+    return "TXT";
+  }
+
+  private async parseNovelFile(
+    buffer: Buffer,
+    filename: string,
+    mimeType: string | undefined,
+    sourceType: NovelContentSourceType,
+    fallbackTitle: string
+  ): Promise<{
+    sourceType: NovelContentSourceType;
+    rawText: string;
+    chapters: Array<{ title: string; content: string }>;
+    wordCount: number;
+  }> {
+    if (sourceType === "DOCX") {
+      const htmlResult = await mammoth.convertToHtml({ buffer });
+      const html = htmlResult.value ?? "";
+      const htmlText = this.htmlToTextWithHeadings(html);
+      const rawText = this.normalizeRawText(htmlText);
+      const chapters = this.extractChaptersFromText(rawText, fallbackTitle);
+      return {
+        sourceType,
+        rawText,
+        chapters,
+        wordCount: this.countWords(rawText)
+      };
+    }
+
+    if (sourceType === "MD" || sourceType === "TXT") {
+      const rawText = this.normalizeRawText(buffer.toString("utf8"));
+      const chapters = this.extractChaptersFromText(rawText, fallbackTitle);
+      return {
+        sourceType,
+        rawText,
+        chapters,
+        wordCount: this.countWords(rawText)
+      };
+    }
+
+    return {
+      sourceType,
+      rawText: "",
+      chapters: [],
+      wordCount: 0
+    };
+  }
+
+  private htmlToTextWithHeadings(html: string) {
+    const withHeadings = html
+      .replace(/<h[1-6][^>]*>(.*?)<\/h[1-6]>/gi, "\n\n# $1\n\n")
+      .replace(/<p[^>]*>(.*?)<\/p>/gi, "$1\n\n")
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/(div|section|article)>/gi, "\n\n");
+    const stripped = withHeadings.replace(/<[^>]+>/g, "");
+    return this.decodeHtmlEntities(stripped);
+  }
+
+  private decodeHtmlEntities(text: string) {
+    return text
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"');
+  }
+
+  private normalizeRawText(text: string) {
+    const trimmedBom = text.replace(/^\uFEFF/, "");
+    const normalized = trimmedBom.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    return normalized.replace(/\n{3,}/g, "\n\n").trim();
+  }
+
+  private extractChaptersFromText(text: string, fallbackTitle: string) {
+    const lines = text.split("\n");
+    const chapters: Array<{ title: string; content: string }> = [];
+    let currentTitle: string | null = null;
+    let buffer: string[] = [];
+
+    const chapterLineRegex =
+      /^(Chapter|CHAPTER)\s+(\d+)\b[:.\-]?\s*(.*)$|^第\s*([0-9一二三四五六七八九十百千]+)\s*章\s*(.*)$/;
+    const markdownHeadingRegex = /^#{1,2}\s+(.+)$/;
+
+    const flush = () => {
+      const content = buffer.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+      if (!content) {
+        buffer = [];
+        return;
+      }
+      chapters.push({
+        title: currentTitle ?? fallbackTitle ?? "Chapter 1",
+        content
+      });
+      buffer = [];
+    };
+
+    lines.forEach((line) => {
+      const headingMatch = line.match(markdownHeadingRegex);
+      if (headingMatch) {
+        flush();
+        currentTitle = headingMatch[1].trim();
+        return;
+      }
+
+      const chapterMatch = line.match(chapterLineRegex);
+      if (chapterMatch) {
+        flush();
+        if (chapterMatch[1]) {
+          const index = chapterMatch[2];
+          const suffix = chapterMatch[3]?.trim();
+          currentTitle = `Chapter ${index}${suffix ? ` - ${suffix}` : ""}`;
+          return;
+        }
+        if (chapterMatch[4]) {
+          const suffix = chapterMatch[5]?.trim();
+          currentTitle = `第${chapterMatch[4]}章${suffix ? ` ${suffix}` : ""}`;
+          return;
+        }
+      }
+
+      buffer.push(line);
+    });
+
+    flush();
+
+    if (chapters.length === 0) {
+      const content = text.trim();
+      if (!content) {
+        return [];
+      }
+      return [
+        {
+          title: fallbackTitle || "Chapter 1",
+          content
+        }
+      ];
+    }
+
+    return chapters;
+  }
+
+  private countWords(text: string) {
+    const englishMatches = text.match(/[A-Za-z0-9]+(?:'[A-Za-z0-9]+)?/g) ?? [];
+    const chineseMatches = text.match(/[\u4e00-\u9fa5]/g) ?? [];
+    return englishMatches.length + chineseMatches.length;
+  }
+
   async listNovels(limit?: number, featured?: boolean, category?: NovelCategory) {
     const take = Math.min(limit ?? DEFAULT_LIMIT, MAX_LIMIT);
     return this.prisma.novel.findMany({
@@ -433,6 +710,10 @@ export class NovelsService {
       tagsJson: novel.tagsJson,
       favoriteCount: novel.favoriteCount,
       dislikeCount: novel.dislikeCount,
+      contentSourceType: novel.contentSourceType,
+      attachmentUrl: novel.attachmentUrl,
+      chapterCount: novel.chapterCount,
+      wordCount: novel.wordCount,
       myReaction: reaction?.type ?? null,
       chapters
     };
@@ -484,6 +765,10 @@ export class NovelsService {
       viewCount: novel.viewCount + 1,
       favoriteCount: novel.favoriteCount,
       dislikeCount: novel.dislikeCount,
+      contentSourceType: novel.contentSourceType,
+      attachmentUrl: novel.attachmentUrl,
+      chapterCount: novel.chapterCount,
+      wordCount: novel.wordCount,
       myReaction: reaction?.type ?? null,
       chapters,
       room: novel.room

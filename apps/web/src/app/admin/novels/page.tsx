@@ -48,6 +48,9 @@ export default function AdminNovelsPage() {
   const [novelStatus, setNovelStatus] = useState<"DRAFT" | "PUBLISHED">("DRAFT");
   const [category, setCategory] = useState<NovelItem["category"]>("DRAMA");
   const [isFeatured, setIsFeatured] = useState(false);
+  const [contentFile, setContentFile] = useState<File | null>(null);
+  const [contentUploading, setContentUploading] = useState(false);
+  const [contentStatus, setContentStatus] = useState<string | null>(null);
 
   const [chapterTitle, setChapterTitle] = useState("");
   const [chapterContent, setChapterContent] = useState("");
@@ -104,6 +107,8 @@ export default function AdminNovelsPage() {
     setNovelStatus("DRAFT");
     setCategory("DRAMA");
     setIsFeatured(false);
+    setContentFile(null);
+    setContentStatus(null);
   };
 
   const handleSaveNovel = async () => {
@@ -137,6 +142,45 @@ export default function AdminNovelsPage() {
     resetForm();
     setSelectedNovel(null);
     await loadNovels();
+  };
+
+  const handleUploadContent = async () => {
+    if (!authHeader || !contentFile) return;
+    if (!selectedNovel) {
+      setStatus("Save the novel first, then upload content.");
+      return;
+    }
+    setContentUploading(true);
+    setStatus(null);
+    setContentStatus(null);
+    const form = new FormData();
+    form.append("file", contentFile);
+    const isPdf = contentFile.name.toLowerCase().endsWith(".pdf");
+    if (isPdf) {
+      form.append("asAttachmentOnly", "true");
+    }
+    try {
+      const res = await fetch(
+        `${API_BASE}/admin/novels/${selectedNovel.id}/content`,
+        {
+          method: "POST",
+          headers: { ...authHeader },
+          body: form
+        }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setStatus(data?.message ?? "Failed to upload content.");
+        return;
+      }
+      setContentStatus(
+        `Parsed ${data?.chapterCount ?? 0} chapters - ${data?.wordCount ?? 0} words`
+      );
+      setContentFile(null);
+      await loadChapters(selectedNovel.id);
+    } finally {
+      setContentUploading(false);
+    }
   };
 
   const handleEditNovel = (novel: NovelItem) => {
@@ -294,6 +338,38 @@ export default function AdminNovelsPage() {
               onChange={(event) => setTags(event.target.value)}
             />
           </label>
+          <div className="rounded-xl border border-white/10 bg-slate-950/60 p-3 text-xs text-slate-300">
+            <p className="text-[10px] text-slate-500">
+              Recommended: .docx / .txt / .md for best reading experience.
+            </p>
+            <p className="text-[10px] text-slate-500">
+              PDF is saved as attachment only.
+            </p>
+            <label className="mt-2 block text-xs text-slate-300">
+              Upload content
+              <input
+                type="file"
+                accept=".docx,.txt,.md,application/pdf,text/plain,text/markdown,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
+                onChange={(event) =>
+                  setContentFile(event.target.files?.[0] ?? null)
+                }
+              />
+            </label>
+            <div className="mt-2 flex items-center gap-3">
+              <button
+                type="button"
+                className="rounded-full border border-white/20 px-3 py-1 text-xs text-slate-200"
+                disabled={!contentFile || contentUploading}
+                onClick={handleUploadContent}
+              >
+                {contentUploading ? "Uploading..." : "Upload content"}
+              </button>
+              {contentStatus && (
+                <span className="text-[10px] text-slate-400">{contentStatus}</span>
+              )}
+            </div>
+          </div>
           <label className="text-xs text-slate-300">
             Category
             <select
