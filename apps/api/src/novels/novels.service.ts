@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
+Ôªøimport { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
 import {
   NovelCategory,
   NovelContentSourceType,
@@ -417,8 +417,7 @@ export class NovelsService {
 
     const buffer = await readFile(file.path);
     const parsed = await pdfParse(buffer);
-    const rawText = parsed.text?.replace(/
-/g, "\n").trim() ?? "";
+    const rawText = parsed.text?.replace(/\r\n/g, "\n").trim() ?? "";
     if (!rawText) {
       throw new BadRequestException("PDF_EMPTY");
     }
@@ -597,8 +596,7 @@ export class NovelsService {
 
   private normalizeRawText(text: string) {
     const trimmedBom = text.replace(/^\uFEFF/, "");
-    const normalized = trimmedBom.replace(/
-/g, "\n").replace(/\r/g, "\n");
+    const normalized = trimmedBom.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
     return normalized.replace(/\n{3,}/g, "\n\n").trim();
   }
 
@@ -647,9 +645,9 @@ export class NovelsService {
     let buffer: string[] = [];
 
     const chapterLineRegex =
-      /^(Chapter|CHAPTER)\s+(\d+)\b[:.\-]?\s*(.*)$|^µ⁄\s*([0-9“ª∂˛»˝ÀƒŒÂ¡˘∆ﬂ∞Àæ≈ Æ∞Ÿ«ß]+)\s*’¬\s*(.*)$/;
+      /^(Chapter|CHAPTER)\s+(\d+)\b[:.\-]?\s*(.*)$|^Á¨¨\s*([0-9‰∏Ä‰∫å‰∏âÂõõ‰∫îÂÖ≠‰∏ÉÂÖ´‰πùÂçÅÁôæÂçÉ]+)\s*Á´†\s*(.*)$/;
     const markdownHeadingRegex = /^#{1,2}\s+(.+)$/;
-    const standaloneHeadingRegex = /^[A-Za-z0-9][A-Za-z0-9'°Ø\-\s]+$/;
+    const standaloneHeadingRegex = /^[A-Za-z0-9][A-Za-z0-9'‚Äô\-\s]+$/;
     const introHeadingRegex = /^(INTRO|PROLOGUE|EPILOGUE|PREFACE)\b[:.\-]?\s*(.*)$/i;
     const pipeHeadingRegex = /^(INTRO|PROLOGUE|EPILOGUE|PREFACE)\s*\|\s*(.+)$/i;
 
@@ -709,7 +707,7 @@ export class NovelsService {
         }
         if (chapterMatch[4]) {
           const suffix = chapterMatch[5]?.trim();
-          currentTitle = "µ⁄" + chapterMatch[4] + "’¬" + (suffix ? " " + suffix : "");
+          currentTitle = "Á¨¨" + chapterMatch[4] + "Á´†" + (suffix ? " " + suffix : "");
           return;
         }
       }
@@ -1066,6 +1064,8 @@ export class NovelsService {
     });
   }
 }
+
+
 
 
 
