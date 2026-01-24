@@ -64,6 +64,13 @@ export default function NovelDetailPage() {
         setStatus(body?.message ?? "Failed to load novel.");
         return;
       }
+      console.debug("Novel payload", {
+        id: body?.id,
+        contentSourceType: body?.contentSourceType,
+        chapterCount: body?.chapterCount,
+        attachmentUrl: body?.attachmentUrl,
+        apiBase: API_BASE
+      });
       setNovel(body as NovelPreview);
     };
     load().catch(() => setStatus("Failed to load novel."));
@@ -129,6 +136,7 @@ export default function NovelDetailPage() {
   const activeChapter = chapters[activeChapterIndex] ?? null;
   const readingText = activeChapter?.content ?? "";
   const likeCount = novel?.favoriteCount ?? 0;
+  const shouldShowAttachment = novel?.contentSourceType === "PDF" && novel.attachmentUrl;
 
   return (
     <main className="ui-page">
@@ -301,7 +309,7 @@ export default function NovelDetailPage() {
                         <p className="text-sm text-text-muted">
                           Ask the host to upload the content.
                         </p>
-                        {novel.attachmentUrl && (
+                        {shouldShowAttachment && (
                           <button
                             type="button"
                             className="btn-secondary px-3 py-2 text-xs"
