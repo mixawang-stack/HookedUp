@@ -631,11 +631,29 @@ export class NovelsService {
         return utf8Text.replace(/\u0000/g, "");
       }
     }
+    try {
+      const utf16leText = iconv.decode(buffer, "utf16le").replace(/\u0000/g, "");
+      if (utf16leText.trim().length > 0) {
+        return utf16leText;
+      }
+    } catch {
+      // ignore
+    }
+    try {
+      const utf16beText = iconv.decode(buffer, "utf16be").replace(/\u0000/g, "");
+      if (utf16beText.trim().length > 0) {
+        return utf16beText;
+      }
+    } catch {
+      // ignore
+    }
     const latinFallback = buffer.toString("latin1");
     if (latinFallback && this.looksLikeValidUtf8(latinFallback)) {
       return latinFallback.replace(/\u0000/g, "");
     }
-    return utf8Text.replace(/\u0000/g, "");
+    return latinFallback
+      ? latinFallback.replace(/\u0000/g, "")
+      : utf8Text.replace(/\u0000/g, "");
   }
 
   private looksLikeValidUtf8(text: string) {
