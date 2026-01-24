@@ -83,6 +83,7 @@ export default function AdminNovelsPage() {
   const [autoPostHall, setAutoPostHall] = useState(true);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverUploading, setCoverUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [contentFile, setContentFile] = useState<File | null>(null);
   const [contentUploading, setContentUploading] = useState(false);
   const [contentStatus, setContentStatus] = useState<string | null>(null);
@@ -232,6 +233,8 @@ export default function AdminNovelsPage() {
       setStatus("Title is required.");
       return;
     }
+    setSaving(true);
+    setStatus("Saving...");
     try {
       const uploadedCoverUrl = await uploadCoverIfNeeded();
       const payload = {
@@ -267,8 +270,11 @@ export default function AdminNovelsPage() {
       resetForm();
       setSelectedNovel(null);
       await loadNovels();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to save novel.";
+      setStatus(message);
     } finally {
-      setContentUploading(false);
+      setSaving(false);
     }
   };
 
@@ -479,7 +485,7 @@ export default function AdminNovelsPage() {
                 )}
                 {selectedNovel && (
                   <p className="mt-1 text-[11px] text-slate-500">
-                    Content: {selectedNovel.contentSourceType ?? "Unknown"} · Chapters{" "}
+                    Content: {selectedNovel.contentSourceType ?? "Unknown"} - Chapters{" "}
                     {selectedNovel.chapterCount ?? selectedNovel._count?.chapters ?? 0}
                   </p>
                 )}
@@ -716,8 +722,13 @@ export default function AdminNovelsPage() {
                   type="button"
                   className="rounded-full bg-white px-8 py-2.5 text-xs font-bold text-slate-900 shadow-[0_10px_30px_rgba(255,255,255,0.2)]"
                   onClick={handleSaveNovel}
+                  disabled={saving || coverUploading}
                 >
-                  {selectedNovel ? "Save Changes" : "Create & Launch"}
+                  {saving
+                    ? "Saving..."
+                    : selectedNovel
+                    ? "Save Changes"
+                    : "Create & Launch"}
                 </button>
               </div>
             </div>
@@ -727,6 +738,7 @@ export default function AdminNovelsPage() {
     </div>
   );
 }
+
 
 
 
