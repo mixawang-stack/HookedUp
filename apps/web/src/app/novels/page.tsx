@@ -112,7 +112,7 @@ export default function StoriesPage() {
                 <p className="mt-3 text-sm font-semibold line-clamp-1">
                   {novel.title}
                 </p>
-                <p className="mt-1 text-xs text-text-secondary line-clamp-1">
+                <p className="mt-1 text-xs text-text-secondary line-clamp-4">
                   {teaser}
                 </p>
               </button>

@@ -307,6 +307,7 @@ export default function RoomsPage() {
               const messageCount = Number.isFinite(Number(rawMessageCount)) ? Number(rawMessageCount) : null;
               const messageLabel = messageCount === null ? "-" : String(messageCount);
               const topicTag = room.tagsJson?.[0] ?? "Topic";
+              const showTopicTag = !room.novel;
               const coverUrl = room.novel?.coverImageUrl;
               const timeText = room.status === "LIVE" && room.endsAt
                 ? `Ends ${new Date(room.endsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
@@ -339,7 +340,9 @@ export default function RoomsPage() {
                           Live
                         </span>
                       )}
-                      <span className="ui-badge ui-badge-story">{topicTag}</span>
+                      {showTopicTag && (
+                        <span className="ui-badge ui-badge-story">{topicTag}</span>
+                      )}
                     </div>
 
                     <div>

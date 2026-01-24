@@ -823,12 +823,6 @@ export default function HallPage() {
       minute: "2-digit"
     });
 
-  const hallTabs: Array<{ id: "all" | "story" | "post"; label: string }> = [
-    { id: "all", label: "全部" },
-    { id: "story", label: "故事" },
-    { id: "post", label: "帖子" }
-  ];
-
   const cardBaseClasses =
     "ui-card w-full p-4 text-left text-text-primary transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40";
 
@@ -1041,16 +1035,16 @@ export default function HallPage() {
                 </div>
               )}
             </div>
-            {trace.replyCount > 0 && (
-              <span className="text-xs text-text-muted group-hover:text-text-secondary transition-colors font-medium">
-                {trace.replyCount}
-              </span>
-            )}
+            <span className="text-xs text-text-muted group-hover:text-text-secondary transition-colors font-medium">
+              {trace.replyCount}
+            </span>
           </div>
           <div className="flex items-center gap-2 group relative">
             <button
               type="button"
-              className="group relative flex h-7 w-7 items-center justify-center rounded-full border border-transparent transition hover:scale-110 text-text-muted"
+              className={`group relative flex h-7 w-7 items-center justify-center rounded-full border border-transparent transition hover:scale-110 ${
+                trace.likedByMe ? "text-brand-primary" : "text-brand-secondary"
+              }`}
               onClick={(event) => {
                 event.stopPropagation();
                 toggleLike(trace.id);
@@ -1058,9 +1052,7 @@ export default function HallPage() {
               aria-label="Toggle like"
             >
               <svg
-                className={`h-5 w-5 transition-colors ${
-                  trace.likedByMe ? "text-brand-primary" : "text-text-muted"
-                }`}
+                className="h-5 w-5 transition-colors"
                 viewBox="0 0 24 24"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
@@ -1103,11 +1095,9 @@ export default function HallPage() {
                 </div>
               )}
             </button>
-            {(trace.likeCount ?? 0) > 0 && (
-              <span className="text-xs text-text-muted group-hover:text-text-secondary transition-colors font-medium">
-                {trace.likeCount}
-              </span>
-            )}
+            <span className="text-xs text-text-muted group-hover:text-text-secondary transition-colors font-medium">
+              {trace.likeCount ?? 0}
+            </span>
           </div>
         </div>
         {currentUserId &&
@@ -1208,22 +1198,7 @@ export default function HallPage() {
                   Anything can show up here.
                 </p>
               </div>
-              <div className="ui-tab-list">
-                {hallTabs.map((tab) => {
-                  const isActive = activeTab === tab.id;
-                  return (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      className={`ui-tab ${isActive ? "ui-tab-active" : ""}`}
-                      onClick={() => setActiveTab(tab.id)}
-                      aria-pressed={isActive}
-                    >
-                      {tab.label}
-                    </button>
-                  );
-                })}
-              </div>
+              <div />
             </div>
 
             <div className="ui-card p-4 sm:p-5">
