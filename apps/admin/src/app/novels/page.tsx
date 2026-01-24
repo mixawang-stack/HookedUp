@@ -459,9 +459,16 @@ export default function AdminNovelsPage() {
           <div className="absolute inset-0" onClick={() => setDrawerOpen(false)} />
           <div className="relative h-full w-full max-w-xl overflow-y-auto border-l border-white/10 bg-slate-950 p-8 shadow-[0_0_100px_rgba(0,0,0,0.8)]">
             <div className="flex items-center justify-between border-b border-white/10 pb-6">
-              <h2 className="text-xl font-semibold">
-                {selectedNovel ? "Novel Operations" : "New Novel Entry"}
-              </h2>
+              <div>
+                <h2 className="text-xl font-semibold">
+                  {selectedNovel ? "Novel Operations" : "New Novel Entry"}
+                </h2>
+                {selectedNovel?.id && (
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    ID: {selectedNovel.id}
+                  </p>
+                )}
+              </div>
               <button
                 type="button"
                 className="rounded-full border border-white/20 px-4 py-1.5 text-xs text-slate-300 hover:text-white"
