@@ -982,80 +982,53 @@ export default function HallPage() {
             {normalizeTraceContent(trace.content)}
           </p>
         )}
-        <div className="mt-4 flex items-center justify-between">
-          {/* Replies icon - Chat bubble with notification badge */}
-          <div className="flex items-center gap-2 group relative text-brand-primary">
-            <div className="relative">
+        <div className="mt-4 flex items-center gap-4 text-text-muted">
+          <div className="inline-flex items-center gap-2 text-sm opacity-70 transition hover:opacity-100">
+            <span className="flex h-9 w-9 items-center justify-center">
               <svg
-                className="w-6 h-6 transition-all duration-200 group-hover:scale-110"
+                className="h-5 w-5"
                 viewBox="0 0 24 24"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
               >
-                {/* Yellow rounded chat bubble */}
                 <path
                   d="M20 2H4C2.9 2 2 2.9 2 4V12C2 13.1 2.9 14 4 14H6L8 18L12 14H20C21.1 14 22 13.1 22 12V4C22 2.9 21.1 2 20 2Z"
-                  fill="currentColor"
-                  className="transition-colors"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinejoin="round"
                 />
-                {/* Chat bubble tail */}
                 <path
                   d="M6 14L4 18L6 16H8V14H6Z"
-                  fill="currentColor"
-                  className="transition-colors"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinejoin="round"
                 />
-                {/* Three dots (typing indicator) */}
-                <circle cx="9" cy="7" r="1.2" fill="currentColor" className="text-card" />
-                <circle cx="12" cy="7" r="1.2" fill="currentColor" className="text-card" />
-                <circle cx="15" cy="7" r="1.2" fill="currentColor" className="text-card" />
+                <circle cx="9" cy="7" r="1.2" fill="currentColor" />
+                <circle cx="12" cy="7" r="1.2" fill="currentColor" />
+                <circle cx="15" cy="7" r="1.2" fill="currentColor" />
               </svg>
-              {/* Red notification badge with number - animated */}
-              {trace.replyCount > 0 && (
-                <div className="absolute -top-1 -right-1">
-                  <svg
-                    className="w-5 h-5 animate-pulse"
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <circle cx="10" cy="10" r="9" fill="currentColor" />
-                    <text
-                      x="10"
-                      y="13.5"
-                      textAnchor="middle"
-                      fill="currentColor"
-                      className="text-card"
-                      fontSize="10"
-                      fontWeight="bold"
-                      fontFamily="system-ui, -apple-system, sans-serif"
-                    >
-                      {trace.replyCount > 9 ? "9+" : trace.replyCount}
-                    </text>
-                  </svg>
-                </div>
-              )}
-            </div>
-            <span className="text-xs text-text-muted group-hover:text-text-secondary transition-colors font-medium">
-              {trace.replyCount}
             </span>
+            <span className="text-sm">{trace.replyCount}</span>
           </div>
-          <div className="flex items-center gap-2 group relative">
-            <button
-              type="button"
-              className={`group relative flex h-7 w-7 items-center justify-center rounded-full border border-transparent transition hover:scale-110 ${
-                trace.likedByMe ? "text-brand-primary" : "text-brand-secondary"
-              }`}
-              onClick={(event) => {
-                event.stopPropagation();
-                toggleLike(trace.id);
-              }}
-              aria-label="Toggle like"
-            >
+          <button
+            type="button"
+            className={`inline-flex items-center gap-2 text-sm opacity-70 transition hover:opacity-100 ${
+              trace.likedByMe ? "text-brand-primary" : "text-brand-secondary"
+            }`}
+            onClick={(event) => {
+              event.stopPropagation();
+              toggleLike(trace.id);
+            }}
+            aria-label="Toggle like"
+          >
+            <span className="flex h-9 w-9 items-center justify-center">
               <svg
-                className="h-5 w-5 transition-colors"
+                className="h-5 w-5"
                 viewBox="0 0 24 24"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
               >
                 <path
                   d="M12 20.5c-5.05-3.62-8.5-6.7-8.5-10.6 0-2.3 1.74-4.1 4.06-4.1 1.62 0 3.18.9 4.44 2.38 1.26-1.48 2.82-2.38 4.44-2.38 2.32 0 4.06 1.8 4.06 4.1 0 3.9-3.45 6.98-8.5 10.6z"
@@ -1064,41 +1037,9 @@ export default function HallPage() {
                   strokeWidth="1.6"
                 />
               </svg>
-              {(trace.likeCount ?? 0) > 0 && (
-                <div className="absolute -top-1 -right-1">
-                  <svg
-                    className="w-5 h-5"
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <circle
-                      cx="10"
-                      cy="10"
-                      r="9"
-                      fill="currentColor"
-                      className="text-brand-primary"
-                    />
-                    <text
-                      x="10"
-                      y="13.5"
-                      textAnchor="middle"
-                      fill="currentColor"
-                      className="text-card"
-                      fontSize="10"
-                      fontWeight="bold"
-                      fontFamily="system-ui, -apple-system, sans-serif"
-                    >
-                      {(trace.likeCount ?? 0) > 9 ? "9+" : trace.likeCount}
-                    </text>
-                  </svg>
-                </div>
-              )}
-            </button>
-            <span className="text-xs text-text-muted group-hover:text-text-secondary transition-colors font-medium">
-              {trace.likeCount ?? 0}
             </span>
-          </div>
+            <span className="text-sm">{trace.likeCount ?? 0}</span>
+          </button>
         </div>
         {currentUserId &&
           trace.author?.id &&

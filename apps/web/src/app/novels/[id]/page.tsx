@@ -120,6 +120,7 @@ export default function NovelDetailPage() {
     .split(/\n\s*\n/g)
     .map((paragraph) => paragraph.trim())
     .filter((paragraph) => paragraph.length > 0);
+  const likeCount = novel?.favoriteCount ?? 0;
 
   return (
     <main className="ui-page">
@@ -148,31 +149,110 @@ export default function NovelDetailPage() {
                   <div className="sticky top-[140px] flex flex-col gap-3">
                     <button
                       type="button"
-                      className="flex items-center gap-2 rounded-full border border-border-default bg-card px-3 py-2 text-xs text-text-secondary transition hover:text-text-primary"
+                      className={`flex items-center gap-2 rounded-full px-3 py-2 text-sm transition hover:bg-surface ${
+                        novel?.myReaction === "LIKE"
+                          ? "text-brand-primary"
+                          : "text-text-muted hover:text-text-primary"
+                      }`}
                       onClick={() => handleReaction("LIKE")}
                       disabled={reactionLoading}
                       title="More like this"
                     >
-                      <span aria-hidden="true">♥</span>
+                      <svg
+                        className="h-5 w-5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M12 20.5c-5.05-3.62-8.5-6.7-8.5-10.6 0-2.3 1.74-4.1 4.06-4.1 1.62 0 3.18.9 4.44 2.38 1.26-1.48 2.82-2.38 4.44-2.38 2.32 0 4.06 1.8 4.06 4.1 0 3.9-3.45 6.98-8.5 10.6z"
+                          fill={
+                            novel?.myReaction === "LIKE" ? "currentColor" : "none"
+                          }
+                          stroke="currentColor"
+                          strokeWidth="1.4"
+                        />
+                      </svg>
                       <span>Like</span>
                     </button>
                     <button
                       type="button"
-                      className="flex items-center gap-2 rounded-full border border-border-default bg-card px-3 py-2 text-xs text-text-secondary transition hover:text-text-primary"
+                      className={`flex items-center gap-2 rounded-full px-3 py-2 text-sm transition hover:bg-surface ${
+                        novel?.myReaction === "DISLIKE"
+                          ? "text-text-primary"
+                          : "text-text-muted hover:text-text-primary"
+                      }`}
                       onClick={() => handleReaction("DISLIKE")}
                       disabled={reactionLoading}
                       title="Show me less"
                     >
-                      <span aria-hidden="true">×</span>
+                      <svg
+                        className="h-5 w-5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M14 10V4a2 2 0 0 0-2-2l-1 5-4 4v7h7a2 2 0 0 0 2-2v-4.5l2.5-.5c.8-.2 1.5-.9 1.5-1.8V9h-6Z"
+                          fill={
+                            novel?.myReaction === "DISLIKE"
+                              ? "currentColor"
+                              : "none"
+                          }
+                          stroke="currentColor"
+                          strokeWidth="1.4"
+                          strokeLinejoin="round"
+                        />
+                        <path
+                          d="M3 10h3v8H3z"
+                          fill={
+                            novel?.myReaction === "DISLIKE"
+                              ? "currentColor"
+                              : "none"
+                          }
+                          stroke="currentColor"
+                          strokeWidth="1.4"
+                        />
+                      </svg>
                       <span>Not for me</span>
                     </button>
                     <button
                       type="button"
-                      className="flex items-center gap-2 rounded-full border border-border-default bg-card px-3 py-2 text-xs text-text-secondary transition hover:text-text-primary"
+                      className="flex items-center gap-2 rounded-full px-3 py-2 text-sm text-text-muted transition hover:bg-surface hover:text-text-primary"
                       onClick={handleShare}
                       title="Send a taste"
                     >
-                      <span aria-hidden="true">↗</span>
+                      <svg
+                        className="h-5 w-5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M14 4h6v6"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <path
+                          d="M10 14L20 4"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <path
+                          d="M20 13v5a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
                       <span>Share</span>
                     </button>
                   </div>
@@ -238,32 +318,101 @@ export default function NovelDetailPage() {
         <div className="ui-container flex items-center justify-around py-2 text-xs text-text-secondary">
           <button
             type="button"
-            className="flex items-center gap-1 px-3 py-2"
+            className={`flex flex-col items-center gap-1 px-3 py-2 transition ${
+              novel?.myReaction === "LIKE"
+                ? "text-brand-primary"
+                : "text-text-muted"
+            }`}
             onClick={() => handleReaction("LIKE")}
             disabled={reactionLoading}
             title="More like this"
           >
-            <span aria-hidden="true">♥</span>
-            <span>Like</span>
+            <svg
+              className="h-5 w-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                d="M12 20.5c-5.05-3.62-8.5-6.7-8.5-10.6 0-2.3 1.74-4.1 4.06-4.1 1.62 0 3.18.9 4.44 2.38 1.26-1.48 2.82-2.38 4.44-2.38 2.32 0 4.06 1.8 4.06 4.1 0 3.9-3.45 6.98-8.5 10.6z"
+                fill={novel?.myReaction === "LIKE" ? "currentColor" : "none"}
+                stroke="currentColor"
+                strokeWidth="1.4"
+              />
+            </svg>
+            <span className="text-[10px] font-semibold text-text-secondary">
+              {likeCount}
+            </span>
           </button>
           <button
             type="button"
-            className="flex items-center gap-1 px-3 py-2"
+            className={`flex flex-col items-center gap-1 px-3 py-2 transition ${
+              novel?.myReaction === "DISLIKE"
+                ? "text-brand-secondary"
+                : "text-text-muted"
+            }`}
             onClick={() => handleReaction("DISLIKE")}
             disabled={reactionLoading}
             title="Show me less"
           >
-            <span aria-hidden="true">×</span>
-            <span>Not for me</span>
+            <svg
+              className="h-5 w-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                d="M14 10V4a2 2 0 0 0-2-2l-1 5-4 4v7h7a2 2 0 0 0 2-2v-4.5l2.5-.5c.8-.2 1.5-.9 1.5-1.8V9h-6Z"
+                fill={novel?.myReaction === "DISLIKE" ? "currentColor" : "none"}
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M3 10h3v8H3z"
+                fill={novel?.myReaction === "DISLIKE" ? "currentColor" : "none"}
+                stroke="currentColor"
+                strokeWidth="1.4"
+              />
+            </svg>
           </button>
           <button
             type="button"
-            className="flex items-center gap-1 px-3 py-2"
+            className="flex flex-col items-center gap-1 px-3 py-2 text-text-muted transition hover:text-text-primary"
             onClick={handleShare}
             title="Send a taste"
           >
-            <span aria-hidden="true">↗</span>
-            <span>Share</span>
+            <svg
+              className="h-5 w-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                d="M14 4h6v6"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M10 14L20 4"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M20 13v5a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
           </button>
         </div>
       </div>
