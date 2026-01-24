@@ -401,13 +401,13 @@ export default function AdminNovelsPage() {
                   <div className="mt-3 flex items-center justify-between">
                   <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
                     <span>{novel._count?.chapters ?? 0} Chapters</span>
-                    <span>â€?/span>
+                    <span>éˆ¥?/span>
                     <span>{novel.viewCount ?? 0} Reads</span>
-                    <span>â€?/span>
+                    <span>éˆ¥?/span>
                     <span>{novel.favoriteCount ?? 0} Likes</span>
-                    <span>â€?/span>
+                    <span>éˆ¥?/span>
                     <span>{novel.dislikeCount ?? 0} Dislikes</span>
-                    <span>â€?/span>
+                    <span>éˆ¥?/span>
                     <span>{novel.room?._count?.memberships ?? 0} Room Members</span>
                   </div>
                   <div className="flex items-center gap-2 opacity-0 transition group-hover:opacity-100">
@@ -498,7 +498,7 @@ export default function AdminNovelsPage() {
                     />
                     {coverFile && (
                       <p className="mt-2 text-[10px] text-slate-500">
-                        Selected: {coverFile.name} Â·{" "}
+                        Selected: {coverFile.name} è·¯{" "}
                         {(coverFile.size / (1024 * 1024)).toFixed(2)} MB
                       </p>
                     )}
