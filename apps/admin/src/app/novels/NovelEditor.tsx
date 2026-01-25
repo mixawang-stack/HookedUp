@@ -20,6 +20,10 @@ type NovelItem = {
   authorName: string | null;
   language: string | null;
   autoHallPost?: boolean;
+  parseStatus?: "PENDING" | "PARSED" | "FAILED";
+  parseError?: string | null;
+  needsChapterReview?: boolean;
+  contentRawText?: string | null;
 };
 
 type ChapterItem = {
@@ -65,6 +69,7 @@ export default function NovelEditor({ novelId }: Props) {
   const [token, setToken] = useState<string | null>(null);
   const [selectedNovel, setSelectedNovel] = useState<NovelItem | null>(null);
   const [chapters, setChapters] = useState<ChapterItem[]>([]);
+  const [fullText, setFullText] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [step, setStep] = useState(1);
 
@@ -96,19 +101,14 @@ export default function NovelEditor({ novelId }: Props) {
 
   const loadNovel = async (id: string) => {
     if (!authHeader) return;
-    const res = await fetch(`${API_BASE}/admin/novels`, {
+    const res = await fetch(`${API_BASE}/admin/novels/${id}`, {
       headers: { ...authHeader }
     });
     if (!res.ok) {
-      setStatus("Failed to load novels.");
-      return;
-    }
-    const data = (await res.json()) as NovelItem[];
-    const found = data.find((item) => item.id === id) ?? null;
-    if (!found) {
       setStatus("Novel not found.");
       return;
     }
+    const found = (await res.json()) as NovelItem;
     setSelectedNovel(found);
     setTitle(found.title);
     setCoverImageUrl(found.coverImageUrl ?? "");
@@ -118,6 +118,7 @@ export default function NovelEditor({ novelId }: Props) {
     setCategory(found.category ?? "DRAMA");
     setIsFeatured(found.isFeatured);
     setAutoPostHall(found.autoHallPost ?? true);
+    setFullText(found.contentRawText ?? "");
   };
 
   const loadChapters = async (id: string) => {
@@ -188,7 +189,7 @@ export default function NovelEditor({ novelId }: Props) {
       form.append("asAttachmentOnly", "true");
     }
     try {
-      const res = await fetch(`${API_BASE}/admin/novels/${id}/content`, {
+      const res = await fetch(`${API_BASE}/admin/novels/${id}/upload`, {
         method: "POST",
         headers: { ...authHeader },
         cache: "no-store",
@@ -204,6 +205,7 @@ export default function NovelEditor({ novelId }: Props) {
       );
       setContentFile(null);
       await loadChapters(id);
+      await loadNovel(id);
       return true;
     } finally {
       setContentUploading(false);
@@ -305,6 +307,91 @@ export default function NovelEditor({ novelId }: Props) {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleChapterChange = (index: number, field: "title" | "content", value: string) => {
+    setChapters((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
+  };
+
+  const handleSaveChapter = async (chapter: ChapterItem) => {
+    if (!authHeader || !selectedNovel) return;
+    const res = await fetch(
+      `${API_BASE}/admin/novels/${selectedNovel.id}/chapters/${chapter.id}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader
+        },
+        body: JSON.stringify({
+          title: chapter.title,
+          content: chapter.content,
+          orderIndex: chapter.orderIndex,
+          isFree: chapter.isFree,
+          isPublished: chapter.isPublished
+        })
+      }
+    );
+    if (!res.ok) {
+      setStatus("Failed to save chapter.");
+      return;
+    }
+    await loadChapters(selectedNovel.id);
+  };
+
+  const handleAddChapter = async () => {
+    if (!authHeader || !selectedNovel) return;
+    const orderIndex = chapters.length + 1;
+    const res = await fetch(`${API_BASE}/admin/novels/${selectedNovel.id}/chapters`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeader
+      },
+      body: JSON.stringify({
+        title: `Chapter ${orderIndex}`,
+        content: "",
+        orderIndex,
+        isFree: true,
+        isPublished: true
+      })
+    });
+    if (!res.ok) {
+      setStatus("Failed to add chapter.");
+      return;
+    }
+    await loadChapters(selectedNovel.id);
+  };
+
+  const handleDeleteChapter = async (chapterId: string) => {
+    if (!authHeader || !selectedNovel) return;
+    const res = await fetch(
+      `${API_BASE}/admin/novels/${selectedNovel.id}/chapters/${chapterId}`,
+      {
+        method: "DELETE",
+        headers: { ...authHeader }
+      }
+    );
+    if (!res.ok) {
+      setStatus("Failed to delete chapter.");
+      return;
+    }
+    await loadChapters(selectedNovel.id);
+  };
+
+  const handleMoveChapter = async (index: number, direction: "up" | "down") => {
+    if (!authHeader || !selectedNovel) return;
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= chapters.length) return;
+    const current = chapters[index];
+    const target = chapters[targetIndex];
+    await handleSaveChapter({ ...current, orderIndex: target.orderIndex });
+    await handleSaveChapter({ ...target, orderIndex: current.orderIndex });
+    await loadChapters(selectedNovel.id);
   };
 
   const steps = [
@@ -542,31 +629,99 @@ export default function NovelEditor({ novelId }: Props) {
 
       {step === 3 && (
         <section className="mt-8 space-y-6">
-          <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-6">
-            <h2 className="text-sm font-semibold text-slate-200">Content preview</h2>
-            {chapters.length === 0 ? (
-              <p className="mt-4 text-sm text-slate-500">
-                No chapters parsed yet.
-              </p>
-            ) : (
-              <div className="mt-4 max-h-[70vh] overflow-y-auto rounded-xl border border-white/5 bg-slate-950/60 p-4">
-                {chapters.map((chapter) => (
-                  <div key={chapter.id} className="border-b border-white/5 py-4">
-                    <div className="flex items-center justify-between text-xs text-slate-200">
-                      <span>
-                        {chapter.orderIndex}. {chapter.title}
-                      </span>
-                      <span className="text-[10px] text-slate-500">
-                        {chapter.isFree ? "Free" : "Locked"}
-                      </span>
-                    </div>
-                    <p className="mt-3 whitespace-pre-wrap text-sm text-slate-300">
-                      {chapter.content}
-                    </p>
-                  </div>
-                ))}
+          <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
+            <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-slate-200">
+                  Extracted full text
+                </h2>
+                {selectedNovel?.needsChapterReview && (
+                  <span className="text-[10px] text-amber-300">
+                    Needs review
+                  </span>
+                )}
               </div>
-            )}
+              <textarea
+                className="mt-4 h-[60vh] w-full rounded-xl border border-white/10 bg-slate-900/60 p-4 text-xs text-slate-200"
+                value={fullText}
+                readOnly
+              />
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-slate-200">
+                  Chapters editor
+                </h2>
+                <button
+                  type="button"
+                  className="rounded-full border border-white/20 px-3 py-1 text-[10px] text-slate-200"
+                  onClick={handleAddChapter}
+                >
+                  + Add chapter
+                </button>
+              </div>
+              {chapters.length === 0 ? (
+                <p className="mt-4 text-sm text-slate-500">
+                  No chapters parsed yet.
+                </p>
+              ) : (
+                <div className="mt-4 max-h-[60vh] space-y-4 overflow-y-auto">
+                  {chapters.map((chapter, index) => (
+                    <div key={chapter.id} className="rounded-xl border border-white/10 p-4">
+                      <div className="flex items-center justify-between text-xs text-slate-200">
+                        <span>Order {chapter.orderIndex}</span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            className="rounded-full border border-white/10 px-2 py-0.5 text-[10px]"
+                            onClick={() => handleMoveChapter(index, "up")}
+                          >
+                            Up
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded-full border border-white/10 px-2 py-0.5 text-[10px]"
+                            onClick={() => handleMoveChapter(index, "down")}
+                          >
+                            Down
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded-full border border-rose-500/30 px-2 py-0.5 text-[10px] text-rose-300"
+                            onClick={() => handleDeleteChapter(chapter.id)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                      <input
+                        className="mt-3 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-xs text-slate-100"
+                        value={chapter.title}
+                        onChange={(event) =>
+                          handleChapterChange(index, "title", event.target.value)
+                        }
+                      />
+                      <textarea
+                        className="mt-3 h-32 w-full rounded-lg border border-white/10 bg-slate-900/60 p-3 text-xs text-slate-100"
+                        value={chapter.content}
+                        onChange={(event) =>
+                          handleChapterChange(index, "content", event.target.value)
+                        }
+                      />
+                      <div className="mt-3 flex justify-end">
+                        <button
+                          type="button"
+                          className="rounded-full border border-white/20 px-3 py-1 text-[10px] text-slate-200"
+                          onClick={() => handleSaveChapter(chapter)}
+                        >
+                          Save chapter
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex items-center justify-between">
             <button

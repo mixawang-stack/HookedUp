@@ -25,7 +25,6 @@ type NovelPreview = {
   chapters: Array<{
     id: string;
     title: string;
-    content: string;
     orderIndex: number;
     isFree: boolean;
     isPublished: boolean;
@@ -42,6 +41,7 @@ export default function NovelDetailPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [reactionLoading, setReactionLoading] = useState(false);
   const [activeChapterIndex, setActiveChapterIndex] = useState(0);
+  const [chapterContent, setChapterContent] = useState<string>("");
 
   const authHeader = useMemo(
     () => (token ? { Authorization: `Bearer ${token}` } : null),
@@ -82,6 +82,26 @@ export default function NovelDetailPage() {
     }
     setActiveChapterIndex(0);
   }, [novel?.chapters]);
+
+  useEffect(() => {
+    const active = novel?.chapters?.[activeChapterIndex];
+    if (!active) {
+      setChapterContent("");
+      return;
+    }
+    const loadChapter = async () => {
+      const res = await fetch(`${API_BASE}/chapters/${active.id}`, {
+        headers: authHeader ? { ...authHeader } : undefined
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setChapterContent("");
+        return;
+      }
+      setChapterContent(body?.content ?? "");
+    };
+    loadChapter().catch(() => setChapterContent(""));
+  }, [activeChapterIndex, novel?.chapters, authHeader]);
 
   const handleReaction = async (type: "LIKE" | "DISLIKE") => {
     if (!authHeader) {
@@ -134,7 +154,7 @@ export default function NovelDetailPage() {
 
   const chapters = novel?.chapters ?? [];
   const activeChapter = chapters[activeChapterIndex] ?? null;
-  const readingText = activeChapter?.content ?? "";
+  const readingText = chapterContent ?? "";
   const likeCount = novel?.favoriteCount ?? 0;
   const shouldShowAttachment = novel?.contentSourceType === "PDF" && novel.attachmentUrl;
 

@@ -9,12 +9,13 @@ import {
 } from "@prisma/client";
 import * as argon2 from "argon2";
 import { randomBytes } from "crypto";
-import { readFileSync } from "fs";
 import { readFile } from "fs/promises";
 import path from "path";
 import mammoth from "mammoth";
 import pdfParse from "pdf-parse";
 import WordExtractor from "word-extractor";
+import { readFileSync } from "fs";
+import wordListPath from "word-list";
 import wordListPath from "word-list";
 import * as chardet from "chardet";
 import * as iconv from "iconv-lite";
@@ -25,6 +26,12 @@ import { API_PUBLIC_BASE_URL } from "../auth/auth.constants";
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
+const ENGLISH_WORD_SET = new Set(
+  readFileSync(wordListPath, "utf8")
+    .split("\n")
+    .map((word) => word.trim().toLowerCase())
+    .filter(Boolean)
+);
 const ENGLISH_WORD_SET = new Set(
   readFileSync(wordListPath, "utf8")
     .split("\n")
@@ -55,6 +62,16 @@ export class NovelsService {
             _count: { select: { memberships: true } }
           }
         }
+      }
+    });
+  }
+
+  async getAdminNovel(role: string, id: string) {
+    this.ensureAdmin(role);
+    return this.prisma.novel.findUnique({
+      where: { id },
+      include: {
+        _count: { select: { chapters: true } }
       }
     });
   }
@@ -254,7 +271,7 @@ export class NovelsService {
 
     const novel = await this.prisma.novel.findUnique({
       where: { id: novelId },
-      select: { id: true, title: true, chapterCount: true, wordCount: true }
+      select: { id: true, title: true }
     });
     if (!novel) {
       throw new BadRequestException("NOVEL_NOT_FOUND");
@@ -266,88 +283,97 @@ export class NovelsService {
       sourceTypeInput
     );
 
-    const attachmentUrl =
-      inferredType === "PDF"
-        ? `${API_PUBLIC_BASE_URL}/uploads/${file.filename}`
-        : null;
-
-    if (inferredType === "PDF") {
-      if (!asAttachmentOnly) {
-        throw new BadRequestException("PDF_CONTENT_UNSUPPORTED");
+    const attachmentUrl = `${API_PUBLIC_BASE_URL}/uploads/${file.filename}`;
+    const novelFile = await this.prisma.novelFile.create({
+      data: {
+        id: randomBytes(16).toString("hex"),
+        novelId,
+        fileUrl: attachmentUrl,
+        fileType: inferredType
       }
-      await this.prisma.novel.update({
-        where: { id: novelId },
-        data: {
-          contentSourceType: "PDF",
-          attachmentUrl: attachmentUrl ?? undefined
-        }
-      });
-      return {
-        chapterCount: novel.chapterCount ?? 0,
-        wordCount: novel.wordCount ?? 0,
-        previewChapters: []
-      };
-    }
-
-    const buffer = await readFile(file.path);
-    const parsed = await this.parseNovelFile(
-      buffer,
-      file.originalname,
-      file.mimetype,
-      inferredType,
-      novel.title,
-      file.path
-    );
-
-    if (parsed.chapters.length === 0 && parsed.rawText) {
-      parsed.chapters = [
-        {
-          title: novel.title?.trim() || "Chapter 1",
-          content: parsed.rawText.trim()
-        }
-      ];
-    }
-    if (parsed.chapters.length === 0) {
-      throw new BadRequestException("CONTENT_PARSE_FAILED");
-    }
-
-    const nextSourceType: NovelSourceType =
-      parsed.sourceType === "MD" ? "MARKDOWN" : "TEXT";
-
-    await this.prisma.$transaction(async (tx) => {
-      await tx.novelChapter.deleteMany({ where: { novelId } });
-      await tx.novelChapter.createMany({
-        data: parsed.chapters.map((chapter, index) => ({
-          novelId,
-          title: chapter.title,
-          content: chapter.content,
-          orderIndex: index + 1,
-          isFree: true,
-          isPublished: true
-        }))
-      });
-      await tx.novel.update({
-        where: { id: novelId },
-        data: {
-          contentSourceType: parsed.sourceType,
-          contentRawText: parsed.rawText || null,
-          chapterCount: parsed.chapters.length,
-          wordCount: parsed.wordCount,
-          attachmentUrl: null,
-          sourceType: nextSourceType
-        }
-      });
     });
 
-    return {
-      chapterCount: parsed.chapters.length,
-      wordCount: parsed.wordCount,
-      previewChapters: parsed.chapters.slice(0, 2).map((chapter, index) => ({
-        index: index + 1,
-        title: chapter.title,
-        content: chapter.content.slice(0, 300)
-      }))
-    };
+    try {
+      const buffer = await readFile(file.path);
+      const extractedText = await this.extractTextFromFile(
+        buffer,
+        file.path,
+        inferredType,
+        file.mimetype
+      );
+      if (!extractedText.trim()) {
+        throw new BadRequestException("CONTENT_PARSE_FAILED");
+      }
+
+      const repairedText =
+        inferredType === "DOC" ? this.fixCollapsedWords(extractedText) : extractedText;
+      const cleanedText = this.cleanText(repairedText);
+      const autoChapters = this.autoSplitChapters(cleanedText);
+      const needsChapterReview = autoChapters.length < 2;
+      const chapters =
+        autoChapters.length > 0
+          ? autoChapters
+          : [this.buildSingleChapter(cleanedText, novel.title)];
+
+      const nextSourceType: NovelSourceType =
+        inferredType === "MD" ? "MARKDOWN" : "TEXT";
+
+      await this.prisma.$transaction(async (tx) => {
+        await tx.novelChapter.deleteMany({ where: { novelId } });
+        await tx.novelChapter.createMany({
+          data: chapters.map((chapter, index) => ({
+            novelId,
+            title: chapter.title,
+            content: chapter.content,
+            contentRaw: chapter.content,
+            contentClean: chapter.content,
+            orderIndex: index + 1,
+            wordCount: this.countWords(chapter.content),
+            isFree: true,
+            isPublished: true
+          }))
+        });
+        await tx.novel.update({
+          where: { id: novelId },
+          data: {
+            contentSourceType: inferredType,
+            contentRawText: cleanedText,
+            chapterCount: chapters.length,
+            wordCount: this.countWords(cleanedText),
+            attachmentUrl: inferredType === "PDF" ? attachmentUrl : null,
+            sourceType: nextSourceType,
+            parseStatus: "PARSED",
+            parseError: null,
+            needsChapterReview
+          }
+        });
+        await tx.novelFile.update({
+          where: { id: novelFile.id },
+          data: { parseStatus: "PARSED", parseError: null }
+        });
+      });
+
+      return {
+        parseStatus: "PARSED",
+        chapterCount: chapters.length,
+        needsChapterReview,
+        previewChapters: chapters.slice(0, 2).map((chapter, index) => ({
+          index: index + 1,
+          title: chapter.title,
+          content: chapter.content.slice(0, 300)
+        }))
+      };
+    } catch (error) {
+      await this.prisma.novel.update({
+        where: { id: novelId },
+        data: { parseStatus: "FAILED", parseError: String(error) }
+      });
+      await this.prisma.novelFile.update({
+        where: { id: novelFile.id },
+        data: { parseStatus: "FAILED", parseError: String(error) }
+      });
+      throw error;
+    }
   }
 
   async listAdminChapters(role: string, novelId: string) {
@@ -356,6 +382,52 @@ export class NovelsService {
       where: { novelId },
       orderBy: { orderIndex: "asc" }
     });
+  }
+
+  async rebuildAdminChapters(role: string, novelId: string) {
+    this.ensureAdmin(role);
+    const novel = await this.prisma.novel.findUnique({
+      where: { id: novelId },
+      select: { contentRawText: true }
+    });
+    if (!novel?.contentRawText) {
+      throw new BadRequestException("CONTENT_NOT_FOUND");
+    }
+    const cleanedText = this.cleanText(novel.contentRawText);
+    const autoChapters = this.autoSplitChapters(cleanedText);
+    const chapters =
+      autoChapters.length > 0
+        ? autoChapters
+        : [this.buildSingleChapter(cleanedText)];
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.novelChapter.deleteMany({ where: { novelId } });
+      await tx.novelChapter.createMany({
+        data: chapters.map((chapter, index) => ({
+          novelId,
+          title: chapter.title,
+          content: chapter.content,
+          contentRaw: chapter.content,
+          contentClean: chapter.content,
+          orderIndex: index + 1,
+          wordCount: this.countWords(chapter.content),
+          isFree: true,
+          isPublished: true
+        }))
+      });
+      await tx.novel.update({
+        where: { id: novelId },
+        data: {
+          chapterCount: chapters.length,
+          wordCount: this.countWords(cleanedText),
+          needsChapterReview: autoChapters.length < 2,
+          parseStatus: "PARSED",
+          parseError: null
+        }
+      });
+    });
+
+    return { chapterCount: chapters.length };
   }
 
   async createAdminChapter(role: string, novelId: string, dto: AdminChapterDto) {
@@ -386,16 +458,39 @@ export class NovelsService {
     dto: AdminChapterDto
   ) {
     this.ensureAdmin(role);
-    return this.prisma.novelChapter.update({
-      where: { id: chapterId },
-      data: {
-        novelId,
-        title: dto.title.trim(),
-        content: dto.content.trim(),
-        orderIndex: dto.orderIndex,
-        isFree: dto.isFree ?? false,
-        isPublished: dto.isPublished ?? true
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.novelChapter.findUnique({
+        where: { id: chapterId },
+        select: { id: true, contentClean: true }
+      });
+      const cleanContent = dto.content.trim();
+      const updated = await tx.novelChapter.update({
+        where: { id: chapterId },
+        data: {
+          novelId,
+          title: dto.title.trim(),
+          content: cleanContent,
+          contentRaw: cleanContent,
+          contentClean: cleanContent,
+          orderIndex: dto.orderIndex,
+          wordCount: this.countWords(cleanContent),
+          isFree: dto.isFree ?? false,
+          isPublished: dto.isPublished ?? true
+        }
+      });
+      if (existing?.contentClean && existing.contentClean !== cleanContent) {
+        const latestVersion =
+          (await tx.chapterVersion.count({ where: { chapterId } })) + 1;
+        await tx.chapterVersion.create({
+          data: {
+            chapterId,
+            version: latestVersion,
+            contentClean: existing.contentClean,
+            updatedBy: role
+          }
+        });
       }
+      return updated;
     });
   }
 
@@ -719,6 +814,159 @@ export class NovelsService {
       : utf8Text.replace(/\u0000/g, "");
   }
 
+  private async extractTextFromFile(
+    buffer: Buffer,
+    filePath: string,
+    sourceType: NovelContentSourceType,
+    mimeType?: string
+  ) {
+    if (sourceType === "TXT" || sourceType === "MD") {
+      return this.normalizeRawText(this.decodeTextBuffer(buffer, mimeType));
+    }
+    if (sourceType === "DOCX") {
+      const rawResult = await mammoth.extractRawText({ buffer });
+      return this.normalizeRawText(rawResult.value ?? "");
+    }
+    if (sourceType === "DOC") {
+      const extractor = new WordExtractor();
+      const doc = await extractor.extract(filePath ?? buffer);
+      return this.normalizeRawText(doc.getBody() ?? "");
+    }
+    if (sourceType === "PDF") {
+      const parsed = await pdfParse(buffer);
+      return this.normalizeRawText(parsed.text ?? "");
+    }
+    return "";
+  }
+
+  private cleanText(text: string) {
+    const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    const lines = normalized.split("\n");
+    const merged: string[] = [];
+    for (let i = 0; i < lines.length; i += 1) {
+      const line = lines[i].trimEnd();
+      if (!line) {
+        merged.push("");
+        continue;
+      }
+      const nextLine = lines[i + 1] ?? "";
+      if (
+        nextLine &&
+        /^[a-z]/.test(nextLine.trim()) &&
+        !/[.!?\"”’)]$/.test(line)
+      ) {
+        merged.push(`${line} ${nextLine.trim()}`);
+        i += 1;
+        continue;
+      }
+      merged.push(line);
+    }
+    const compressed = merged.join("\n").replace(/\n{3,}/g, "\n\n");
+    return compressed
+      .replace(/([a-zA-Z])([.!?])([A-Za-z])/g, "$1$2 $3")
+      .replace(/([a-zA-Z])([,;:])([A-Za-z])/g, "$1$2 $3")
+      .trim();
+  }
+
+  private fixCollapsedWords(text: string) {
+    return text
+      .split("\n")
+      .map((line) => {
+        const normalized = line.replace(/\s*\|\s*/g, " | ");
+        if (normalized.includes(" ")) {
+          return normalized;
+        }
+        return normalized.replace(/[A-Za-z][A-Za-z']{8,}/g, (word) => {
+          const segmented = this.segmentEnglishWord(word);
+          if (!segmented || segmented.length <= 1) return word;
+          let cursor = 0;
+          const rebuilt = segmented.map((segment) => {
+            const part = word.slice(cursor, cursor + segment.length);
+            cursor += segment.length;
+            return part;
+          });
+          return rebuilt.join(" ");
+        });
+      })
+      .join("\n");
+  }
+
+  private segmentEnglishWord(word: string) {
+    const lower = word.toLowerCase();
+    const length = lower.length;
+    const maxWordLength = 20;
+    const best: Array<string[] | null> = Array.from({ length: length + 1 }, () => null);
+    best[0] = [];
+
+    for (let i = 0; i < length; i += 1) {
+      if (!best[i]) continue;
+      for (let j = i + 1; j <= Math.min(length, i + maxWordLength); j += 1) {
+        const chunk = lower.slice(i, j);
+        if (!ENGLISH_WORD_SET.has(chunk)) continue;
+        const candidate = [...(best[i] as string[]), chunk];
+        if (!best[j] || candidate.length < (best[j] as string[]).length) {
+          best[j] = candidate;
+        }
+      }
+    }
+
+    return best[length] ?? [word];
+  }
+
+  private buildSingleChapter(text: string, fallbackTitle?: string) {
+    const lines = text.split("\n");
+    const firstLineIndex = lines.findIndex((line) => line.trim().length > 0);
+    if (firstLineIndex === -1) {
+      return { title: fallbackTitle ?? "Story", content: "" };
+    }
+    const title = lines[firstLineIndex].trim();
+    const content = lines.slice(firstLineIndex + 1).join("\n").trim();
+    return {
+      title: title || fallbackTitle || "Story",
+      content: content.length > 0 ? content : text.trim()
+    };
+  }
+
+  private autoSplitChapters(text: string) {
+    const lines = text.split("\n");
+    const markers: Array<{ index: number; title: string }> = [];
+    const chapterPatterns = [
+      /^(Chapter|CHAPTER)\s+\d+\b/,
+      /^(Chapter|CHAPTER)\s+[IVXLC]+\b/,
+      /^(Part|PART)\s+\d+\b/,
+      /^第\s*\d+\s*章/
+    ];
+    lines.forEach((line, index) => {
+      const trimmed = line.trim();
+      if (!trimmed) return;
+      const prevEmpty = index === 0 || lines[index - 1].trim().length === 0;
+      const nextEmpty =
+        index + 1 >= lines.length || lines[index + 1].trim().length === 0;
+      if (!prevEmpty || !nextEmpty) return;
+      if (chapterPatterns.some((pattern) => pattern.test(trimmed))) {
+        markers.push({ index, title: trimmed });
+      }
+    });
+
+    if (markers.length < 2) {
+      return [];
+    }
+
+    const chapters: Array<{ title: string; content: string }> = [];
+    for (let i = 0; i < markers.length; i += 1) {
+      const start = markers[i].index + 1;
+      const end =
+        i + 1 < markers.length ? markers[i + 1].index : lines.length;
+      const content = lines.slice(start, end).join("\n").trim();
+      if (!content) continue;
+      chapters.push({
+        title: markers[i].title,
+        content
+      });
+    }
+    return chapters;
+  }
+
   private looksLikeValidUtf8(text: string) {
     if (!text) return false;
     const replacementCount = (text.match(/\uFFFD/g) ?? []).length;
@@ -908,8 +1156,11 @@ export class NovelsService {
     });
 
     const chapters = novel.chapters.map((chapter) => ({
-      ...chapter,
-      isLocked: false
+      id: chapter.id,
+      title: chapter.title,
+      orderIndex: chapter.orderIndex,
+      isFree: chapter.isFree,
+      isPublished: chapter.isPublished
     }));
 
     return {
@@ -928,6 +1179,43 @@ export class NovelsService {
       myReaction: reaction?.type ?? null,
       chapters,
       room: novel.room
+    };
+  }
+
+  async listNovelChapters(novelId: string) {
+    const novel = await this.prisma.novel.findUnique({
+      where: { id: novelId },
+      select: { status: true }
+    });
+    if (!novel || novel.status !== "PUBLISHED") {
+      throw new BadRequestException("NOVEL_NOT_FOUND");
+    }
+    return this.prisma.novelChapter.findMany({
+      where: { novelId, isPublished: true },
+      orderBy: { orderIndex: "asc" },
+      select: {
+        id: true,
+        title: true,
+        orderIndex: true,
+        wordCount: true
+      }
+    });
+  }
+
+  async getChapter(chapterId: string) {
+    const chapter = await this.prisma.novelChapter.findUnique({
+      where: { id: chapterId },
+      include: { novel: { select: { status: true, title: true } } }
+    });
+    if (!chapter || chapter.novel.status !== "PUBLISHED") {
+      throw new BadRequestException("CHAPTER_NOT_FOUND");
+    }
+    return {
+      id: chapter.id,
+      novelTitle: chapter.novel.title,
+      title: chapter.title,
+      orderIndex: chapter.orderIndex,
+      content: chapter.contentClean ?? chapter.content
     };
   }
 

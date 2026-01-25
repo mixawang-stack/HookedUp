@@ -123,6 +123,12 @@ enum NovelReactionType {
   DISLIKE
 }
 
+enum NovelParseStatus {
+  PENDING
+  PARSED
+  FAILED
+}
+
 model User {
   id                       String     @id @default(uuid())
   email                    String     @unique
@@ -536,6 +542,9 @@ model Novel {
   attachmentUrl      String?         @db.Text
   wordCount          Int             @default(0)
   chapterCount       Int             @default(0)
+  parseStatus        NovelParseStatus @default(PENDING)
+  parseError         String?         @db.Text
+  needsChapterReview Boolean         @default(false)
   isFeatured         Boolean         @default(false)
   autoHallPost       Boolean         @default(true)
   autoRoom           Boolean         @default(true)
@@ -552,6 +561,8 @@ model Novel {
   updatedAt          DateTime        @updatedAt
 
   chapters  NovelChapter[]
+  files     NovelFile[]
+  splitMarkers ChapterSplitMarker[]
   reactions NovelReaction[]
   hallTrace Trace?         @relation(fields: [hallTraceId], references: [id])
   room      Room?          @relation(fields: [roomId], references: [id])
@@ -577,6 +588,10 @@ model NovelChapter {
   novelId     String
   title       String
   content     String   @db.Text
+  contentRaw  String?  @db.Text
+  contentClean String? @db.Text
+  contentHtml String?  @db.Text
+  wordCount   Int      @default(0)
   orderIndex  Int
   isFree      Boolean  @default(false)
   isPublished Boolean  @default(true)
@@ -584,8 +599,49 @@ model NovelChapter {
   updatedAt   DateTime @updatedAt
 
   novel Novel @relation(fields: [novelId], references: [id], onDelete: Cascade)
+  versions ChapterVersion[]
 
   @@unique([novelId, orderIndex])
+  @@index([novelId])
+}
+
+model NovelFile {
+  id          String          @id @default(uuid())
+  novelId     String
+  fileUrl     String
+  fileType    String
+  parseStatus NovelParseStatus @default(PENDING)
+  parseError  String?         @db.Text
+  createdAt   DateTime        @default(now())
+
+  novel Novel @relation(fields: [novelId], references: [id], onDelete: Cascade)
+
+  @@index([novelId])
+}
+
+model ChapterVersion {
+  id          String   @id @default(uuid())
+  chapterId   String
+  version     Int
+  contentClean String  @db.Text
+  createdAt   DateTime @default(now())
+  updatedBy   String?
+
+  chapter NovelChapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@index([chapterId])
+}
+
+model ChapterSplitMarker {
+  id             String   @id @default(uuid())
+  novelId        String
+  markerPosStart Int
+  markerPosEnd   Int
+  title          String
+  orderIndex     Int
+
+  novel Novel @relation(fields: [novelId], references: [id], onDelete: Cascade)
+
   @@index([novelId])
 }
 

@@ -74,6 +74,16 @@ export class NovelsController {
     return this.novelsService.fullNovel(id, userId);
   }
 
+  @Get("novels/:id/chapters")
+  async listChapters(@Param("id") id: string) {
+    return this.novelsService.listNovelChapters(id);
+  }
+
+  @Get("chapters/:id")
+  async getChapter(@Param("id") id: string) {
+    return this.novelsService.getChapter(id);
+  }
+
   @Get("recommendations")
   async recommend(@Req() req: Request) {
     const header = req.headers.authorization;

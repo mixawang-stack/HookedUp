@@ -73,6 +73,11 @@ export class AdminNovelsController {
     return this.novelsService.listAdminNovels(req.user.role);
   }
 
+  @Get(":id")
+  async get(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
+    return this.novelsService.getAdminNovel(req.user.role, id);
+  }
+
   @Post()
   async create(@Req() req: AuthenticatedRequest, @Body() dto: AdminNovelDto) {
     return this.novelsService.createAdminNovel(req.user.role, dto);
@@ -124,6 +129,11 @@ export class AdminNovelsController {
     return this.novelsService.deleteAdminChapter(req.user.role, chapterId);
   }
 
+  @Post(":id/chapters/rebuild")
+  async rebuildChapters(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
+    return this.novelsService.rebuildAdminChapters(req.user.role, id);
+  }
+
   @Post(":id/pdf")
   @UseInterceptors(pdfUploadInterceptor)
   async uploadPdf(
@@ -142,6 +152,24 @@ export class AdminNovelsController {
   @Post(":id/content")
   @UseInterceptors(contentUploadInterceptor)
   async uploadContent(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") id: string,
+    @Body("sourceType") sourceType?: string,
+    @Body("asAttachmentOnly") asAttachmentOnly?: string
+  ) {
+    const attachmentOnly = asAttachmentOnly === "true";
+    return this.novelsService.uploadAdminContent(
+      req.user.role,
+      id,
+      req.file,
+      sourceType,
+      attachmentOnly
+    );
+  }
+
+  @Post(":id/upload")
+  @UseInterceptors(contentUploadInterceptor)
+  async upload(
     @Req() req: AuthenticatedRequest,
     @Param("id") id: string,
     @Body("sourceType") sourceType?: string,
