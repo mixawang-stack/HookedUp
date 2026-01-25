@@ -650,13 +650,12 @@ export class NovelsService {
       const extractor = new WordExtractor();
       const doc = await extractor.extract(filePath ?? buffer);
       const rawText = this.normalizeRawText(doc.getBody() ?? "");
-      const repairedText = this.repairSpacingIfNeeded(rawText);
-      const chapters = this.extractChaptersFromText(repairedText, fallbackTitle);
+      const chapters = this.extractChaptersFromText(rawText, fallbackTitle);
       return {
         sourceType,
-        rawText: repairedText,
+        rawText,
         chapters,
-        wordCount: this.countWords(repairedText)
+        wordCount: this.countWords(rawText)
       };
     }
 
