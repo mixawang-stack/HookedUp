@@ -119,6 +119,7 @@ export default function NovelEditor({ novelId }: Props) {
     setIsFeatured(found.isFeatured);
     setAutoPostHall(found.autoHallPost ?? true);
     setFullText(found.contentRawText ?? "");
+    return found;
   };
 
   const loadChapters = async (id: string) => {
@@ -131,6 +132,7 @@ export default function NovelEditor({ novelId }: Props) {
     if (!res.ok) return;
     const data = (await res.json()) as ChapterItem[];
     setChapters(data);
+    return data;
   };
 
   useEffect(() => {
@@ -204,8 +206,13 @@ export default function NovelEditor({ novelId }: Props) {
         `Parsed ${data?.chapterCount ?? 0} chapters - ${data?.wordCount ?? 0} words`
       );
       setContentFile(null);
-      await loadChapters(id);
+      const parsedChapters = await loadChapters(id);
       await loadNovel(id);
+      if ((parsedChapters ?? []).length > 0) {
+        setStatus("Parsing completed. You can preview now.");
+      } else {
+        setStatus("Upload succeeded. Parsing may still be running.");
+      }
       return true;
     } finally {
       setContentUploading(false);
@@ -276,6 +283,28 @@ export default function NovelEditor({ novelId }: Props) {
     if (success) {
       setStep(3);
     }
+  };
+
+  const handleSkipToPreview = async () => {
+    if (!selectedNovel) return;
+    let refreshedChapters = chapters;
+    let refreshedNovel = selectedNovel;
+    if (chapters.length === 0) {
+      refreshedChapters = (await loadChapters(selectedNovel.id)) ?? [];
+      refreshedNovel = (await loadNovel(selectedNovel.id)) ?? selectedNovel;
+    }
+    if (refreshedChapters.length === 0) {
+      if (refreshedNovel.parseStatus === "FAILED") {
+        setStatus(
+          refreshedNovel.parseError ??
+            "Parsing failed. Please re-upload or contact support."
+        );
+        return;
+      }
+      setStatus("No chapters parsed yet. Upload and parse a file first.");
+      return;
+    }
+    setStep(3);
   };
 
   const handlePublish = async (nextStatus: "DRAFT" | "PUBLISHED") => {
@@ -613,13 +642,7 @@ export default function NovelEditor({ novelId }: Props) {
             <button
               type="button"
               className="rounded-full border border-white/20 px-6 py-2 text-xs text-slate-200"
-              onClick={() => {
-                if (chapters.length === 0) {
-                  setStatus("No chapters parsed yet. Upload and parse a file first.");
-                  return;
-                }
-                setStep(3);
-              }}
+              onClick={handleSkipToPreview}
             >
               Skip to preview
             </button>
