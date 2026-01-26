@@ -552,6 +552,8 @@ model Novel {
   bookPrice          Decimal?        @db.Decimal(10, 2)
   bookPromoPrice     Decimal?        @db.Decimal(10, 2)
   currency           String          @default("USD") @db.VarChar(8)
+  creemProductId     String?         @db.VarChar(120)
+  paymentLink        String?         @db.Text
   parseStatus        NovelParseStatus @default(PENDING)
   parseError         String?         @db.Text
   needsChapterReview Boolean         @default(false)

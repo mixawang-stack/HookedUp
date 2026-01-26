@@ -28,6 +28,14 @@ type NovelItem = {
   bookPrice?: number | string | null;
   bookPromoPrice?: number | string | null;
   currency?: string | null;
+  creemProductId?: string | null;
+  paymentLink?: string | null;
+  files?: Array<{
+    id: string;
+    fileUrl: string;
+    fileType: string;
+    createdAt: string;
+  }>;
 };
 
 type ChapterItem = {
@@ -101,6 +109,8 @@ export default function NovelEditor({ novelId }: Props) {
   const [bookPrice, setBookPrice] = useState("");
   const [bookPromoPrice, setBookPromoPrice] = useState("");
   const [currency, setCurrency] = useState("USD");
+  const [creemProductId, setCreemProductId] = useState("");
+  const [paymentLink, setPaymentLink] = useState("");
 
   const [contentFile, setContentFile] = useState<File | null>(null);
   const [contentUploading, setContentUploading] = useState(false);
@@ -139,6 +149,8 @@ export default function NovelEditor({ novelId }: Props) {
     setBookPrice(found.bookPrice?.toString() ?? "");
     setBookPromoPrice(found.bookPromoPrice?.toString() ?? "");
     setCurrency(found.currency ?? "USD");
+    setCreemProductId(found.creemProductId ?? "");
+    setPaymentLink(found.paymentLink ?? "");
     if (found.contentRawText !== null && found.contentRawText !== undefined) {
       setFullText(found.contentRawText);
     }
@@ -270,6 +282,8 @@ export default function NovelEditor({ novelId }: Props) {
         bookPrice: parseMoney(bookPrice),
         bookPromoPrice: parseMoney(bookPromoPrice),
         currency: currency.trim() || "USD",
+        creemProductId: creemProductId.trim() || null,
+        paymentLink: paymentLink.trim() || null,
         isFeatured,
         autoHallPost: autoPostHall,
         status: "DRAFT"
@@ -313,7 +327,9 @@ export default function NovelEditor({ novelId }: Props) {
       pricingMode,
       bookPrice: parseMoney(bookPrice),
       bookPromoPrice: parseMoney(bookPromoPrice),
-      currency: currency.trim() || "USD"
+      currency: currency.trim() || "USD",
+      creemProductId: creemProductId.trim() || null,
+      paymentLink: paymentLink.trim() || null
     };
     const res = await fetch(`${API_BASE}/admin/novels/${id}`, {
       method: "PATCH",
@@ -470,7 +486,7 @@ export default function NovelEditor({ novelId }: Props) {
         title: `Chapter ${orderIndex}`,
         content: "",
         orderIndex,
-        isFree: true,
+        isFree: false,
         isPublished: true,
         price: null
       })
@@ -722,6 +738,26 @@ export default function NovelEditor({ novelId }: Props) {
                   />
                 </label>
               </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <label className="text-[11px] text-slate-400">
+                  Creem Product ID
+                  <input
+                    className="mt-2 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-xs text-white"
+                    value={creemProductId}
+                    onChange={(event) => setCreemProductId(event.target.value)}
+                    placeholder="creem_product_id"
+                  />
+                </label>
+                <label className="text-[11px] text-slate-400">
+                  Payment Link
+                  <input
+                    className="mt-2 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-xs text-white"
+                    value={paymentLink}
+                    onChange={(event) => setPaymentLink(event.target.value)}
+                    placeholder="https://..."
+                  />
+                </label>
+              </div>
               {pricingMode === "BOOK" ? (
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   <label className="text-[11px] text-slate-400">
@@ -775,6 +811,12 @@ export default function NovelEditor({ novelId }: Props) {
                 {(contentFile.size / (1024 * 1024)).toFixed(2)} MB
               </p>
             )}
+            {!contentFile && selectedNovel?.files?.length ? (
+              <p className="mt-2 text-[10px] text-slate-500">
+                Last upload: {selectedNovel.files[0].fileUrl.split("/").pop()} (
+                {selectedNovel.files[0].fileType})
+              </p>
+            ) : null}
             <div className="mt-4 flex items-center gap-3">
               <button
                 type="button"

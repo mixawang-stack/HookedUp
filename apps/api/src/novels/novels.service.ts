@@ -65,7 +65,11 @@ export class NovelsService {
     return this.prisma.novel.findUnique({
       where: { id },
       include: {
-        _count: { select: { chapters: true } }
+        _count: { select: { chapters: true } },
+        files: {
+          orderBy: { createdAt: "desc" },
+          take: 1
+        }
       }
     });
   }
@@ -131,6 +135,8 @@ export class NovelsService {
           bookPrice: this.normalizePrice(dto.bookPrice),
           bookPromoPrice: this.normalizePrice(dto.bookPromoPrice),
           currency: dto.currency?.trim().toUpperCase() ?? "USD",
+          creemProductId: dto.creemProductId?.trim() || null,
+          paymentLink: dto.paymentLink?.trim() || null,
           isFeatured: dto.isFeatured ?? false,
           autoHallPost,
           autoRoom,
@@ -247,6 +253,12 @@ export class NovelsService {
               ? this.normalizePrice(dto.bookPromoPrice)
               : undefined,
           currency: dto.currency ? dto.currency.trim().toUpperCase() : undefined,
+          creemProductId:
+            dto.creemProductId !== undefined
+              ? dto.creemProductId.trim() || null
+              : undefined,
+          paymentLink:
+            dto.paymentLink !== undefined ? dto.paymentLink.trim() || null : undefined,
           isFeatured: dto.isFeatured,
           autoHallPost: dto.autoHallPost,
           autoRoom: dto.autoRoom,
@@ -337,7 +349,7 @@ export class NovelsService {
             contentClean: chapter.content,
             orderIndex: index + 1,
             wordCount: this.countWords(chapter.content),
-            isFree: true,
+            isFree: false,
             isPublished: true,
             price: null
           }))
@@ -420,7 +432,7 @@ export class NovelsService {
             contentClean: chapter.content,
             orderIndex: index + 1,
             wordCount: this.countWords(chapter.content),
-            isFree: true,
+            isFree: false,
             isPublished: true,
             price: null
           }))
@@ -1318,6 +1330,8 @@ export class NovelsService {
       bookPrice: novel.bookPrice,
       bookPromoPrice: novel.bookPromoPrice,
       currency: novel.currency,
+      creemProductId: novel.creemProductId,
+      paymentLink: novel.paymentLink,
       myReaction: reaction?.type ?? null,
       chapters: readableChapters,
       lockedChapters,

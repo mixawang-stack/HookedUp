@@ -73,6 +73,14 @@ export class AdminNovelDto {
   currency?: string;
 
   @IsOptional()
+  @IsString()
+  creemProductId?: string;
+
+  @IsOptional()
+  @IsString()
+  paymentLink?: string;
+
+  @IsOptional()
   @IsBoolean()
   isFeatured?: boolean;
 

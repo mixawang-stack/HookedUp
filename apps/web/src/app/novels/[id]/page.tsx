@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 const API_BASE =
@@ -25,6 +25,8 @@ type NovelPreview = {
   bookPrice?: string | number | null;
   bookPromoPrice?: string | number | null;
   currency?: string | null;
+  creemProductId?: string | null;
+  paymentLink?: string | null;
   room?: { id: string; title: string; _count: { memberships: number } } | null;
   chapters: Array<{
     id: string;
@@ -45,11 +47,13 @@ type NovelPreview = {
 export default function NovelDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const novelId = typeof params?.id === "string" ? params.id : "";
   const [token, setToken] = useState<string | null>(null);
   const [novel, setNovel] = useState<NovelPreview | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [reactionLoading, setReactionLoading] = useState(false);
+  const [unlocking, setUnlocking] = useState(false);
 
   const authHeader = useMemo(
     () => (token ? { Authorization: `Bearer ${token}` } : null),
@@ -147,6 +151,23 @@ export default function NovelDetailPage() {
       setNovel(body as NovelPreview);
     }
   };
+
+  useEffect(() => {
+    if (!authHeader || !novelId || !searchParams) return;
+    const paymentSuccess =
+      searchParams.get("payment") === "success" ||
+      searchParams.get("unlock") === "1";
+    if (!paymentSuccess || unlocking) {
+      return;
+    }
+    if (novel?.pricingMode !== "BOOK") {
+      return;
+    }
+    setUnlocking(true);
+    handlePurchaseBook()
+      .catch(() => undefined)
+      .finally(() => setUnlocking(false));
+  }, [authHeader, novelId, searchParams, novel?.pricingMode, unlocking]);
 
   const handlePurchaseBook = async () => {
     if (!authHeader) {
@@ -321,9 +342,6 @@ export default function NovelDetailPage() {
                 </div>
 
                 <section className="mx-auto w-full max-w-[720px]">
-                  <p className="text-xs text-text-muted">
-                    Take your time. This isn't a race.
-                  </p>
                   {chapters.length > 0 ? (
                     <div className="mt-6 space-y-10 text-base leading-8 text-text-primary">
                       {chapters.map((chapter) => (
@@ -367,22 +385,32 @@ export default function NovelDetailPage() {
                   )}
                   {lockedChapters.length > 0 && (
                     <div className="mt-10 rounded-2xl border border-border-default bg-surface p-5 text-sm text-text-secondary">
-                      <p className="font-semibold text-text-primary">
-                        More chapters are locked.
+                      <p className="whitespace-pre-line text-sm text-text-primary">
+                        This is only the beginning.
+                        {"\n"}Unlock the rest of the story to find out what happens next.
                       </p>
                       {novel.pricingMode === "BOOK" ? (
-                        <div className="mt-4 flex flex-wrap items-center gap-3">
-                          <button
-                            type="button"
-                            className="btn-primary px-4 py-2 text-xs"
-                            onClick={handlePurchaseBook}
-                          >
-                            Purchase full book
-                          </button>
-                          <span className="text-xs text-text-muted">
+                        <div className="mt-4 space-y-2">
+                          <p className="text-xs text-text-muted">
                             {novel.bookPromoPrice ?? novel.bookPrice}{" "}
                             {novel.currency ?? "USD"}
-                          </span>
+                          </p>
+                          <p className="text-[11px] text-text-muted">
+                            Taxes will be calculated at checkout.
+                          </p>
+                          <button
+                            type="button"
+                            className="btn-primary mt-2 px-4 py-2 text-xs"
+                            onClick={() => {
+                              if (novel.paymentLink) {
+                                window.open(novel.paymentLink, "_blank");
+                                return;
+                              }
+                              handlePurchaseBook();
+                            }}
+                          >
+                            Unlock more
+                          </button>
                         </div>
                       ) : (
                         <div className="mt-4 space-y-2 text-xs">
@@ -397,10 +425,15 @@ export default function NovelDetailPage() {
                               <button
                                 type="button"
                                 className="rounded-full border border-border-default px-3 py-1 text-[11px]"
-                                onClick={() => handlePurchaseChapter(chapter.id)}
+                                onClick={() => {
+                                  if (novel.paymentLink) {
+                                    window.open(novel.paymentLink, "_blank");
+                                    return;
+                                  }
+                                  handlePurchaseChapter(chapter.id);
+                                }}
                               >
-                                Buy {chapter.price ?? "0.00"}{" "}
-                                {novel.currency ?? "USD"}
+                                Unlock more
                               </button>
                             </div>
                           ))}
