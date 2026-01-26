@@ -1097,6 +1097,7 @@ export class NovelsService {
           where: { novelId_userId: { novelId, userId } }
         })
       : null;
+    const access = await this.resolvePurchaseAccess(novelId, userId);
 
     const access = await this.resolvePurchaseAccess(novelId, userId);
 
