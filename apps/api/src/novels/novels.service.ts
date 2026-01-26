@@ -255,10 +255,16 @@ export class NovelsService {
           currency: dto.currency ? dto.currency.trim().toUpperCase() : undefined,
           creemProductId:
             dto.creemProductId !== undefined
-              ? dto.creemProductId.trim() || null
+              ? dto.creemProductId
+                ? dto.creemProductId.trim()
+                : null
               : undefined,
           paymentLink:
-            dto.paymentLink !== undefined ? dto.paymentLink.trim() || null : undefined,
+            dto.paymentLink !== undefined
+              ? dto.paymentLink
+                ? dto.paymentLink.trim()
+                : null
+              : undefined,
           isFeatured: dto.isFeatured,
           autoHallPost: dto.autoHallPost,
           autoRoom: dto.autoRoom,
