@@ -2,6 +2,7 @@
 import {
   NovelCategory,
   NovelContentSourceType,
+  NovelPricingMode,
   NovelSourceType,
   NovelStatus,
   Prisma,
@@ -126,6 +127,10 @@ export class NovelsService {
           audience: dto.audience ?? "ALL",
           sourceType: dto.sourceType ?? "TEXT",
           category: dto.category ?? "DRAMA",
+          pricingMode: dto.pricingMode ?? "BOOK",
+          bookPrice: this.normalizePrice(dto.bookPrice),
+          bookPromoPrice: this.normalizePrice(dto.bookPromoPrice),
+          currency: dto.currency?.trim().toUpperCase() ?? "USD",
           isFeatured: dto.isFeatured ?? false,
           autoHallPost,
           autoRoom,
@@ -232,6 +237,16 @@ export class NovelsService {
           audience: dto.audience ?? undefined,
           sourceType: dto.sourceType ?? undefined,
           category: dto.category ?? undefined,
+          pricingMode: dto.pricingMode ?? undefined,
+          bookPrice:
+            dto.bookPrice !== undefined
+              ? this.normalizePrice(dto.bookPrice)
+              : undefined,
+          bookPromoPrice:
+            dto.bookPromoPrice !== undefined
+              ? this.normalizePrice(dto.bookPromoPrice)
+              : undefined,
+          currency: dto.currency ? dto.currency.trim().toUpperCase() : undefined,
           isFeatured: dto.isFeatured,
           autoHallPost: dto.autoHallPost,
           autoRoom: dto.autoRoom,
@@ -323,7 +338,8 @@ export class NovelsService {
             orderIndex: index + 1,
             wordCount: this.countWords(chapter.content),
             isFree: true,
-            isPublished: true
+            isPublished: true,
+            price: null
           }))
         });
         await tx.novel.update({
@@ -395,19 +411,20 @@ export class NovelsService {
 
     await this.prisma.$transaction(async (tx) => {
       await tx.novelChapter.deleteMany({ where: { novelId } });
-      await tx.novelChapter.createMany({
-        data: chapters.map((chapter, index) => ({
-          novelId,
-          title: chapter.title,
-          content: chapter.content,
-          contentRaw: chapter.content,
-          contentClean: chapter.content,
-          orderIndex: index + 1,
-          wordCount: this.countWords(chapter.content),
-          isFree: true,
-          isPublished: true
-        }))
-      });
+        await tx.novelChapter.createMany({
+          data: chapters.map((chapter, index) => ({
+            novelId,
+            title: chapter.title,
+            content: chapter.content,
+            contentRaw: chapter.content,
+            contentClean: chapter.content,
+            orderIndex: index + 1,
+            wordCount: this.countWords(chapter.content),
+            isFree: true,
+            isPublished: true,
+            price: null
+          }))
+        });
       await tx.novel.update({
         where: { id: novelId },
         data: {
@@ -432,14 +449,33 @@ export class NovelsService {
     if (!novel) {
       throw new BadRequestException("NOVEL_NOT_FOUND");
     }
+    let orderIndex = dto.orderIndex;
+    if (!Number.isFinite(orderIndex) || orderIndex < 1) {
+      orderIndex = 0;
+    }
+    const existing = orderIndex
+      ? await this.prisma.novelChapter.findFirst({
+          where: { novelId, orderIndex },
+          select: { id: true }
+        })
+      : null;
+    if (!orderIndex || existing) {
+      const last = await this.prisma.novelChapter.findFirst({
+        where: { novelId },
+        orderBy: { orderIndex: "desc" },
+        select: { orderIndex: true }
+      });
+      orderIndex = (last?.orderIndex ?? 0) + 1;
+    }
     return this.prisma.novelChapter.create({
       data: {
         novelId,
         title: dto.title.trim(),
         content: dto.content.trim(),
-        orderIndex: dto.orderIndex,
+        orderIndex,
         isFree: dto.isFree ?? false,
-        isPublished: dto.isPublished ?? true
+        isPublished: dto.isPublished ?? true,
+        price: dto.price !== undefined ? this.normalizePrice(dto.price) : null
       }
     });
   }
@@ -468,7 +504,9 @@ export class NovelsService {
           orderIndex: dto.orderIndex,
           wordCount: this.countWords(cleanContent),
           isFree: dto.isFree ?? false,
-          isPublished: dto.isPublished ?? true
+          isPublished: dto.isPublished ?? true,
+          price:
+            dto.price !== undefined ? this.normalizePrice(dto.price) : undefined
         }
       });
       if (existing?.contentClean && existing.contentClean !== cleanContent) {
@@ -1001,6 +1039,32 @@ export class NovelsService {
     return englishMatches.length + chineseMatches.length;
   }
 
+  private normalizePrice(value?: number | null) {
+    if (value === undefined || value === null) return null;
+    const parsed = typeof value === "string" ? Number(value) : value;
+    if (!Number.isFinite(parsed)) return null;
+    return new Prisma.Decimal(parsed.toFixed(2));
+  }
+
+  private async resolvePurchaseAccess(novelId: string, userId?: string) {
+    if (!userId) {
+      return { hasBookPurchase: false, purchasedChapterIds: new Set<string>() };
+    }
+    const purchases = await this.prisma.novelPurchase.findMany({
+      where: { userId, novelId },
+      select: { chapterId: true, pricingMode: true }
+    });
+    const hasBookPurchase = purchases.some(
+      (purchase) => purchase.pricingMode === "BOOK" && !purchase.chapterId
+    );
+    const purchasedChapterIds = new Set(
+      purchases
+        .map((purchase) => purchase.chapterId)
+        .filter((value): value is string => Boolean(value))
+    );
+    return { hasBookPurchase, purchasedChapterIds };
+  }
+
   async listNovels(limit?: number, featured?: boolean, category?: NovelCategory) {
     const take = Math.min(limit ?? DEFAULT_LIMIT, MAX_LIMIT);
     return this.prisma.novel.findMany({
@@ -1033,6 +1097,8 @@ export class NovelsService {
           where: { novelId_userId: { novelId, userId } }
         })
       : null;
+
+    const access = await this.resolvePurchaseAccess(novelId, userId);
 
     const chapters = novel.chapters.map((chapter) => {
       if (chapter.isFree) {
@@ -1099,7 +1165,11 @@ export class NovelsService {
       title: chapter.title,
       orderIndex: chapter.orderIndex,
       isFree: chapter.isFree,
-      isPublished: chapter.isPublished
+      isPublished: chapter.isPublished,
+      isLocked:
+        !chapter.isFree &&
+        !access.hasBookPurchase &&
+        !access.purchasedChapterIds.has(chapter.id)
     }));
 
     return {
@@ -1115,6 +1185,12 @@ export class NovelsService {
       attachmentUrl: novel.attachmentUrl,
       chapterCount: novel.chapterCount,
       wordCount: novel.wordCount,
+      pricingMode: novel.pricingMode,
+      bookPrice: novel.bookPrice,
+      bookPromoPrice: novel.bookPromoPrice,
+      currency: novel.currency,
+      hasBookPurchase: access.hasBookPurchase,
+      purchasedChapterIds: Array.from(access.purchasedChapterIds),
       myReaction: reaction?.type ?? null,
       chapters,
       room: novel.room
@@ -1141,13 +1217,21 @@ export class NovelsService {
     });
   }
 
-  async getChapter(chapterId: string) {
+  async getChapter(chapterId: string, userId?: string) {
     const chapter = await this.prisma.novelChapter.findUnique({
       where: { id: chapterId },
       include: { novel: { select: { status: true, title: true } } }
     });
     if (!chapter || chapter.novel.status !== "PUBLISHED") {
       throw new BadRequestException("CHAPTER_NOT_FOUND");
+    }
+    const access = await this.resolvePurchaseAccess(chapter.novelId, userId);
+    const readable =
+      chapter.isFree ||
+      access.hasBookPurchase ||
+      access.purchasedChapterIds.has(chapter.id);
+    if (!readable) {
+      throw new BadRequestException("CHAPTER_LOCKED");
     }
     return {
       id: chapter.id,
@@ -1156,6 +1240,182 @@ export class NovelsService {
       orderIndex: chapter.orderIndex,
       content: chapter.contentClean ?? chapter.content
     };
+  }
+
+  async getReadableNovel(novelId: string, userId?: string) {
+    const novel = await this.prisma.novel.findUnique({
+      where: { id: novelId },
+      include: {
+        chapters: {
+          where: { isPublished: true },
+          orderBy: { orderIndex: "asc" }
+        },
+        room: {
+          select: {
+            id: true,
+            title: true,
+            _count: { select: { memberships: true } }
+          }
+        }
+      }
+    });
+    if (!novel || novel.status !== "PUBLISHED") {
+      throw new BadRequestException("NOVEL_NOT_FOUND");
+    }
+
+    const reaction = userId
+      ? await this.prisma.novelReaction.findUnique({
+          where: { novelId_userId: { novelId, userId } }
+        })
+      : null;
+    const access = await this.resolvePurchaseAccess(novelId, userId);
+    const readableChapters = novel.chapters
+      .filter(
+        (chapter) =>
+          chapter.isFree ||
+          access.hasBookPurchase ||
+          access.purchasedChapterIds.has(chapter.id)
+      )
+      .map((chapter) => ({
+        id: chapter.id,
+        title: chapter.title,
+        orderIndex: chapter.orderIndex,
+        isFree: chapter.isFree,
+        content: chapter.contentClean ?? chapter.content
+      }));
+    const lockedChapters = novel.chapters
+      .filter(
+        (chapter) =>
+          !chapter.isFree &&
+          !access.hasBookPurchase &&
+          !access.purchasedChapterIds.has(chapter.id)
+      )
+      .map((chapter) => ({
+        id: chapter.id,
+        title: chapter.title,
+        orderIndex: chapter.orderIndex,
+        price: chapter.price
+      }));
+
+    await this.prisma.novel.update({
+      where: { id: novelId },
+      data: { viewCount: { increment: 1 } }
+    });
+
+    return {
+      id: novel.id,
+      title: novel.title,
+      coverImageUrl: novel.coverImageUrl,
+      description: novel.description,
+      tagsJson: novel.tagsJson,
+      viewCount: novel.viewCount + 1,
+      favoriteCount: novel.favoriteCount,
+      dislikeCount: novel.dislikeCount,
+      contentSourceType: novel.contentSourceType,
+      attachmentUrl: novel.attachmentUrl,
+      chapterCount: novel.chapterCount,
+      wordCount: novel.wordCount,
+      pricingMode: novel.pricingMode,
+      bookPrice: novel.bookPrice,
+      bookPromoPrice: novel.bookPromoPrice,
+      currency: novel.currency,
+      myReaction: reaction?.type ?? null,
+      chapters: readableChapters,
+      lockedChapters,
+      room: novel.room
+    };
+  }
+
+  async purchaseBook(novelId: string, userId: string) {
+    const novel = await this.prisma.novel.findUnique({
+      where: { id: novelId },
+      select: {
+        id: true,
+        status: true,
+        pricingMode: true,
+        bookPrice: true,
+        bookPromoPrice: true,
+        currency: true
+      }
+    });
+    if (!novel || novel.status !== "PUBLISHED") {
+      throw new BadRequestException("NOVEL_NOT_FOUND");
+    }
+    if (novel.pricingMode !== "BOOK") {
+      throw new BadRequestException("BOOK_PURCHASE_NOT_ALLOWED");
+    }
+    const price = novel.bookPromoPrice ?? novel.bookPrice;
+    if (!price) {
+      throw new BadRequestException("BOOK_PRICE_MISSING");
+    }
+    const existing = await this.prisma.novelPurchase.findFirst({
+      where: { userId, novelId, chapterId: null }
+    });
+    if (existing) {
+      return existing;
+    }
+    return this.prisma.novelPurchase.create({
+      data: {
+        userId,
+        novelId,
+        chapterId: null,
+        pricingMode: "BOOK",
+        amount: price,
+        currency: novel.currency ?? "USD"
+      }
+    });
+  }
+
+  async purchaseChapter(chapterId: string, userId: string) {
+    const chapter = await this.prisma.novelChapter.findUnique({
+      where: { id: chapterId },
+      include: {
+        novel: {
+          select: {
+            id: true,
+            status: true,
+            pricingMode: true,
+            currency: true
+          }
+        }
+      }
+    });
+    if (!chapter || chapter.novel.status !== "PUBLISHED") {
+      throw new BadRequestException("CHAPTER_NOT_FOUND");
+    }
+    if (chapter.novel.pricingMode !== "CHAPTER") {
+      throw new BadRequestException("CHAPTER_PURCHASE_NOT_ALLOWED");
+    }
+    if (!chapter.price) {
+      throw new BadRequestException("CHAPTER_PRICE_MISSING");
+    }
+    const existing = await this.prisma.novelPurchase.findFirst({
+      where: { userId, chapterId }
+    });
+    if (existing) {
+      return existing;
+    }
+    return this.prisma.novelPurchase.create({
+      data: {
+        userId,
+        novelId: chapter.novel.id,
+        chapterId,
+        pricingMode: "CHAPTER",
+        amount: chapter.price,
+        currency: chapter.novel.currency ?? "USD"
+      }
+    });
+  }
+
+  async listUserPurchases(userId: string) {
+    return this.prisma.novelPurchase.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      include: {
+        novel: { select: { id: true, title: true } },
+        chapter: { select: { id: true, title: true, orderIndex: true } }
+      }
+    });
   }
 
   async toggleNovelReaction(

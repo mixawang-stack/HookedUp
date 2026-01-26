@@ -24,6 +24,10 @@ type NovelItem = {
   parseError?: string | null;
   needsChapterReview?: boolean;
   contentRawText?: string | null;
+  pricingMode?: "BOOK" | "CHAPTER";
+  bookPrice?: number | string | null;
+  bookPromoPrice?: number | string | null;
+  currency?: string | null;
 };
 
 type ChapterItem = {
@@ -33,6 +37,7 @@ type ChapterItem = {
   orderIndex: number;
   isFree: boolean;
   isPublished: boolean;
+  price?: number | string | null;
 };
 
 type Props = {
@@ -44,6 +49,13 @@ const parseTags = (value: string) =>
     .split(",")
     .map((item) => item.trim())
     .filter((item) => item.length > 0);
+
+const parseMoney = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
 
 const resolveMediaUrl = (value?: string | null) => {
   if (!value) return null;
@@ -85,6 +97,11 @@ export default function NovelEditor({ novelId }: Props) {
   const [coverUploading, setCoverUploading] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const [pricingMode, setPricingMode] = useState<"BOOK" | "CHAPTER">("BOOK");
+  const [bookPrice, setBookPrice] = useState("");
+  const [bookPromoPrice, setBookPromoPrice] = useState("");
+  const [currency, setCurrency] = useState("USD");
+
   const [contentFile, setContentFile] = useState<File | null>(null);
   const [contentUploading, setContentUploading] = useState(false);
   const [contentStatus, setContentStatus] = useState<string | null>(null);
@@ -118,13 +135,18 @@ export default function NovelEditor({ novelId }: Props) {
     setCategory(found.category ?? "DRAMA");
     setIsFeatured(found.isFeatured);
     setAutoPostHall(found.autoHallPost ?? true);
-    setFullText(found.contentRawText ?? "");
+    setPricingMode(found.pricingMode ?? "BOOK");
+    setBookPrice(found.bookPrice?.toString() ?? "");
+    setBookPromoPrice(found.bookPromoPrice?.toString() ?? "");
+    setCurrency(found.currency ?? "USD");
+    if (found.contentRawText !== null && found.contentRawText !== undefined) {
+      setFullText(found.contentRawText);
+    }
     return found;
   };
 
   const loadChapters = async (id: string) => {
     if (!authHeader) return;
-    setChapters([]);
     const res = await fetch(`${API_BASE}/admin/novels/${id}/chapters?t=${Date.now()}`, {
       headers: { ...authHeader },
       cache: "no-store"
@@ -132,6 +154,13 @@ export default function NovelEditor({ novelId }: Props) {
     if (!res.ok) return;
     const data = (await res.json()) as ChapterItem[];
     setChapters(data);
+    if (fullText.trim().length === 0 && data.length > 0) {
+      setFullText(
+        data
+          .map((chapter) => `${chapter.title}\n\n${chapter.content}`.trim())
+          .join("\n\n")
+      );
+    }
     return data;
   };
 
@@ -237,6 +266,10 @@ export default function NovelEditor({ novelId }: Props) {
         tagsJson: parseTags(tags),
         audience,
         category,
+        pricingMode,
+        bookPrice: parseMoney(bookPrice),
+        bookPromoPrice: parseMoney(bookPromoPrice),
+        currency: currency.trim() || "USD",
         isFeatured,
         autoHallPost: autoPostHall,
         status: "DRAFT"
@@ -274,10 +307,41 @@ export default function NovelEditor({ novelId }: Props) {
     }
   };
 
+  const savePricing = async (id: string) => {
+    if (!authHeader) return false;
+    const payload = {
+      pricingMode,
+      bookPrice: parseMoney(bookPrice),
+      bookPromoPrice: parseMoney(bookPromoPrice),
+      currency: currency.trim() || "USD"
+    };
+    const res = await fetch(`${API_BASE}/admin/novels/${id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeader
+      },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setStatus(data?.message ?? "Failed to save pricing.");
+      return false;
+    }
+    const updated = (await res.json().catch(() => null)) as NovelItem | null;
+    if (updated) {
+      setSelectedNovel(updated);
+    }
+    return true;
+  };
+
   const handleUploadContent = async () => {
     if (!selectedNovel || !contentFile) {
       setStatus("Select a file to upload.");
       return;
+    }
+    if (selectedNovel) {
+      await savePricing(selectedNovel.id);
     }
     const success = await uploadContentFile(selectedNovel.id, contentFile);
     if (success) {
@@ -333,12 +397,19 @@ export default function NovelEditor({ novelId }: Props) {
           ? "Published successfully."
           : "Saved as draft."
       );
+      if (nextStatus === "PUBLISHED") {
+        router.push("/novels");
+      }
     } finally {
       setSaving(false);
     }
   };
 
-  const handleChapterChange = (index: number, field: "title" | "content", value: string) => {
+  const handleChapterChange = (
+    index: number,
+    field: "title" | "content" | "isFree" | "price",
+    value: string | boolean
+  ) => {
     setChapters((prev) => {
       const next = [...prev];
       next[index] = { ...next[index], [field]: value };
@@ -361,7 +432,13 @@ export default function NovelEditor({ novelId }: Props) {
           content: chapter.content,
           orderIndex: chapter.orderIndex,
           isFree: chapter.isFree,
-          isPublished: chapter.isPublished
+          isPublished: chapter.isPublished,
+          price:
+            chapter.price === null || chapter.price === undefined
+              ? undefined
+              : typeof chapter.price === "string"
+              ? parseMoney(chapter.price)
+              : chapter.price
         })
       }
     );
@@ -369,12 +446,20 @@ export default function NovelEditor({ novelId }: Props) {
       setStatus("Failed to save chapter.");
       return;
     }
-    await loadChapters(selectedNovel.id);
+    const updated = (await res.json().catch(() => null)) as ChapterItem | null;
+    if (updated) {
+      setChapters((prev) =>
+        prev.map((item) => (item.id === updated.id ? updated : item))
+      );
+    }
   };
 
   const handleAddChapter = async () => {
     if (!authHeader || !selectedNovel) return;
-    const orderIndex = chapters.length + 1;
+    const orderIndex =
+      chapters.length === 0
+        ? 1
+        : Math.max(...chapters.map((chapter) => chapter.orderIndex)) + 1;
     const res = await fetch(`${API_BASE}/admin/novels/${selectedNovel.id}/chapters`, {
       method: "POST",
       headers: {
@@ -386,14 +471,20 @@ export default function NovelEditor({ novelId }: Props) {
         content: "",
         orderIndex,
         isFree: true,
-        isPublished: true
+        isPublished: true,
+        price: null
       })
     });
     if (!res.ok) {
       setStatus("Failed to add chapter.");
       return;
     }
-    await loadChapters(selectedNovel.id);
+    const created = (await res.json().catch(() => null)) as ChapterItem | null;
+    if (created) {
+      setChapters((prev) => [...prev, created]);
+    } else {
+      await loadChapters(selectedNovel.id);
+    }
   };
 
   const handleDeleteChapter = async (chapterId: string) => {
@@ -409,7 +500,7 @@ export default function NovelEditor({ novelId }: Props) {
       setStatus("Failed to delete chapter.");
       return;
     }
-    await loadChapters(selectedNovel.id);
+    setChapters((prev) => prev.filter((chapter) => chapter.id !== chapterId));
   };
 
   const handleMoveChapter = async (index: number, direction: "up" | "down") => {
@@ -418,9 +509,12 @@ export default function NovelEditor({ novelId }: Props) {
     if (targetIndex < 0 || targetIndex >= chapters.length) return;
     const current = chapters[index];
     const target = chapters[targetIndex];
-    await handleSaveChapter({ ...current, orderIndex: target.orderIndex });
-    await handleSaveChapter({ ...target, orderIndex: current.orderIndex });
-    await loadChapters(selectedNovel.id);
+    const nextChapters = [...chapters];
+    nextChapters[index] = { ...current, orderIndex: target.orderIndex };
+    nextChapters[targetIndex] = { ...target, orderIndex: current.orderIndex };
+    setChapters(nextChapters);
+    await handleSaveChapter(nextChapters[index]);
+    await handleSaveChapter(nextChapters[targetIndex]);
   };
 
   const steps = [
@@ -600,6 +694,70 @@ export default function NovelEditor({ novelId }: Props) {
             <p className="mt-2 text-[11px] text-slate-500">
               Supported: .doc, .docx, .txt, .md, .pdf (pdf saved as attachment only).
             </p>
+            <div className="mt-4 rounded-xl border border-white/10 bg-slate-950/70 p-4">
+              <p className="text-xs font-semibold text-slate-200">Pricing mode</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {(["BOOK", "CHAPTER"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    className={`rounded-full border px-3 py-1 text-[11px] ${
+                      pricingMode === mode
+                        ? "border-white/50 text-white"
+                        : "border-white/10 text-slate-400"
+                    }`}
+                    onClick={() => setPricingMode(mode)}
+                  >
+                    {mode === "BOOK" ? "Full book" : "By chapter"}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-4 max-w-[180px]">
+                <label className="text-[11px] text-slate-400">
+                  Currency
+                  <input
+                    className="mt-2 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-xs text-white"
+                    value={currency}
+                    onChange={(event) => setCurrency(event.target.value)}
+                  />
+                </label>
+              </div>
+              {pricingMode === "BOOK" ? (
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <label className="text-[11px] text-slate-400">
+                    Book price
+                    <input
+                      className="mt-2 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-xs text-white"
+                      value={bookPrice}
+                      onChange={(event) => setBookPrice(event.target.value)}
+                      placeholder="e.g. 9.99"
+                    />
+                  </label>
+                  <label className="text-[11px] text-slate-400">
+                    Promo price
+                    <input
+                      className="mt-2 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-xs text-white"
+                      value={bookPromoPrice}
+                      onChange={(event) => setBookPromoPrice(event.target.value)}
+                      placeholder="optional"
+                    />
+                  </label>
+                </div>
+              ) : (
+                <p className="mt-3 text-[11px] text-slate-500">
+                  Set per-chapter pricing in the preview step.
+                </p>
+              )}
+              <div className="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  className="rounded-full border border-white/20 px-3 py-1 text-[10px] text-slate-200"
+                  onClick={() => selectedNovel && savePricing(selectedNovel.id)}
+                >
+                  Save pricing
+                </button>
+              </div>
+            </div>
             <label className="mt-4 block text-xs text-slate-300">
               Upload file
               <input
@@ -724,6 +882,33 @@ export default function NovelEditor({ novelId }: Props) {
                           handleChapterChange(index, "title", event.target.value)
                         }
                       />
+                      <div className="mt-3 flex flex-wrap items-center gap-3 text-[10px] text-slate-400">
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={chapter.isFree}
+                            onChange={(event) =>
+                              handleChapterChange(index, "isFree", event.target.checked)
+                            }
+                            className="h-4 w-4 rounded bg-slate-900"
+                          />
+                          Free
+                        </label>
+                        {pricingMode === "CHAPTER" && (
+                          <label className="flex items-center gap-2">
+                            <span>Price ({currency})</span>
+                            <input
+                              className="w-24 rounded-lg border border-white/10 bg-slate-900/60 px-2 py-1 text-[10px] text-slate-100"
+                              value={chapter.price ?? ""}
+                              onChange={(event) =>
+                                handleChapterChange(index, "price", event.target.value)
+                              }
+                              disabled={chapter.isFree}
+                              placeholder="0.00"
+                            />
+                          </label>
+                        )}
+                      </div>
                       <textarea
                         className="mt-3 h-32 w-full rounded-lg border border-white/10 bg-slate-900/60 p-3 text-xs text-slate-100"
                         value={chapter.content}
