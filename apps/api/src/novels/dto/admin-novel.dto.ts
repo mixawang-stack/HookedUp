@@ -1,5 +1,20 @@
-import { IsBoolean, IsEnum, IsISO8601, IsOptional, IsString, MaxLength } from "class-validator";
-import { NovelAudience, NovelCategory, NovelStatus, NovelSourceType } from "@prisma/client";
+import {
+  IsBoolean,
+  IsEnum,
+  IsISO8601,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min
+} from "class-validator";
+import {
+  NovelAudience,
+  NovelCategory,
+  NovelPricingMode,
+  NovelStatus,
+  NovelSourceType
+} from "@prisma/client";
 
 export class AdminNovelDto {
   @IsOptional()
@@ -38,6 +53,24 @@ export class AdminNovelDto {
   @IsOptional()
   @IsEnum(NovelCategory)
   category?: NovelCategory;
+
+  @IsOptional()
+  @IsEnum(NovelPricingMode)
+  pricingMode?: NovelPricingMode;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  bookPrice?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  bookPromoPrice?: number;
+
+  @IsOptional()
+  @IsString()
+  currency?: string;
 
   @IsOptional()
   @IsBoolean()

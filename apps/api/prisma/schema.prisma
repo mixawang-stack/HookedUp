@@ -118,6 +118,11 @@ enum NovelCategory {
   AFTER_DARK
 }
 
+enum NovelPricingMode {
+  BOOK
+  CHAPTER
+}
+
 enum NovelReactionType {
   LIKE
   DISLIKE
@@ -186,6 +191,7 @@ model User {
   intentRequests           IntentOffline[]           @relation("IntentRequester")
   intentResponses          IntentOffline[]           @relation("IntentResponder")
   novelReactions           NovelReaction[]
+  novelPurchases           NovelPurchase[]
 }
 
 model EmailVerificationToken {
@@ -542,6 +548,10 @@ model Novel {
   attachmentUrl      String?         @db.Text
   wordCount          Int             @default(0)
   chapterCount       Int             @default(0)
+  pricingMode        NovelPricingMode @default(BOOK)
+  bookPrice          Decimal?        @db.Decimal(10, 2)
+  bookPromoPrice     Decimal?        @db.Decimal(10, 2)
+  currency           String          @default("USD") @db.VarChar(8)
   parseStatus        NovelParseStatus @default(PENDING)
   parseError         String?         @db.Text
   needsChapterReview Boolean         @default(false)
@@ -564,6 +574,7 @@ model Novel {
   files     NovelFile[]
   splitMarkers ChapterSplitMarker[]
   reactions NovelReaction[]
+  purchases NovelPurchase[]
   hallTrace Trace?         @relation(fields: [hallTraceId], references: [id])
   room      Room?          @relation(fields: [roomId], references: [id])
 }
@@ -595,14 +606,35 @@ model NovelChapter {
   orderIndex  Int
   isFree      Boolean  @default(false)
   isPublished Boolean  @default(true)
+  price       Decimal? @db.Decimal(10, 2)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   novel Novel @relation(fields: [novelId], references: [id], onDelete: Cascade)
   versions ChapterVersion[]
+  purchases NovelPurchase[]
 
   @@unique([novelId, orderIndex])
   @@index([novelId])
+}
+
+model NovelPurchase {
+  id         String            @id @default(uuid())
+  userId     String
+  novelId    String
+  chapterId  String?
+  pricingMode NovelPricingMode
+  amount     Decimal           @db.Decimal(10, 2)
+  currency   String            @db.VarChar(8)
+  createdAt  DateTime          @default(now())
+
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  novel   Novel        @relation(fields: [novelId], references: [id], onDelete: Cascade)
+  chapter NovelChapter? @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([novelId])
+  @@index([chapterId])
 }
 
 model NovelFile {

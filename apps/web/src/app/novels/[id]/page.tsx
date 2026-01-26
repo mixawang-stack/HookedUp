@@ -21,6 +21,10 @@ type NovelPreview = {
   attachmentUrl?: string | null;
   wordCount?: number | null;
   chapterCount?: number | null;
+  pricingMode?: "BOOK" | "CHAPTER";
+  bookPrice?: string | number | null;
+  bookPromoPrice?: string | number | null;
+  currency?: string | null;
   room?: { id: string; title: string; _count: { memberships: number } } | null;
   chapters: Array<{
     id: string;
@@ -28,7 +32,13 @@ type NovelPreview = {
     orderIndex: number;
     isFree: boolean;
     isPublished: boolean;
-    isLocked?: boolean;
+    content: string;
+  }>;
+  lockedChapters?: Array<{
+    id: string;
+    title: string;
+    orderIndex: number;
+    price?: string | number | null;
   }>;
 };
 
@@ -40,8 +50,6 @@ export default function NovelDetailPage() {
   const [novel, setNovel] = useState<NovelPreview | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [reactionLoading, setReactionLoading] = useState(false);
-  const [activeChapterIndex, setActiveChapterIndex] = useState(0);
-  const [chapterContent, setChapterContent] = useState<string>("");
 
   const authHeader = useMemo(
     () => (token ? { Authorization: `Bearer ${token}` } : null),
@@ -56,7 +64,7 @@ export default function NovelDetailPage() {
     if (!novelId) return;
     const load = async () => {
       setStatus(null);
-      const res = await fetch(`${API_BASE}/novels/${novelId}/full`, {
+      const res = await fetch(`${API_BASE}/novels/${novelId}/reading`, {
         headers: authHeader ? { ...authHeader } : undefined
       });
       const body = await res.json().catch(() => ({}));
@@ -75,33 +83,6 @@ export default function NovelDetailPage() {
     };
     load().catch(() => setStatus("Failed to load novel."));
   }, [novelId, authHeader]);
-
-  useEffect(() => {
-    if (!novel?.chapters?.length) {
-      return;
-    }
-    setActiveChapterIndex(0);
-  }, [novel?.chapters]);
-
-  useEffect(() => {
-    const active = novel?.chapters?.[activeChapterIndex];
-    if (!active) {
-      setChapterContent("");
-      return;
-    }
-    const loadChapter = async () => {
-      const res = await fetch(`${API_BASE}/chapters/${active.id}`, {
-        headers: authHeader ? { ...authHeader } : undefined
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setChapterContent("");
-        return;
-      }
-      setChapterContent(body?.content ?? "");
-    };
-    loadChapter().catch(() => setChapterContent(""));
-  }, [activeChapterIndex, novel?.chapters, authHeader]);
 
   const handleReaction = async (type: "LIKE" | "DISLIKE") => {
     if (!authHeader) {
@@ -153,10 +134,55 @@ export default function NovelDetailPage() {
   };
 
   const chapters = novel?.chapters ?? [];
-  const activeChapter = chapters[activeChapterIndex] ?? null;
-  const readingText = chapterContent ?? "";
   const likeCount = novel?.favoriteCount ?? 0;
   const shouldShowAttachment = novel?.contentSourceType === "PDF" && novel.attachmentUrl;
+  const lockedChapters = novel?.lockedChapters ?? [];
+
+  const refreshReading = async () => {
+    const res = await fetch(`${API_BASE}/novels/${novelId}/reading`, {
+      headers: authHeader ? { ...authHeader } : undefined
+    });
+    const body = await res.json().catch(() => ({}));
+    if (res.ok) {
+      setNovel(body as NovelPreview);
+    }
+  };
+
+  const handlePurchaseBook = async () => {
+    if (!authHeader) {
+      setStatus("Please sign in to purchase.");
+      return;
+    }
+    const res = await fetch(`${API_BASE}/novels/${novelId}/purchase`, {
+      method: "POST",
+      headers: { ...authHeader }
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setStatus(body?.message ?? "Failed to purchase.");
+      return;
+    }
+    setStatus("Purchase recorded.");
+    await refreshReading();
+  };
+
+  const handlePurchaseChapter = async (chapterId: string) => {
+    if (!authHeader) {
+      setStatus("Please sign in to purchase.");
+      return;
+    }
+    const res = await fetch(`${API_BASE}/chapters/${chapterId}/purchase`, {
+      method: "POST",
+      headers: { ...authHeader }
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setStatus(body?.message ?? "Failed to purchase.");
+      return;
+    }
+    setStatus("Purchase recorded.");
+    await refreshReading();
+  };
 
   return (
     <main className="ui-page">
@@ -177,26 +203,6 @@ export default function NovelDetailPage() {
               <p className="text-sm text-text-secondary">
                 Chapter 1 - Free / Grown-up
               </p>
-              {chapters.length > 0 && (
-                <div className="mt-3">
-                  <label className="text-xs text-text-muted">
-                    Chapter
-                    <select
-                      className="ml-2 rounded-full border border-border-default bg-card px-3 py-1 text-xs text-text-primary"
-                      value={activeChapterIndex}
-                      onChange={(event) =>
-                        setActiveChapterIndex(Number(event.target.value))
-                      }
-                    >
-                      {chapters.map((chapter, index) => (
-                        <option key={chapter.id} value={index}>
-                          {chapter.title || `Chapter ${index + 1}`}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-              )}
             </section>
 
             <div className="relative">
@@ -318,31 +324,90 @@ export default function NovelDetailPage() {
                   <p className="text-xs text-text-muted">
                     Take your time. This isn't a race.
                   </p>
-                  <div className="mt-6 text-base leading-8 text-text-primary whitespace-pre-wrap">
-                    {readingText ? (
-                      readingText
-                    ) : (
-                      <div className="space-y-3">
-                        <p className="text-sm text-text-muted">
-                          This story isn't ready yet.
-                        </p>
-                        <p className="text-sm text-text-muted">
-                          Ask the host to upload the content.
-                        </p>
-                        {shouldShowAttachment && (
+                  {chapters.length > 0 ? (
+                    <div className="mt-6 space-y-10 text-base leading-8 text-text-primary">
+                      {chapters.map((chapter) => (
+                        <section key={chapter.id} className="space-y-4">
+                          <h2 className="text-xl font-semibold text-text-primary">
+                            {chapter.title || `Chapter ${chapter.orderIndex}`}
+                          </h2>
+                          {chapter.content
+                            .split("\n\n")
+                            .map((paragraph, index) => (
+                              <p
+                                key={`${chapter.id}-p-${index}`}
+                                className="whitespace-pre-wrap"
+                              >
+                                {paragraph}
+                              </p>
+                            ))}
+                        </section>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-6 space-y-3">
+                      <p className="text-sm text-text-muted">
+                        This story isn't ready yet.
+                      </p>
+                      <p className="text-sm text-text-muted">
+                        Ask the host to upload the content.
+                      </p>
+                      {shouldShowAttachment && (
+                        <button
+                          type="button"
+                          className="btn-secondary px-3 py-2 text-xs"
+                          onClick={() =>
+                            window.open(novel.attachmentUrl ?? "", "_blank")
+                          }
+                        >
+                          Open attachment
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {lockedChapters.length > 0 && (
+                    <div className="mt-10 rounded-2xl border border-border-default bg-surface p-5 text-sm text-text-secondary">
+                      <p className="font-semibold text-text-primary">
+                        More chapters are locked.
+                      </p>
+                      {novel.pricingMode === "BOOK" ? (
+                        <div className="mt-4 flex flex-wrap items-center gap-3">
                           <button
                             type="button"
-                            className="btn-secondary px-3 py-2 text-xs"
-                            onClick={() =>
-                              window.open(novel.attachmentUrl ?? "", "_blank")
-                            }
+                            className="btn-primary px-4 py-2 text-xs"
+                            onClick={handlePurchaseBook}
                           >
-                            Open attachment
+                            Purchase full book
                           </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                          <span className="text-xs text-text-muted">
+                            {novel.bookPromoPrice ?? novel.bookPrice}{" "}
+                            {novel.currency ?? "USD"}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="mt-4 space-y-2 text-xs">
+                          {lockedChapters.map((chapter) => (
+                            <div
+                              key={chapter.id}
+                              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border-default bg-card px-3 py-2"
+                            >
+                              <span>
+                                Chapter {chapter.orderIndex} · {chapter.title}
+                              </span>
+                              <button
+                                type="button"
+                                className="rounded-full border border-border-default px-3 py-1 text-[11px]"
+                                onClick={() => handlePurchaseChapter(chapter.id)}
+                              >
+                                Buy {chapter.price ?? "0.00"}{" "}
+                                {novel.currency ?? "USD"}
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <section className="ui-surface mt-10 p-6 text-sm text-text-secondary">
                     <h2 className="text-lg font-semibold text-text-primary">

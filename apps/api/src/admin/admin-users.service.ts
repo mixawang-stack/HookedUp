@@ -147,6 +147,15 @@ export class AdminUsersService {
       }
     });
 
+    const purchases = await this.prisma.novelPurchase.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      include: {
+        novel: { select: { id: true, title: true } },
+        chapter: { select: { id: true, title: true, orderIndex: true } }
+      }
+    });
+
     return {
       id: user.id,
       email: user.email,
@@ -170,7 +179,7 @@ export class AdminUsersService {
       verifications: user.verifications,
       commercial: {
         subscriptions: [],
-        novelPurchases: []
+        novelPurchases: purchases
       }
     };
   }

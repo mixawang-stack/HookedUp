@@ -74,14 +74,49 @@ export class NovelsController {
     return this.novelsService.fullNovel(id, userId);
   }
 
+  @Get("novels/:id/reading")
+  async reading(@Req() req: Request, @Param("id") id: string) {
+    const header = req.headers.authorization;
+    let userId: string | undefined;
+    if (header) {
+      const [scheme, token] = header.split(" ");
+      if (scheme === "Bearer" && token) {
+        try {
+          const payload = await this.jwt.verifyAsync<{ sub: string }>(token, {
+            secret: JWT_ACCESS_SECRET
+          });
+          userId = payload.sub;
+        } catch {
+          userId = undefined;
+        }
+      }
+    }
+    return this.novelsService.getReadableNovel(id, userId);
+  }
+
   @Get("novels/:id/chapters")
   async listChapters(@Param("id") id: string) {
     return this.novelsService.listNovelChapters(id);
   }
 
   @Get("chapters/:id")
-  async getChapter(@Param("id") id: string) {
-    return this.novelsService.getChapter(id);
+  async getChapter(@Req() req: Request, @Param("id") id: string) {
+    const header = req.headers.authorization;
+    let userId: string | undefined;
+    if (header) {
+      const [scheme, token] = header.split(" ");
+      if (scheme === "Bearer" && token) {
+        try {
+          const payload = await this.jwt.verifyAsync<{ sub: string }>(token, {
+            secret: JWT_ACCESS_SECRET
+          });
+          userId = payload.sub;
+        } catch {
+          userId = undefined;
+        }
+      }
+    }
+    return this.novelsService.getChapter(id, userId);
   }
 
   @Get("recommendations")
@@ -120,5 +155,29 @@ export class NovelsController {
     @Param("id") id: string
   ) {
     return this.novelsService.toggleNovelReaction(id, req.user.sub, "DISLIKE");
+  }
+
+  @Post("novels/:id/purchase")
+  @UseGuards(JwtAuthGuard)
+  async purchaseNovel(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") id: string
+  ) {
+    return this.novelsService.purchaseBook(id, req.user.sub);
+  }
+
+  @Post("chapters/:id/purchase")
+  @UseGuards(JwtAuthGuard)
+  async purchaseChapter(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") id: string
+  ) {
+    return this.novelsService.purchaseChapter(id, req.user.sub);
+  }
+
+  @Get("me/purchases")
+  @UseGuards(JwtAuthGuard)
+  async listPurchases(@Req() req: AuthenticatedRequest) {
+    return this.novelsService.listUserPurchases(req.user.sub);
   }
 }

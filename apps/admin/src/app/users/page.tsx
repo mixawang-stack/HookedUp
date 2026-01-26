@@ -61,6 +61,17 @@ type UserDetail = {
     vibeTagsJson?: string[] | null;
     interestsJson?: string[] | null;
   } | null;
+  commercial?: {
+    novelPurchases?: Array<{
+      id: string;
+      createdAt: string;
+      amount: string;
+      currency: string;
+      pricingMode: "BOOK" | "CHAPTER";
+      novel: { id: string; title: string };
+      chapter?: { id: string; title: string; orderIndex: number } | null;
+    }>;
+  };
 };
 
 const formatDate = (value?: string | null) => {
@@ -499,8 +510,40 @@ export default function AdminUsersPage() {
                 <h3 className="text-[11px] font-bold uppercase tracking-[0.3em] text-slate-500">
                   Commercial Data
                 </h3>
-                <div className="rounded-2xl border border-white/5 bg-white/5 p-4 text-center">
-                  <p className="text-xs text-slate-500 italic">Commercial records (Stripe/PayPal) will appear here once integrated.</p>
+                <div className="rounded-2xl border border-white/5 bg-white/5 p-4">
+                  {(selectedUser.commercial?.novelPurchases ?? []).length === 0 ? (
+                    <p className="text-xs text-slate-500 italic">
+                      No novel purchases recorded yet.
+                    </p>
+                  ) : (
+                    <div className="space-y-3 text-xs text-slate-300">
+                      {selectedUser.commercial?.novelPurchases?.map((purchase) => (
+                        <div
+                          key={purchase.id}
+                          className="rounded-xl border border-white/10 bg-slate-950/60 p-3"
+                        >
+                          <p className="text-[11px] text-slate-500">
+                            {formatDate(purchase.createdAt)}
+                          </p>
+                          <p className="mt-1 text-sm text-slate-200">
+                            {purchase.novel.title}
+                            {purchase.chapter
+                              ? ` · Chapter ${purchase.chapter.orderIndex}`
+                              : ""}
+                          </p>
+                          {purchase.chapter?.title && (
+                            <p className="text-[11px] text-slate-400">
+                              {purchase.chapter.title}
+                            </p>
+                          )}
+                          <p className="mt-2 text-[11px] text-slate-400">
+                            {purchase.pricingMode} · {purchase.amount}{" "}
+                            {purchase.currency}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </section>
             </div>

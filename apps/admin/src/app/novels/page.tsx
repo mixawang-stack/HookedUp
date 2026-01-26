@@ -77,6 +77,23 @@ export default function AdminNovelsPage() {
     setNovels(data);
   };
 
+  const updateNovelStatus = async (id: string, nextStatus: "PUBLISHED" | "ARCHIVED") => {
+    if (!authHeader) return;
+    const res = await fetch(`${API_BASE}/admin/novels/${id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeader
+      },
+      body: JSON.stringify({ status: nextStatus })
+    });
+    if (!res.ok) {
+      setStatus("Failed to update novel status.");
+      return;
+    }
+    await loadNovels();
+  };
+
   useEffect(() => {
     if (!authHeader) return;
     loadNovels().catch(() => undefined);
@@ -195,6 +212,18 @@ export default function AdminNovelsPage() {
                   >
                     Edit
                   </Link>
+                  <button
+                    type="button"
+                    className="rounded-full border border-white/20 px-3 py-1 text-[10px] text-slate-200 hover:bg-white/10"
+                    onClick={() =>
+                      updateNovelStatus(
+                        novel.id,
+                        novel.status === "PUBLISHED" ? "ARCHIVED" : "PUBLISHED"
+                      )
+                    }
+                  >
+                    {novel.status === "PUBLISHED" ? "Unpublish" : "Publish"}
+                  </button>
                 </div>
               </div>
             </div>

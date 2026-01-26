@@ -261,6 +261,16 @@ export default function TopNav() {
                     type="button"
                     className="block w-full rounded-lg px-3 py-2 text-left transition hover:bg-surface"
                     onClick={() => {
+                      setMenuOpen(false);
+                      router.push("/me/purchases");
+                    }}
+                  >
+                    Payment records
+                  </button>
+                  <button
+                    type="button"
+                    className="block w-full rounded-lg px-3 py-2 text-left transition hover:bg-surface"
+                    onClick={() => {
                       localStorage.removeItem("accessToken");
                       setToken(null);
                       setMenuOpen(false);

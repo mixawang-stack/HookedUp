@@ -1097,9 +1097,6 @@ export class NovelsService {
           where: { novelId_userId: { novelId, userId } }
         })
       : null;
-    const access = await this.resolvePurchaseAccess(novelId, userId);
-
-    const access = await this.resolvePurchaseAccess(novelId, userId);
 
     const chapters = novel.chapters.map((chapter) => {
       if (chapter.isFree) {
@@ -1155,6 +1152,7 @@ export class NovelsService {
           where: { novelId_userId: { novelId, userId } }
         })
       : null;
+    const access = await this.resolvePurchaseAccess(novelId, userId);
 
     await this.prisma.novel.update({
       where: { id: novelId },

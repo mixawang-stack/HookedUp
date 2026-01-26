@@ -1,4 +1,12 @@
-import { IsBoolean, IsInt, IsOptional, IsString, MaxLength, Min } from "class-validator";
+import {
+  IsBoolean,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min
+} from "class-validator";
 
 export class AdminChapterDto {
   @IsString()
@@ -19,4 +27,9 @@ export class AdminChapterDto {
   @IsOptional()
   @IsBoolean()
   isPublished?: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  price?: number;
 }
