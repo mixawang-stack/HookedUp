@@ -187,7 +187,7 @@ export default function TopNav() {
             })}
           </div>
         </div>
-        {me && (
+        {token && (
           <div className="flex items-center justify-end gap-3 pr-1">
             <div className="relative" ref={menuRef}>
               <button
@@ -196,7 +196,7 @@ export default function TopNav() {
                 onClick={() => setMenuOpen((prev) => !prev)}
                 aria-label="Open profile menu"
               >
-                {me.maskAvatarUrl && !avatarError ? (
+                {me?.maskAvatarUrl && !avatarError ? (
                   <img
                     src={me.maskAvatarUrl}
                     alt={me.maskName ?? "User avatar"}
@@ -227,46 +227,50 @@ export default function TopNav() {
                   <p className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-[0.3em] text-text-muted">
                     Me
                   </p>
-                  <button
-                    type="button"
-                    className="block w-full rounded-lg px-3 py-2 text-left transition hover:bg-surface"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      router.push("/me/posts");
-                    }}
-                  >
-                    My Forum
-                  </button>
-                  <button
-                    type="button"
-                    className="block w-full rounded-lg px-3 py-2 text-left transition hover:bg-surface"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      router.push("/me");
-                    }}
-                  >
-                    Profile
-                  </button>
-                  <button
-                    type="button"
-                    className="block w-full rounded-lg px-3 py-2 text-left transition hover:bg-surface"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      router.push("/me/account");
-                    }}
-                  >
-                    Account
-                  </button>
-                  <button
-                    type="button"
-                    className="block w-full rounded-lg px-3 py-2 text-left transition hover:bg-surface"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      router.push("/me/purchases");
-                    }}
-                  >
-                    Payment records
-                  </button>
+                  {me && (
+                    <>
+                      <button
+                        type="button"
+                        className="block w-full rounded-lg px-3 py-2 text-left transition hover:bg-surface"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          router.push("/me/posts");
+                        }}
+                      >
+                        My Forum
+                      </button>
+                      <button
+                        type="button"
+                        className="block w-full rounded-lg px-3 py-2 text-left transition hover:bg-surface"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          router.push("/me");
+                        }}
+                      >
+                        Profile
+                      </button>
+                      <button
+                        type="button"
+                        className="block w-full rounded-lg px-3 py-2 text-left transition hover:bg-surface"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          router.push("/me/account");
+                        }}
+                      >
+                        Account
+                      </button>
+                      <button
+                        type="button"
+                        className="block w-full rounded-lg px-3 py-2 text-left transition hover:bg-surface"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          router.push("/me/purchases");
+                        }}
+                      >
+                        Payment records
+                      </button>
+                    </>
+                  )}
                   <button
                     type="button"
                     className="block w-full rounded-lg px-3 py-2 text-left transition hover:bg-surface"
