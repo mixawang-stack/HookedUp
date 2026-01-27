@@ -4,6 +4,7 @@ import { NestFactory } from "@nestjs/core";
 import { ValidationPipe } from "@nestjs/common";
 import { NestExpressApplication } from "@nestjs/platform-express";
 import cookieParser from "cookie-parser";
+import bodyParser from "body-parser";
 import { NextFunction, Request, Response } from "express";
 import { AppModule } from "./app.module";
 import { STORAGE_DIR } from "./uploads/uploads.constants";
@@ -11,6 +12,7 @@ import { STORAGE_DIR } from "./uploads/uploads.constants";
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  app.use("/webhooks/creem", bodyParser.raw({ type: "*/*" }));
   app.use(cookieParser());
   app.useStaticAssets(STORAGE_DIR, { prefix: "/uploads" });
   app.useGlobalPipes(

@@ -123,6 +123,10 @@ enum NovelPricingMode {
   CHAPTER
 }
 
+enum PaymentProvider {
+  CREEM
+}
+
 enum NovelReactionType {
   LIKE
   DISLIKE
@@ -628,6 +632,10 @@ model NovelPurchase {
   pricingMode NovelPricingMode
   amount     Decimal           @db.Decimal(10, 2)
   currency   String            @db.VarChar(8)
+  provider   PaymentProvider   @default(CREEM)
+  providerOrderId String?      @db.VarChar(120)
+  providerEventId String?      @db.VarChar(120)
+  providerCheckoutId String?   @db.VarChar(120)
   createdAt  DateTime          @default(now())
 
   user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -637,6 +645,21 @@ model NovelPurchase {
   @@index([userId])
   @@index([novelId])
   @@index([chapterId])
+  @@unique([provider, providerOrderId])
+  @@unique([provider, providerEventId])
+}
+
+model PaymentWebhookEvent {
+  id        String          @id @default(uuid())
+  provider  PaymentProvider
+  eventId   String          @db.VarChar(120)
+  eventType String          @db.VarChar(80)
+  payload   Json
+  processedAt DateTime? 
+  error     String?         @db.Text
+  createdAt DateTime        @default(now())
+
+  @@unique([provider, eventId])
 }
 
 model NovelFile {

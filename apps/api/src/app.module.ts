@@ -18,6 +18,7 @@ import { HallModule } from "./hall/hall.module";
 import { PrivateModule } from "./private/private.module";
 import { IntentModule } from "./intent/intent.module";
 import { NovelsModule } from "./novels/novels.module";
+import { BillingModule } from "./billing/billing.module";
 
 @Module({
   imports: [
@@ -44,7 +45,8 @@ import { NovelsModule } from "./novels/novels.module";
     HallModule,
     PrivateModule,
     IntentModule,
-    NovelsModule
+    NovelsModule,
+    BillingModule
   ],
   controllers: [HealthController, ConfigController]
 })

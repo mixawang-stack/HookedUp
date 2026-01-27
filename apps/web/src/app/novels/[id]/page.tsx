@@ -154,55 +154,56 @@ export default function NovelDetailPage() {
 
   useEffect(() => {
     if (!authHeader || !novelId || !searchParams) return;
-    const paymentSuccess =
-      searchParams.get("payment") === "success" ||
-      searchParams.get("unlock") === "1";
+    const paymentSuccess = searchParams.get("payment") === "success";
     if (!paymentSuccess || unlocking) {
       return;
     }
-    if (novel?.pricingMode !== "BOOK") {
+    setUnlocking(true);
+    refreshReading()
+      .catch(() => undefined)
+      .finally(() => setUnlocking(false));
+  }, [authHeader, novelId, searchParams, unlocking]);
+
+  const startCheckout = async () => {
+    if (!authHeader) {
+      setStatus("Please sign in to unlock.");
+      return;
+    }
+    if (!novel) return;
+    if (!novel.creemProductId && !novel.paymentLink) {
+      setStatus("Payment is not configured yet.");
       return;
     }
     setUnlocking(true);
-    handlePurchaseBook()
-      .catch(() => undefined)
-      .finally(() => setUnlocking(false));
-  }, [authHeader, novelId, searchParams, novel?.pricingMode, unlocking]);
+    try {
+      if (novel.creemProductId) {
+        const res = await fetch(`${API_BASE}/billing/creem/checkout`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeader
+          },
+          body: JSON.stringify({ novelId })
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setStatus(body?.message ?? "Failed to start checkout.");
+          return;
+        }
+        if (body?.checkoutUrl) {
+          window.location.href = body.checkoutUrl;
+          return;
+        }
+        setStatus("Checkout link unavailable.");
+        return;
+      }
 
-  const handlePurchaseBook = async () => {
-    if (!authHeader) {
-      setStatus("Please sign in to purchase.");
-      return;
+      if (novel.paymentLink) {
+        window.location.href = novel.paymentLink;
+      }
+    } finally {
+      setUnlocking(false);
     }
-    const res = await fetch(`${API_BASE}/novels/${novelId}/purchase`, {
-      method: "POST",
-      headers: { ...authHeader }
-    });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setStatus(body?.message ?? "Failed to purchase.");
-      return;
-    }
-    setStatus("Purchase recorded.");
-    await refreshReading();
-  };
-
-  const handlePurchaseChapter = async (chapterId: string) => {
-    if (!authHeader) {
-      setStatus("Please sign in to purchase.");
-      return;
-    }
-    const res = await fetch(`${API_BASE}/chapters/${chapterId}/purchase`, {
-      method: "POST",
-      headers: { ...authHeader }
-    });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setStatus(body?.message ?? "Failed to purchase.");
-      return;
-    }
-    setStatus("Purchase recorded.");
-    await refreshReading();
   };
 
   return (
@@ -401,13 +402,7 @@ export default function NovelDetailPage() {
                           <button
                             type="button"
                             className="btn-primary mt-2 px-4 py-2 text-xs"
-                            onClick={() => {
-                              if (novel.paymentLink) {
-                                window.open(novel.paymentLink, "_blank");
-                                return;
-                              }
-                              handlePurchaseBook();
-                            }}
+                            onClick={startCheckout}
                           >
                             Unlock more
                           </button>
@@ -425,13 +420,7 @@ export default function NovelDetailPage() {
                               <button
                                 type="button"
                                 className="rounded-full border border-border-default px-3 py-1 text-[11px]"
-                                onClick={() => {
-                                  if (novel.paymentLink) {
-                                    window.open(novel.paymentLink, "_blank");
-                                    return;
-                                  }
-                                  handlePurchaseChapter(chapter.id);
-                                }}
+                                onClick={startCheckout}
                               >
                                 Unlock more
                               </button>
