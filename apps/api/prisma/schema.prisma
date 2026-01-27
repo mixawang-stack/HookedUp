@@ -201,6 +201,8 @@ model User {
   intentResponses          IntentOffline[]           @relation("IntentResponder")
   novelReactions           NovelReaction[]
   novelPurchases           NovelPurchase[]
+  entitlements             Entitlement[]
+  creemOrders              CreemOrder[]
 }
 
 model EmailVerificationToken {
@@ -586,6 +588,8 @@ model Novel {
   splitMarkers ChapterSplitMarker[]
   reactions NovelReaction[]
   purchases NovelPurchase[]
+  entitlements Entitlement[]
+  creemOrders  CreemOrder[]
   hallTrace Trace?         @relation(fields: [hallTraceId], references: [id])
   room      Room?          @relation(fields: [roomId], references: [id])
 
@@ -626,6 +630,7 @@ model NovelChapter {
   novel Novel @relation(fields: [novelId], references: [id], onDelete: Cascade)
   versions ChapterVersion[]
   purchases NovelPurchase[]
+  entitlements Entitlement[]
 
   @@unique([novelId, orderIndex])
   @@index([novelId])
