@@ -154,6 +154,8 @@ export class CreemService {
       }
     });
 
+    this.logger.log(`Creem webhook ${eventType} ${eventId}`);
+
     if (eventType !== "checkout.completed") {
       await this.markEventProcessed(eventId, null);
       return { received: true, ignored: true };
@@ -178,6 +180,10 @@ export class CreemService {
         userId = userId ?? match[2];
       }
     }
+
+    this.logger.log(
+      `Creem checkout.completed event=${eventId} product=${productId} user=${userId} novel=${novelId}`
+    );
 
     if (!userId || !novelId || !orderId || !productId) {
       await this.markEventProcessed(eventId, "MISSING_METADATA");
@@ -205,24 +211,62 @@ export class CreemService {
       : 0;
     const currency = (order?.currency ?? "USD").toUpperCase();
 
-    await this.prisma.novelPurchase.upsert({
-      where: { provider_providerOrderId: { provider: "CREEM", providerOrderId: orderId } },
-      update: {
-        providerEventId: eventId,
-        providerCheckoutId: checkoutId ?? undefined
-      },
-      create: {
-        userId,
-        novelId,
-        chapterId: null,
-        pricingMode: "BOOK",
-        amount: amountMajor,
-        currency,
-        provider: "CREEM",
-        providerOrderId: orderId,
-        providerEventId: eventId,
-        providerCheckoutId: checkoutId ?? null
-      }
+    await this.prisma.$transaction(async (tx) => {
+      await tx.novelPurchase.upsert({
+        where: { provider_providerOrderId: { provider: "CREEM", providerOrderId: orderId } },
+        update: {
+          providerEventId: eventId,
+          providerCheckoutId: checkoutId ?? undefined
+        },
+        create: {
+          userId,
+          novelId,
+          chapterId: null,
+          pricingMode: "BOOK",
+          amount: amountMajor,
+          currency,
+          provider: "CREEM",
+          providerOrderId: orderId,
+          providerEventId: eventId,
+          providerCheckoutId: checkoutId ?? null
+        }
+      });
+
+      await tx.creemOrder.upsert({
+        where: { creemEventId: eventId },
+        update: {
+          creemOrderId: orderId,
+          creemCheckoutId: checkoutId ?? undefined,
+          status: "paid"
+        },
+        create: {
+          userId,
+          novelId,
+          creemEventId: eventId,
+          creemOrderId: orderId,
+          creemCheckoutId: checkoutId ?? null,
+          creemProductId: productId,
+          amount: amountMajor,
+          currency,
+          status: "paid"
+        }
+      });
+
+      await tx.entitlement.upsert({
+        where: {
+          userId_novelId_scope: {
+            userId,
+            novelId,
+            scope: "BOOK"
+          }
+        },
+        update: {},
+        create: {
+          userId,
+          novelId,
+          scope: "BOOK"
+        }
+      });
     });
 
     await this.markEventProcessed(eventId, null);

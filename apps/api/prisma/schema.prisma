@@ -127,6 +127,11 @@ enum PaymentProvider {
   CREEM
 }
 
+enum EntitlementScope {
+  BOOK
+  CHAPTER
+}
+
 enum NovelReactionType {
   LIKE
   DISLIKE
@@ -583,6 +588,8 @@ model Novel {
   purchases NovelPurchase[]
   hallTrace Trace?         @relation(fields: [hallTraceId], references: [id])
   room      Room?          @relation(fields: [roomId], references: [id])
+
+  @@index([creemProductId])
 }
 
 model NovelReaction {
@@ -660,6 +667,41 @@ model PaymentWebhookEvent {
   createdAt DateTime        @default(now())
 
   @@unique([provider, eventId])
+}
+
+model CreemOrder {
+  id               String          @id @default(uuid())
+  userId           String
+  novelId          String
+  creemEventId     String          @unique @db.VarChar(120)
+  creemOrderId     String?         @db.VarChar(120)
+  creemCheckoutId  String?         @db.VarChar(120)
+  creemProductId   String          @db.VarChar(120)
+  amount           Decimal         @db.Decimal(10, 2)
+  currency         String          @db.VarChar(8)
+  status           String          @db.VarChar(40)
+  createdAt        DateTime        @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  novel Novel @relation(fields: [novelId], references: [id], onDelete: Cascade)
+
+  @@index([userId, novelId])
+}
+
+model Entitlement {
+  id        String            @id @default(uuid())
+  userId    String
+  novelId   String
+  scope     EntitlementScope
+  chapterId String?
+  createdAt DateTime          @default(now())
+
+  user   User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  novel  Novel @relation(fields: [novelId], references: [id], onDelete: Cascade)
+  chapter NovelChapter? @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, novelId, scope])
+  @@index([userId, novelId])
 }
 
 model NovelFile {

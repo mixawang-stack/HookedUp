@@ -8,21 +8,49 @@ const API_BASE =
 export async function POST(request: Request) {
   const rawBody = await request.text();
   const signature = request.headers.get("creem-signature") ?? "";
+  let eventId = "";
+  let eventType = "";
+  let productId = "";
+  let userId = "";
+  let novelId = "";
+  try {
+    const parsed = JSON.parse(rawBody);
+    eventId = parsed?.id ?? "";
+    eventType = parsed?.type ?? "";
+    const order = parsed?.data?.object?.order;
+    const metadata = parsed?.data?.object?.metadata ?? {};
+    const product =
+      typeof order?.product === "string" ? order.product : order?.product?.id ?? "";
+    productId = product ?? "";
+    userId = metadata?.userId ?? metadata?.user_id ?? "";
+    novelId = metadata?.novelId ?? metadata?.novel_id ?? "";
+  } catch {
+    // ignore parse failure
+  }
 
-  const res = await fetch(`${API_BASE}/webhooks/creem`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "creem-signature": signature
-    },
-    body: rawBody
+  console.log("Creem webhook", {
+    eventType,
+    eventId,
+    productId,
+    userId,
+    novelId
   });
 
-  const text = await res.text();
-  return new Response(text, {
-    status: res.status,
-    headers: {
-      "Content-Type": res.headers.get("content-type") ?? "application/json"
-    }
+  try {
+    await fetch(`${API_BASE}/webhooks/creem`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "creem-signature": signature
+      },
+      body: rawBody
+    });
+  } catch (error) {
+    console.error("Creem webhook forward failed", error);
+  }
+
+  return new Response(JSON.stringify({ received: true }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" }
   });
 }

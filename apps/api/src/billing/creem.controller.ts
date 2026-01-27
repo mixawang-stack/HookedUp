@@ -24,6 +24,12 @@ export class CreemController {
       (req.headers["Creem-Signature"] as string | undefined) ??
       null;
     const rawBody = Buffer.isBuffer(req.body) ? req.body : Buffer.from("");
-    return this.creemService.handleWebhook(rawBody, signatureHeader);
+    try {
+      return await this.creemService.handleWebhook(rawBody, signatureHeader);
+    } catch (error) {
+      // Always return 200 for webhook retry safety
+      console.error("Creem webhook error", error);
+      return { received: true, error: true };
+    }
   }
 }

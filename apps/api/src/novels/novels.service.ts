@@ -1068,6 +1068,11 @@ export class NovelsService {
     if (!userId) {
       return { hasBookPurchase: false, purchasedChapterIds: new Set<string>() };
     }
+    const entitlements = await this.prisma.entitlement.findMany({
+      where: { userId, novelId, scope: "BOOK" },
+      select: { id: true }
+    });
+    const hasBookEntitlement = entitlements.length > 0;
     const purchases = await this.prisma.novelPurchase.findMany({
       where: { userId, novelId },
       select: { chapterId: true, pricingMode: true }
@@ -1080,7 +1085,10 @@ export class NovelsService {
         .map((purchase) => purchase.chapterId)
         .filter((value): value is string => Boolean(value))
     );
-    return { hasBookPurchase, purchasedChapterIds };
+    return {
+      hasBookPurchase: hasBookEntitlement || hasBookPurchase,
+      purchasedChapterIds
+    };
   }
 
   async listNovels(limit?: number, featured?: boolean, category?: NovelCategory) {

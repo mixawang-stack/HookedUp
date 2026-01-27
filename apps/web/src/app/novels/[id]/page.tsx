@@ -54,6 +54,7 @@ export default function NovelDetailPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [reactionLoading, setReactionLoading] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
+  const [meId, setMeId] = useState<string | null>(null);
 
   const authHeader = useMemo(
     () => (token ? { Authorization: `Bearer ${token}` } : null),
@@ -63,6 +64,17 @@ export default function NovelDetailPage() {
   useEffect(() => {
     setToken(localStorage.getItem("accessToken"));
   }, []);
+
+  useEffect(() => {
+    if (!authHeader) {
+      setMeId(null);
+      return;
+    }
+    fetch(`${API_BASE}/me`, { headers: { ...authHeader } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setMeId(data?.id ?? null))
+      .catch(() => setMeId(null));
+  }, [authHeader]);
 
   useEffect(() => {
     if (!novelId) return;
@@ -199,7 +211,11 @@ export default function NovelDetailPage() {
       }
 
       if (novel.paymentLink) {
-        window.location.href = novel.paymentLink;
+        const url = new URL(novel.paymentLink);
+        if (meId) {
+          url.searchParams.set("metadata[user_id]", meId);
+        }
+        window.location.href = url.toString();
       }
     } finally {
       setUnlocking(false);
