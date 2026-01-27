@@ -7,6 +7,7 @@ import GlobalTips from "./components/GlobalTips";
 import HostFloating from "./components/HostFloating";
 import PageShell from "./components/PageShell";
 import TopNav from "./components/TopNav";
+import Footer from "./components/Footer";
 
 export const metadata: Metadata = {
   title: "HookedUp? MVP",
@@ -26,6 +27,7 @@ export default function RootLayout({
         </Suspense>
         <TopNav />
         {children}
+        <Footer />
         <GlobalTips />
         <ActiveRoomPanel />
         <HostFloating />
