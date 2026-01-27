@@ -128,6 +128,7 @@ enum PaymentProvider {
 }
 
 enum EntitlementScope {
+  FULL
   BOOK
   CHAPTER
 }
@@ -676,8 +677,8 @@ model PaymentWebhookEvent {
 
 model CreemOrder {
   id               String          @id @default(uuid())
-  userId           String
-  novelId          String
+  userId           String?
+  novelId          String?
   creemEventId     String          @unique @db.VarChar(120)
   creemOrderId     String?         @db.VarChar(120)
   creemCheckoutId  String?         @db.VarChar(120)
@@ -687,8 +688,8 @@ model CreemOrder {
   status           String          @db.VarChar(40)
   createdAt        DateTime        @default(now())
 
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  novel Novel @relation(fields: [novelId], references: [id], onDelete: Cascade)
+  user  User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  novel Novel? @relation(fields: [novelId], references: [id], onDelete: Cascade)
 
   @@index([userId, novelId])
 }

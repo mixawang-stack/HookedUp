@@ -170,8 +170,8 @@ export class CreemService {
       typeof order?.product === "string" ? order?.product : order?.product?.id ?? null;
 
     const metadata = object?.metadata ?? {};
-    let userId: string | null = metadata.userId ?? null;
-    let novelId: string | null = metadata.novelId ?? null;
+    let userId: string | null = metadata.userId ?? metadata.user_id ?? null;
+    let novelId: string | null = metadata.novelId ?? metadata.novel_id ?? null;
     const requestId = object?.request_id ?? "";
     if ((!userId || !novelId) && typeof requestId === "string") {
       const match = requestId.match(/novel:([^:]+):user:([^:]+)/i);
@@ -185,17 +185,17 @@ export class CreemService {
       `Creem checkout.completed event=${eventId} product=${productId} user=${userId} novel=${novelId}`
     );
 
-    if (!userId || !novelId || !orderId || !productId) {
-      await this.markEventProcessed(eventId, "MISSING_METADATA");
-      return { received: true, ignored: true };
+    let resolvedNovelId: string | null = novelId;
+    if ((!resolvedNovelId || resolvedNovelId.length === 0) && productId) {
+      const novelByProduct = await this.prisma.novel.findFirst({
+        where: { creemProductId: productId },
+        select: { id: true }
+      });
+      resolvedNovelId = novelByProduct?.id ?? null;
     }
 
-    const novel = await this.prisma.novel.findFirst({
-      where: { id: novelId, creemProductId: productId },
-      select: { id: true }
-    });
-    if (!novel) {
-      await this.markEventProcessed(eventId, "NOVEL_NOT_FOUND");
+    if (!orderId || !productId) {
+      await this.markEventProcessed(eventId, "MISSING_ORDER");
       return { received: true, ignored: true };
     }
 
@@ -211,6 +211,30 @@ export class CreemService {
       : 0;
     const currency = (order?.currency ?? "USD").toUpperCase();
 
+    if (!userId || !resolvedNovelId) {
+      await this.prisma.creemOrder.upsert({
+        where: { creemEventId: eventId },
+        update: {
+          creemOrderId: orderId,
+          creemCheckoutId: checkoutId ?? undefined,
+          status: "pending"
+        },
+        create: {
+          userId: userId ?? null,
+          novelId: resolvedNovelId ?? null,
+          creemEventId: eventId,
+          creemOrderId: orderId,
+          creemCheckoutId: checkoutId ?? null,
+          creemProductId: productId,
+          amount: amountMajor,
+          currency,
+          status: "pending"
+        }
+      });
+      await this.markEventProcessed(eventId, "MISSING_METADATA");
+      return { received: true, pending: true };
+    }
+
     await this.prisma.$transaction(async (tx) => {
       await tx.novelPurchase.upsert({
         where: { provider_providerOrderId: { provider: "CREEM", providerOrderId: orderId } },
@@ -220,7 +244,7 @@ export class CreemService {
         },
         create: {
           userId,
-          novelId,
+          novelId: resolvedNovelId,
           chapterId: null,
           pricingMode: "BOOK",
           amount: amountMajor,
@@ -241,7 +265,7 @@ export class CreemService {
         },
         create: {
           userId,
-          novelId,
+          novelId: resolvedNovelId,
           creemEventId: eventId,
           creemOrderId: orderId,
           creemCheckoutId: checkoutId ?? null,
@@ -256,15 +280,15 @@ export class CreemService {
         where: {
           userId_novelId_scope: {
             userId,
-            novelId,
-            scope: "BOOK"
+            novelId: resolvedNovelId,
+            scope: "FULL"
           }
         },
         update: {},
         create: {
           userId,
-          novelId,
-          scope: "BOOK"
+          novelId: resolvedNovelId,
+          scope: "FULL"
         }
       });
     });

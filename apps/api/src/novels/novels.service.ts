@@ -1069,7 +1069,11 @@ export class NovelsService {
       return { hasBookPurchase: false, purchasedChapterIds: new Set<string>() };
     }
     const entitlements = await this.prisma.entitlement.findMany({
-      where: { userId, novelId, scope: "BOOK" },
+      where: {
+        userId,
+        novelId,
+        scope: { in: ["FULL", "BOOK"] }
+      },
       select: { id: true }
     });
     const hasBookEntitlement = entitlements.length > 0;
