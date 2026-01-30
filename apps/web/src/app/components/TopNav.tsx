@@ -53,6 +53,20 @@ export default function TopNav() {
     setToken(localStorage.getItem("accessToken"));
   }, []);
 
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === "accessToken") {
+        setToken(event.newValue);
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
+  useEffect(() => {
+    setToken(localStorage.getItem("accessToken"));
+  }, [pathname]);
+
   const fetchMe = useCallback(
     async (accessToken: string) => {
       const res = await fetch(`${API_BASE}/me`, {
