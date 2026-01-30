@@ -779,7 +779,7 @@ export class NovelsService {
 
   private splitPdfIntoChapters(text: string) {
     const chapterRegex =
-      /(^|\n)\s*(Chapter\s+(?:\d+|[IVXLCDM]+|[A-Za-z]+)\b[^\n]*|CHAPTER\s+(?:\d+|[IVXLCDM]+|[A-Za-z]+)\b[^\n]*|Part\s+(?:\d+|[IVXLCDM]+|[A-Za-z]+)\b[^\n]*|PART\s+(?:\d+|[IVXLCDM]+|[A-Za-z]+)\b[^\n]*|Book\s+(?:\d+|[IVXLCDM]+|[A-Za-z]+)\b[^\n]*|BOOK\s+(?:\d+|[IVXLCDM]+|[A-Za-z]+)\b[^\n]*|Section\s+\d+[^\n]*|SECTION\s+\d+[^\n]*|\u7b2c[0-9\u4e00-\u9fa5]+[\u7ae0\u8282][^\n]*)/g;
+      /(^|\n)\s*(Chapter\s+(?:\d+|[IVXLCDM]+|[A-Za-z]+)\b[^\n]*|CHAPTER\s+(?:\d+|[IVXLCDM]+|[A-Za-z]+)\b[^\n]*|Part\s+(?:\d+|[IVXLCDM]+|[A-Za-z]+)\b[^\n]*|PART\s+(?:\d+|[IVXLCDM]+|[A-Za-z]+)\b[^\n]*|Book\s+(?:\d+|[IVXLCDM]+|[A-Za-z]+)\b[^\n]*|BOOK\s+(?:\d+|[IVXLCDM]+|[A-Za-z]+)\b[^\n]*|Section\s+\d+[^\n]*|SECTION\s+\d+[^\n]*|Intro(?:duction)?\b[^\n]*|INTRO(?:DUCTION)?\b[^\n]*|Prologue\b[^\n]*|PROLOGUE\b[^\n]*|Epilogue\b[^\n]*|EPILOGUE\b[^\n]*|\u7b2c[0-9\u4e00-\u9fa5]+[\u7ae0\u8282][^\n]*)/g;
     const matches = Array.from(text.matchAll(chapterRegex));
 
     if (matches.length === 0) {
@@ -1097,7 +1097,8 @@ export class NovelsService {
       /^(Chapter|CHAPTER)\s+\d+\b/,
       /^(Chapter|CHAPTER)\s+[IVXLC]+\b/,
       /^(Part|PART)\s+\d+\b/,
-      /^第\s*\d+\s*章/
+      /^第\s*\d+\s*章/,
+      /^(Intro|INTRO|Introduction|INTRODUCTION|Prologue|PROLOGUE|Epilogue|EPILOGUE)\b/
     ];
     lines.forEach((line, index) => {
       const trimmed = line.trim();
@@ -1156,8 +1157,10 @@ export class NovelsService {
     let currentTitle: string | null = null;
     let buffer: string[] = [];
 
-    const chapterLineRegex = /^(Chapter|CHAPTER)\s*(\d+)?\b[:.\-]?\s*(.*)$/;
+    const chapterLineRegex =
+      /^(Chapter|CHAPTER|Part|PART|Book|BOOK|Section|SECTION|Intro|INTRO|Introduction|INTRODUCTION|Prologue|PROLOGUE|Epilogue|EPILOGUE)\s*(\d+|[IVXLC]+)?\b\s*(?:[:.\-]|\|)?\s*(.*)$/;
     const numberedHeadingRegex = /^\d+\s*[.)-]\s*(.+)$/;
+    const markerOverrides = new Set(["INTRO", "INTRODUCTION", "PROLOGUE", "EPILOGUE"]);
 
     const flush = () => {
       const content = buffer.join("\n").replace(/\n{3,}/g, "\n\n").trim();
@@ -1180,11 +1183,34 @@ export class NovelsService {
       const chapterMatch = line.match(chapterLineRegex);
       if (chapterMatch) {
         flush();
+        const marker = chapterMatch[1];
+        const markerKey = marker.toUpperCase();
         const index = chapterMatch[2];
         const suffix = chapterMatch[3]?.trim();
-        currentTitle = index
-          ? `Chapter ${index}${suffix ? ` - ${suffix}` : ""}`
-          : chapterMatch[1];
+        const base =
+          markerKey === "CHAPTER"
+            ? "Chapter"
+            : markerKey === "PART"
+              ? "Part"
+              : markerKey === "BOOK"
+                ? "Book"
+                : markerKey === "SECTION"
+                  ? "Section"
+                  : markerKey === "INTRODUCTION"
+                    ? "Introduction"
+                    : markerKey === "INTRO"
+                      ? "Intro"
+                      : markerKey === "PROLOGUE"
+                        ? "Prologue"
+                        : markerKey === "EPILOGUE"
+                          ? "Epilogue"
+                          : marker;
+        if (markerOverrides.has(markerKey)) {
+          currentTitle = suffix && suffix.length > 0 ? suffix : base;
+        } else {
+          const prefix = index ? `${base} ${index}` : base;
+          currentTitle = suffix && suffix.length > 0 ? `${prefix} - ${suffix}` : prefix;
+        }
         return;
       }
 
@@ -1272,7 +1298,15 @@ export class NovelsService {
         ...(category ? { category } : {})
       },
       orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
-      take
+      take,
+      select: {
+        id: true,
+        title: true,
+        coverImageUrl: true,
+        description: true,
+        category: true,
+        isFeatured: true
+      }
     });
   }
 
@@ -1752,7 +1786,15 @@ export class NovelsService {
         } as Prisma.JsonFilter
       },
       orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
-      take: 6
+      take: 6,
+      select: {
+        id: true,
+        title: true,
+        coverImageUrl: true,
+        description: true,
+        category: true,
+        isFeatured: true
+      }
     });
   }
 
