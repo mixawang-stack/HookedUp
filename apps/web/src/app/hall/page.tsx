@@ -502,6 +502,24 @@ export default function HallPage() {
     });
   }, [selectedTraceId]);
 
+  useEffect(() => {
+    if (!traceDetail) {
+      return;
+    }
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSelectedTraceId(null);
+      }
+    };
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleEscape);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [traceDetail]);
+
   const uploadTraceImage = async (file: File) => {
     if (!authHeader) {
       throw new Error("Please sign in to upload an image.");
@@ -1299,16 +1317,16 @@ export default function HallPage() {
 
           {traceDetail && (
             <div
-              className="fixed inset-0 z-40 flex items-stretch"
+              className="fixed inset-0 z-50 flex items-stretch"
               role="dialog"
               aria-modal="true"
             >
               <div
-                className="absolute inset-0 bg-text-primary/40 backdrop-blur-sm animate-trace-backdrop"
+                className="absolute inset-0 bg-black/40 backdrop-blur-[1px] animate-trace-backdrop"
                 onClick={() => setSelectedTraceId(null)}
               />
-              <div className="relative ml-auto flex h-full w-full max-w-[520px] flex-col overflow-hidden bg-card text-text-primary shadow-sm animate-trace-drawer">
-                <header className="flex items-start justify-between border-b border-border-default px-6 py-4">
+              <div className="relative z-10 ml-auto flex h-full w-full max-w-full flex-col overflow-hidden border-l border-border-default bg-card text-text-primary shadow-2xl animate-trace-drawer lg:max-w-[420px]">
+                <header className="sticky top-0 z-10 flex items-start justify-between border-b border-border-default bg-card/95 px-6 py-4 backdrop-blur">
                   <div>
                     <h3 className="text-lg font-semibold text-text-primary">
                       Trace details
