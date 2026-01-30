@@ -15,7 +15,10 @@
     "schema": "apps/api/prisma/schema.prisma"
   },
   "devDependencies": {
-    "prisma": "^5.22.0",
-    "@prisma/client": "^5.22.0"
+    "@prisma/client": "^5.22.0",
+    "prisma": "^5.22.0"
+  },
+  "dependencies": {
+    "resend": "^6.9.1"
   }
 }

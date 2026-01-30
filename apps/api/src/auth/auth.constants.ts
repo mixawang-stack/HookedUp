@@ -47,3 +47,6 @@ export const SMTP_PASS = process.env.SMTP_PASS ?? "";
 export const SMTP_FROM = process.env.SMTP_FROM ?? "";
 export const SMTP_SECURE =
   (process.env.SMTP_SECURE ?? "false").toLowerCase() === "true";
+
+export const RESEND_API_KEY = process.env.RESEND_API_KEY ?? "";
+export const RESEND_FROM = process.env.RESEND_FROM ?? "";

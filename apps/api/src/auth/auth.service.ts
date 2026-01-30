@@ -9,6 +9,7 @@ import { JwtService } from "@nestjs/jwt";
 import * as argon2 from "argon2";
 import { Prisma } from "@prisma/client";
 import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import { PrismaService } from "../prisma.service";
 import {
   API_PUBLIC_BASE_URL,
@@ -25,7 +26,9 @@ import {
   SMTP_PASS,
   SMTP_PORT,
   SMTP_SECURE,
-  SMTP_USER
+  SMTP_USER,
+  RESEND_API_KEY,
+  RESEND_FROM
 } from "./auth.constants";
 import { generateToken, hashToken } from "./auth.utils";
 import { RegisterDto } from "./dto/register.dto";
@@ -453,33 +456,34 @@ export class AuthService {
   }
 
   private async sendVerificationCode(email: string, code: string) {
-    if (!SMTP_HOST || !SMTP_FROM) {
-      if (AUTH_RETURN_VERIFY_TOKEN) {
-        return;
-      }
-      throw new Error("SMTP_NOT_CONFIGURED");
-    }
-
-    const transport = nodemailer.createTransport({
-      host: SMTP_HOST,
-      port: SMTP_PORT,
-      secure: SMTP_SECURE,
-      auth: SMTP_USER && SMTP_PASS ? { user: SMTP_USER, pass: SMTP_PASS } : undefined
-    });
-
     const expiresMinutes = Math.floor(EMAIL_VERIFY_TTL_SECONDS / 60);
     const subject = "Your verification code";
     const text = `Your verification code is ${code}. It expires in ${expiresMinutes} minutes.`;
-
-    await transport.sendMail({
-      from: SMTP_FROM,
-      to: email,
-      subject,
-      text
-    });
+    await this.sendEmail(email, subject, text);
   }
 
   private async sendPasswordResetCode(email: string, code: string) {
+    const expiresMinutes = Math.floor(PASSWORD_RESET_TTL_SECONDS / 60);
+    const subject = "Your password reset code";
+    const text = `Your password reset code is ${code}. It expires in ${expiresMinutes} minutes.`;
+    await this.sendEmail(email, subject, text);
+  }
+
+  private async sendEmail(to: string, subject: string, text: string) {
+    if (RESEND_API_KEY && RESEND_FROM) {
+      const resend = new Resend(RESEND_API_KEY);
+      const { error } = await resend.emails.send({
+        from: RESEND_FROM,
+        to,
+        subject,
+        text
+      });
+      if (error) {
+        throw new Error(error.message || "RESEND_SEND_FAILED");
+      }
+      return;
+    }
+
     if (!SMTP_HOST || !SMTP_FROM) {
       if (AUTH_RETURN_VERIFY_TOKEN) {
         return;
@@ -494,13 +498,9 @@ export class AuthService {
       auth: SMTP_USER && SMTP_PASS ? { user: SMTP_USER, pass: SMTP_PASS } : undefined
     });
 
-    const expiresMinutes = Math.floor(PASSWORD_RESET_TTL_SECONDS / 60);
-    const subject = "Your password reset code";
-    const text = `Your password reset code is ${code}. It expires in ${expiresMinutes} minutes.`;
-
     await transport.sendMail({
       from: SMTP_FROM,
-      to: email,
+      to,
       subject,
       text
     });
