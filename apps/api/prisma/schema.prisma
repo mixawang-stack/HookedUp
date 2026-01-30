@@ -719,7 +719,7 @@ model NovelFile {
   novelId     String
   fileUrl     String
   fileType    String
-  parseStatus NovelParseStatus @default(PENDING)
+  parseStatus NovelParseStatus @default(IDLE)
   parseError  String?         @db.Text
   createdAt   DateTime        @default(now())
 
