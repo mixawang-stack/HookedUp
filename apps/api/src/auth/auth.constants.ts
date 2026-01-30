@@ -10,6 +10,7 @@ export const AUTH_RETURN_VERIFY_TOKEN =
 const accessTtlRaw = Number(process.env.JWT_ACCESS_TTL ?? 86400);
 const refreshTtlRaw = Number(process.env.JWT_REFRESH_TTL ?? 604800);
 const verifyTtlRaw = Number(process.env.EMAIL_VERIFY_TTL ?? 86400);
+const resetTtlRaw = Number(process.env.PASSWORD_RESET_TTL ?? 3600);
 
 export const JWT_ACCESS_TTL_SECONDS = Number.isFinite(accessTtlRaw)
   ? accessTtlRaw
@@ -27,6 +28,9 @@ export const JWT_REFRESH_TTL_SECONDS = Number.isFinite(refreshTtlRaw)
 export const EMAIL_VERIFY_TTL_SECONDS = Number.isFinite(verifyTtlRaw)
   ? verifyTtlRaw
   : 86400;
+export const PASSWORD_RESET_TTL_SECONDS = Number.isFinite(resetTtlRaw)
+  ? resetTtlRaw
+  : 3600;
 
 export const JWT_ACCESS_SECRET =
   process.env.JWT_ACCESS_SECRET ?? "dev-access-secret";

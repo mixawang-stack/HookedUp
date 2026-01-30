@@ -15,6 +15,7 @@ import {
   AUTH_ALLOW_UNVERIFIED_LOGIN,
   AUTH_RETURN_VERIFY_TOKEN,
   EMAIL_VERIFY_TTL_SECONDS,
+  PASSWORD_RESET_TTL_SECONDS,
   JWT_ACCESS_SECRET,
   JWT_ACCESS_TTL_SECONDS,
   JWT_REFRESH_SECRET,
@@ -260,6 +261,100 @@ export class AuthService {
     });
   }
 
+  async requestPasswordReset(email: string): Promise<{ ok: true }> {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      throw new BadRequestException("EMAIL_REQUIRED");
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: { id: true, status: true }
+    });
+    if (!user || user.status === "DELETED") {
+      return { ok: true };
+    }
+
+    const resetCode = this.generateVerificationCode();
+    const tokenHash = hashToken(resetCode);
+    const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_SECONDS * 1000);
+
+    await this.prisma.passwordResetToken.deleteMany({
+      where: { userId: user.id }
+    });
+
+    await this.prisma.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        tokenHash,
+        expiresAt
+      }
+    });
+
+    try {
+      await this.sendPasswordResetCode(normalizedEmail, resetCode);
+    } catch (error) {
+      await this.prisma.passwordResetToken.deleteMany({
+        where: { userId: user.id }
+      });
+      throw new BadRequestException("EMAIL_SEND_FAILED");
+    }
+
+    return { ok: true };
+  }
+
+  async confirmPasswordReset(
+    email: string,
+    code: string,
+    newPassword: string
+  ): Promise<{ ok: true }> {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail || !code?.trim()) {
+      throw new BadRequestException("RESET_CODE_INVALID");
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: { id: true, status: true }
+    });
+    if (!user || user.status === "DELETED") {
+      throw new BadRequestException("RESET_CODE_INVALID");
+    }
+
+    const tokenHash = hashToken(code.trim());
+    const token = await this.prisma.passwordResetToken.findFirst({
+      where: {
+        userId: user.id,
+        tokenHash,
+        consumedAt: null
+      }
+    });
+    if (!token) {
+      throw new BadRequestException("RESET_CODE_INVALID");
+    }
+    if (token.expiresAt < new Date()) {
+      throw new BadRequestException("RESET_CODE_EXPIRED");
+    }
+
+    const passwordHash = await argon2.hash(newPassword);
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: user.id },
+        data: { passwordHash }
+      }),
+      this.prisma.passwordResetToken.update({
+        where: { id: token.id },
+        data: { consumedAt: new Date() }
+      }),
+      this.prisma.refreshToken.updateMany({
+        where: { userId: user.id, revokedAt: null },
+        data: { revokedAt: new Date() }
+      })
+    ]);
+
+    return { ok: true };
+  }
+
   async verifyEmailCode(email: string, code: string): Promise<{ ok: true }> {
     const normalizedEmail = email.trim().toLowerCase();
     const normalizedCode = code.trim();
@@ -371,6 +466,33 @@ export class AuthService {
     const expiresMinutes = Math.floor(EMAIL_VERIFY_TTL_SECONDS / 60);
     const subject = "Your verification code";
     const text = `Your verification code is ${code}. It expires in ${expiresMinutes} minutes.`;
+
+    await transport.sendMail({
+      from: SMTP_FROM,
+      to: email,
+      subject,
+      text
+    });
+  }
+
+  private async sendPasswordResetCode(email: string, code: string) {
+    if (!SMTP_HOST || !SMTP_FROM) {
+      if (AUTH_RETURN_VERIFY_TOKEN) {
+        return;
+      }
+      throw new Error("SMTP_NOT_CONFIGURED");
+    }
+
+    const transport = nodemailer.createTransport({
+      host: SMTP_HOST,
+      port: SMTP_PORT,
+      secure: SMTP_SECURE,
+      auth: SMTP_USER && SMTP_PASS ? { user: SMTP_USER, pass: SMTP_PASS } : undefined
+    });
+
+    const expiresMinutes = Math.floor(PASSWORD_RESET_TTL_SECONDS / 60);
+    const subject = "Your password reset code";
+    const text = `Your password reset code is ${code}. It expires in ${expiresMinutes} minutes.`;
 
     await transport.sendMail({
       from: SMTP_FROM,

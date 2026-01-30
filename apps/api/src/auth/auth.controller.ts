@@ -24,6 +24,8 @@ import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
 import { VerifyCodeDto } from "./dto/verify-code.dto";
 import { ChangePasswordDto } from "./dto/change-password.dto";
+import { PasswordResetRequestDto } from "./dto/password-reset-request.dto";
+import { PasswordResetConfirmDto } from "./dto/password-reset-confirm.dto";
 
 const baseCookieOptions = {
   httpOnly: true,
@@ -154,6 +156,20 @@ export class AuthController {
   ) {
     await this.authService.changePassword(req.user.sub, dto);
     return { ok: true };
+  }
+
+  @Post("password-reset/request")
+  async requestPasswordReset(@Body() dto: PasswordResetRequestDto) {
+    return this.authService.requestPasswordReset(dto.email);
+  }
+
+  @Post("password-reset/confirm")
+  async confirmPasswordReset(@Body() dto: PasswordResetConfirmDto) {
+    return this.authService.confirmPasswordReset(
+      dto.email,
+      dto.code,
+      dto.newPassword
+    );
   }
 
   @Get("verify-email")

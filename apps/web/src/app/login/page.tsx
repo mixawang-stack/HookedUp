@@ -24,11 +24,21 @@ function LoginFormContent() {
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetCode, setResetCode] = useState("");
+  const [resetPassword, setResetPassword] = useState("");
+  const [resetConfirm, setResetConfirm] = useState("");
+  const [resetStatus, setResetStatus] = useState<string | null>(null);
+  const [resetRequested, setResetRequested] = useState(false);
+  const [resetSending, setResetSending] = useState(false);
+  const [resetSubmitting, setResetSubmitting] = useState(false);
 
   const {
     register,
     handleSubmit,
-    formState: { errors }
+    formState: { errors },
+    getValues
   } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema)
   });
@@ -85,6 +95,86 @@ function LoginFormContent() {
     }
   });
 
+  const handleOpenReset = () => {
+    setResetOpen((prev) => !prev);
+    setResetStatus(null);
+    setResetRequested(false);
+    const emailValue = getValues("email");
+    if (emailValue) {
+      setResetEmail(emailValue);
+    }
+  };
+
+  const handleRequestReset = async () => {
+    if (!resetEmail.trim()) {
+      setResetStatus("Please enter your email.");
+      return;
+    }
+    setResetStatus(null);
+    setResetSending(true);
+    try {
+      const res = await fetch(`${API_BASE}/auth/password-reset/request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: resetEmail.trim() })
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(body?.message ?? "Failed to send reset code.");
+      }
+      setResetRequested(true);
+      setResetStatus("Reset code sent. Check your email.");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to send reset code.";
+      setResetStatus(message);
+    } finally {
+      setResetSending(false);
+    }
+  };
+
+  const handleConfirmReset = async () => {
+    if (!resetEmail.trim() || !resetCode.trim()) {
+      setResetStatus("Please enter your email and code.");
+      return;
+    }
+    if (resetPassword.length < 8) {
+      setResetStatus("New password must be at least 8 characters.");
+      return;
+    }
+    if (resetPassword !== resetConfirm) {
+      setResetStatus("Passwords do not match.");
+      return;
+    }
+    setResetStatus(null);
+    setResetSubmitting(true);
+    try {
+      const res = await fetch(`${API_BASE}/auth/password-reset/confirm`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: resetEmail.trim(),
+          code: resetCode.trim(),
+          newPassword: resetPassword
+        })
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(body?.message ?? "Failed to reset password.");
+      }
+      setResetStatus("Password updated. You can sign in now.");
+      setResetCode("");
+      setResetPassword("");
+      setResetConfirm("");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to reset password.";
+      setResetStatus(message);
+    } finally {
+      setResetSubmitting(false);
+    }
+  };
+
   return (
     <main className="ui-page flex w-full items-center justify-center px-4 py-12">
       <div className="mx-auto grid w-full max-w-5xl gap-8 md:grid-cols-2">
@@ -140,6 +230,104 @@ function LoginFormContent() {
               {loading ? "Entering..." : "Enter"}
             </button>
           </form>
+
+          <button
+            type="button"
+            className="text-left text-xs font-semibold text-text-secondary hover:text-text-primary"
+            onClick={handleOpenReset}
+          >
+            {resetOpen ? "Hide password reset" : "Forgot password?"}
+          </button>
+
+          {resetOpen && (
+            <div className="rounded-2xl border border-border-default bg-surface px-4 py-4 text-sm text-text-secondary">
+              <p className="text-xs font-semibold text-text-primary">
+                Reset your password
+              </p>
+              <p className="mt-1 text-xs text-text-secondary">
+                We will email you a verification code.
+              </p>
+
+              <div className="mt-3 space-y-3">
+                <div>
+                  <label className="text-xs font-semibold text-text-secondary">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    className="mt-1 w-full rounded-2xl border border-border-default bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted"
+                    value={resetEmail}
+                    onChange={(event) => setResetEmail(event.target.value)}
+                    placeholder="you@example.com"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  className="btn-primary w-full py-2 text-xs disabled:opacity-60"
+                  onClick={handleRequestReset}
+                  disabled={resetSending}
+                >
+                  {resetSending ? "Sending..." : "Send verification code"}
+                </button>
+
+                <div>
+                  <label className="text-xs font-semibold text-text-secondary">
+                    Verification code
+                  </label>
+                  <input
+                    type="text"
+                    className="mt-1 w-full rounded-2xl border border-border-default bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted"
+                    value={resetCode}
+                    onChange={(event) => setResetCode(event.target.value)}
+                    placeholder="6-digit code"
+                    disabled={!resetRequested}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-text-secondary">
+                    New password
+                  </label>
+                  <input
+                    type="password"
+                    className="mt-1 w-full rounded-2xl border border-border-default bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted"
+                    value={resetPassword}
+                    onChange={(event) => setResetPassword(event.target.value)}
+                    placeholder="At least 8 characters"
+                    disabled={!resetRequested}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-text-secondary">
+                    Confirm new password
+                  </label>
+                  <input
+                    type="password"
+                    className="mt-1 w-full rounded-2xl border border-border-default bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted"
+                    value={resetConfirm}
+                    onChange={(event) => setResetConfirm(event.target.value)}
+                    placeholder="Repeat password"
+                    disabled={!resetRequested}
+                  />
+                </div>
+
+                {resetStatus && (
+                  <p className="text-xs text-brand-secondary">{resetStatus}</p>
+                )}
+
+                <button
+                  type="button"
+                  className="btn-primary w-full py-2 text-xs disabled:opacity-60"
+                  onClick={handleConfirmReset}
+                  disabled={resetSubmitting || !resetRequested}
+                >
+                  {resetSubmitting ? "Resetting..." : "Reset password"}
+                </button>
+              </div>
+            </div>
+          )}
           <p className="text-sm text-text-secondary">
             First time here? It only takes a moment.{" "}
             <Link
