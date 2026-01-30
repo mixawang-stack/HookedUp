@@ -170,6 +170,7 @@ model User {
 
   emailVerificationTokens  EmailVerificationToken[]
   refreshTokens            RefreshToken[]
+  passwordResetTokens      PasswordResetToken[]
   verifications            Verification[]            @relation("VerificationUser")
   verificationReviews      Verification[]            @relation("VerificationReviewer")
   preference               Preference?
