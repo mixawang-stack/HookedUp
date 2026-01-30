@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 export const dynamic = "force-dynamic";
@@ -49,6 +50,7 @@ const resolveMediaUrl = (value?: string | null) => {
 };
 
 export default function AdminNovelsPage() {
+  const router = useRouter();
   const [token, setToken] = useState<string | null>(null);
   const [novels, setNovels] = useState<NovelItem[]>([]);
   const [status, setStatus] = useState<string | null>(null);
@@ -63,6 +65,13 @@ export default function AdminNovelsPage() {
     if (stored) setToken(stored);
   }, []);
 
+  const handleUnauthorized = (message?: string) => {
+    localStorage.removeItem("accessToken");
+    setToken(null);
+    setStatus(message ?? "Session expired. Please sign in again.");
+    router.replace("/login");
+  };
+
   const loadNovels = async () => {
     if (!authHeader) return;
     setStatus(null);
@@ -70,6 +79,12 @@ export default function AdminNovelsPage() {
       headers: { ...authHeader }
     });
     if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const message = body?.message ?? `HTTP ${res.status}`;
+      if (res.status === 401 || String(message).includes("INVALID_ACCESS_TOKEN")) {
+        handleUnauthorized("Session expired. Please sign in again.");
+        return;
+      }
       setStatus("Failed to load novels.");
       return;
     }
@@ -88,6 +103,12 @@ export default function AdminNovelsPage() {
       body: JSON.stringify({ status: nextStatus })
     });
     if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const message = body?.message ?? `HTTP ${res.status}`;
+      if (res.status === 401 || String(message).includes("INVALID_ACCESS_TOKEN")) {
+        handleUnauthorized("Session expired. Please sign in again.");
+        return;
+      }
       setStatus("Failed to update novel status.");
       return;
     }
