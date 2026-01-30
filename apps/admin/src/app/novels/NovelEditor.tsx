@@ -293,6 +293,11 @@ export default function NovelEditor({ novelId }: Props) {
         setStatus("Upload succeeded. Parsing may still be running.");
       }
       return true;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Upload failed.";
+      setStatus(message);
+      return false;
     } finally {
       setContentUploading(false);
     }
