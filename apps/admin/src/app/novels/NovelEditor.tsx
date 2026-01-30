@@ -135,66 +135,83 @@ export default function NovelEditor({ novelId }: Props) {
 
   const loadNovel = async (id: string) => {
     if (!authHeader) return;
-    const res = await fetch(`${API_BASE}/admin/novels/${id}`, {
-      headers: { ...authHeader }
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      const message = body?.message ?? `HTTP ${res.status}`;
-      if (res.status === 401 || String(message).includes("INVALID_ACCESS_TOKEN")) {
-        handleUnauthorized("Session expired. Please sign in again.");
+    try {
+      const res = await fetch(`${API_BASE}/admin/novels/${id}`, {
+        headers: { ...authHeader }
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const message = body?.message ?? `HTTP ${res.status}`;
+        if (res.status === 401 || String(message).includes("INVALID_ACCESS_TOKEN")) {
+          handleUnauthorized("Session expired. Please sign in again.");
+          return;
+        }
+        setStatus("Novel not found.");
         return;
       }
-      setStatus("Novel not found.");
+      const found = (await res.json()) as NovelItem;
+      setSelectedNovel(found);
+      setTitle(found.title);
+      setCoverImageUrl(found.coverImageUrl ?? "");
+      setDescription(found.description ?? "");
+      setTags((found.tagsJson ?? []).join(", "));
+      setAudience(found.audience);
+      setCategory(found.category ?? "DRAMA");
+      setIsFeatured(found.isFeatured);
+      setAutoPostHall(found.autoHallPost ?? true);
+      setPricingMode(found.pricingMode ?? "BOOK");
+      setBookPrice(found.bookPrice?.toString() ?? "");
+      setBookPromoPrice(found.bookPromoPrice?.toString() ?? "");
+      setCurrency(found.currency ?? "USD");
+      setCreemProductId(found.creemProductId ?? "");
+      setPaymentLink(found.paymentLink ?? "");
+      if (found.contentRawText !== null && found.contentRawText !== undefined) {
+        setFullText(found.contentRawText);
+      }
+      return found;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to load novel.";
+      setStatus(message);
       return;
     }
-    const found = (await res.json()) as NovelItem;
-    setSelectedNovel(found);
-    setTitle(found.title);
-    setCoverImageUrl(found.coverImageUrl ?? "");
-    setDescription(found.description ?? "");
-    setTags((found.tagsJson ?? []).join(", "));
-    setAudience(found.audience);
-    setCategory(found.category ?? "DRAMA");
-    setIsFeatured(found.isFeatured);
-    setAutoPostHall(found.autoHallPost ?? true);
-    setPricingMode(found.pricingMode ?? "BOOK");
-    setBookPrice(found.bookPrice?.toString() ?? "");
-    setBookPromoPrice(found.bookPromoPrice?.toString() ?? "");
-    setCurrency(found.currency ?? "USD");
-    setCreemProductId(found.creemProductId ?? "");
-    setPaymentLink(found.paymentLink ?? "");
-    if (found.contentRawText !== null && found.contentRawText !== undefined) {
-      setFullText(found.contentRawText);
-    }
-    return found;
   };
 
   const loadChapters = async (id: string) => {
     if (!authHeader) return;
-    const res = await fetch(`${API_BASE}/admin/novels/${id}/chapters?t=${Date.now()}`, {
-      headers: { ...authHeader },
-      cache: "no-store"
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      const message = body?.message ?? `HTTP ${res.status}`;
-      if (res.status === 401 || String(message).includes("INVALID_ACCESS_TOKEN")) {
-        handleUnauthorized("Session expired. Please sign in again.");
+    try {
+      const res = await fetch(
+        `${API_BASE}/admin/novels/${id}/chapters?t=${Date.now()}`,
+        {
+          headers: { ...authHeader },
+          cache: "no-store"
+        }
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const message = body?.message ?? `HTTP ${res.status}`;
+        if (res.status === 401 || String(message).includes("INVALID_ACCESS_TOKEN")) {
+          handleUnauthorized("Session expired. Please sign in again.");
+          return;
+        }
         return;
       }
+      const data = (await res.json()) as ChapterItem[];
+      setChapters(data);
+      if (fullText.trim().length === 0 && data.length > 0) {
+        setFullText(
+          data
+            .map((chapter) => `${chapter.title}\n\n${chapter.content}`.trim())
+            .join("\n\n")
+        );
+      }
+      return data;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to load chapters.";
+      setStatus(message);
       return;
     }
-    const data = (await res.json()) as ChapterItem[];
-    setChapters(data);
-    if (fullText.trim().length === 0 && data.length > 0) {
-      setFullText(
-        data
-          .map((chapter) => `${chapter.title}\n\n${chapter.content}`.trim())
-          .join("\n\n")
-      );
-    }
-    return data;
   };
 
   useEffect(() => {
@@ -392,11 +409,22 @@ export default function NovelEditor({ novelId }: Props) {
       return;
     }
     if (!selectedNovel) return;
+    setStatus("Loading preview...");
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
     let refreshedChapters = chapters;
     let refreshedNovel = selectedNovel;
     if (chapters.length === 0) {
-      refreshedChapters = (await loadChapters(selectedNovel.id)) ?? [];
-      refreshedNovel = (await loadNovel(selectedNovel.id)) ?? selectedNovel;
+      try {
+        refreshedChapters = (await loadChapters(selectedNovel.id)) ?? [];
+        refreshedNovel = (await loadNovel(selectedNovel.id)) ?? selectedNovel;
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to load preview.";
+        setStatus(message);
+        return;
+      }
     }
     if (refreshedChapters.length === 0) {
       if (refreshedNovel.parseStatus === "FAILED") {
