@@ -78,6 +78,14 @@ export class AdminNovelsController {
     return this.novelsService.getAdminNovel(req.user.role, id);
   }
 
+  @Get(":id/parse-debug")
+  async parseDebug(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") id: string
+  ) {
+    return this.novelsService.getAdminParseDebug(req.user.role, id);
+  }
+
   @Post()
   async create(@Req() req: AuthenticatedRequest, @Body() dto: AdminNovelDto) {
     return this.novelsService.createAdminNovel(req.user.role, dto);

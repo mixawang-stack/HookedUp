@@ -10,7 +10,7 @@ import {
 } from "@prisma/client";
 import * as argon2 from "argon2";
 import { randomBytes } from "crypto";
-import { readFile } from "fs/promises";
+import { readFile, stat } from "fs/promises";
 import path from "path";
 import mammoth from "mammoth";
 import pdfParse from "pdf-parse";
@@ -23,6 +23,7 @@ import { PrismaService } from "../prisma.service";
 import { AdminNovelDto } from "./dto/admin-novel.dto";
 import { AdminChapterDto } from "./dto/admin-chapter.dto";
 import { API_PUBLIC_BASE_URL } from "../auth/auth.constants";
+import { STORAGE_DIR } from "../uploads/uploads.constants";
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
@@ -36,6 +37,29 @@ const ENGLISH_WORD_SET = new Set(
 @Injectable()
 export class NovelsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private logParse(event: string, payload: Record<string, unknown>) {
+    console.log(`[novel-parse] ${event}`, payload);
+  }
+
+  private getDatabaseInfo() {
+    const raw = process.env.DATABASE_URL;
+    if (!raw) {
+      return { host: "unknown", database: "unknown" };
+    }
+    try {
+      const url = new URL(raw);
+      const dbName = url.pathname.replace("/", "") || "unknown";
+      const host = url.host || url.hostname || "unknown";
+      const maskedHost =
+        host.length > 6 ? `${host.slice(0, 3)}***${host.slice(-2)}` : host;
+      const maskedDb =
+        dbName.length > 6 ? `${dbName.slice(0, 3)}***${dbName.slice(-2)}` : dbName;
+      return { host: maskedHost, database: maskedDb };
+    } catch {
+      return { host: "unknown", database: "unknown" };
+    }
+  }
 
   private ensureAdmin(role: string) {
     if (role !== "ADMIN") {
@@ -72,6 +96,63 @@ export class NovelsService {
         }
       }
     });
+  }
+
+  async getAdminParseDebug(role: string, novelId: string) {
+    this.ensureAdmin(role);
+    const novel = await this.prisma.novel.findUnique({
+      where: { id: novelId },
+      include: {
+        files: {
+          orderBy: { createdAt: "desc" },
+          take: 1
+        }
+      }
+    });
+    if (!novel) {
+      throw new BadRequestException("NOVEL_NOT_FOUND");
+    }
+
+    const fileUrl = novel.files?.[0]?.fileUrl ?? novel.attachmentUrl ?? null;
+    let filePath: string | null = null;
+    let canReadFile = false;
+    let fileSize: number | null = null;
+    if (fileUrl) {
+      try {
+        const parsed = new URL(fileUrl);
+        const filename = path.basename(parsed.pathname);
+        filePath = path.join(STORAGE_DIR, filename);
+      } catch {
+        const filename = path.basename(fileUrl);
+        filePath = path.join(STORAGE_DIR, filename);
+      }
+      try {
+        const stats = await stat(filePath);
+        canReadFile = true;
+        fileSize = stats.size;
+      } catch {
+        canReadFile = false;
+        fileSize = null;
+      }
+    }
+
+    const chaptersCountInDb = await this.prisma.novelChapter.count({
+      where: { novelId }
+    });
+
+    return {
+      novelId,
+      fileUrl,
+      filePath,
+      canReadFile,
+      fileSize,
+      parseStatus: novel.parseStatus,
+      parseError: novel.parseError,
+      parsedChaptersCount: novel.parsedChaptersCount,
+      lastParsedAt: novel.lastParsedAt,
+      chaptersCountInDB: chaptersCountInDb,
+      database: this.getDatabaseInfo()
+    };
   }
 
   async createAdminNovel(role: string, dto: AdminNovelDto) {
@@ -309,6 +390,21 @@ export class NovelsService {
       sourceTypeInput
     );
 
+    await this.prisma.novel.update({
+      where: { id: novelId },
+      data: {
+        parseStatus: "UPLOADING",
+        parseError: null
+      }
+    });
+    this.logParse("UPLOAD_OK", {
+      novelId,
+      fileName: file.originalname,
+      mime: file.mimetype,
+      size: file.size,
+      path: file.path
+    });
+
     const attachmentUrl = `${API_PUBLIC_BASE_URL}/uploads/${file.filename}`;
     const novelFile = await this.prisma.novelFile.create({
       data: {
@@ -320,6 +416,23 @@ export class NovelsService {
     });
 
     try {
+      const stored = await stat(file.path);
+      this.logParse("STORAGE_OK", {
+        novelId,
+        storedBytes: stored.size,
+        filePath: file.path,
+        db: this.getDatabaseInfo()
+      });
+
+      await this.prisma.novel.update({
+        where: { id: novelId },
+        data: {
+          parseStatus: "PARSING",
+          parseError: null
+        }
+      });
+      this.logParse("PARSE_START", { novelId, inferredType });
+
       if (asAttachmentOnly) {
         await this.prisma.$transaction(async (tx) => {
           await tx.novel.update({
@@ -328,21 +441,24 @@ export class NovelsService {
               contentSourceType: inferredType,
               attachmentUrl,
               sourceType: inferredType === "MD" ? "MARKDOWN" : "TEXT",
-              parseStatus: "PARSED",
+              parseStatus: "DONE",
               parseError: null,
               chapterCount: 0,
               wordCount: 0,
-              needsChapterReview: false
+              needsChapterReview: false,
+              parsedChaptersCount: 0,
+              lastParsedAt: new Date()
             }
           });
           await tx.novelFile.update({
             where: { id: novelFile.id },
-            data: { parseStatus: "PARSED", parseError: null }
+            data: { parseStatus: "DONE", parseError: null }
           });
         });
 
+        this.logParse("PARSE_DONE", { novelId, chaptersCount: 0 });
         return {
-          parseStatus: "PARSED",
+          parseStatus: "DONE",
           chapterCount: 0,
           needsChapterReview: false,
           attachmentUrl
@@ -373,6 +489,8 @@ export class NovelsService {
       const nextSourceType: NovelSourceType =
         inferredType === "MD" ? "MARKDOWN" : "TEXT";
 
+      this.logParse("PARSE_DONE", { novelId, chaptersCount: chapters.length });
+
       await this.prisma.$transaction(async (tx) => {
         await tx.novelChapter.deleteMany({ where: { novelId } });
         await tx.novelChapter.createMany({
@@ -398,19 +516,30 @@ export class NovelsService {
             wordCount: this.countWords(cleanedText),
             attachmentUrl: inferredType === "PDF" ? attachmentUrl : null,
             sourceType: nextSourceType,
-            parseStatus: "PARSED",
+            parseStatus: "DONE",
             parseError: null,
-            needsChapterReview
+            needsChapterReview,
+            parsedChaptersCount: chapters.length,
+            lastParsedAt: new Date()
           }
         });
         await tx.novelFile.update({
           where: { id: novelFile.id },
-          data: { parseStatus: "PARSED", parseError: null }
+          data: { parseStatus: "DONE", parseError: null }
         });
       });
 
+      const chaptersCountInDb = await this.prisma.novelChapter.count({
+        where: { novelId }
+      });
+      this.logParse("DB_WRITE_OK", {
+        novelId,
+        chaptersCount: chaptersCountInDb,
+        db: this.getDatabaseInfo()
+      });
+
       return {
-        parseStatus: "PARSED",
+        parseStatus: "DONE",
         chapterCount: chapters.length,
         needsChapterReview,
         previewChapters: chapters.slice(0, 2).map((chapter, index) => ({
@@ -420,13 +549,21 @@ export class NovelsService {
         }))
       };
     } catch (error) {
+      this.logParse("PARSE_ERROR", {
+        novelId,
+        error: error instanceof Error ? error.message : String(error)
+      });
       await this.prisma.novel.update({
         where: { id: novelId },
-        data: { parseStatus: "FAILED", parseError: String(error) }
+        data: {
+          parseStatus: "ERROR",
+          parseError: String(error),
+          lastParsedAt: new Date()
+        }
       });
       await this.prisma.novelFile.update({
         where: { id: novelFile.id },
-        data: { parseStatus: "FAILED", parseError: String(error) }
+        data: { parseStatus: "ERROR", parseError: String(error) }
       });
       throw error;
     }
@@ -456,10 +593,10 @@ export class NovelsService {
         ? autoChapters
         : [this.buildSingleChapter(cleanedText)];
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.novelChapter.deleteMany({ where: { novelId } });
-        await tx.novelChapter.createMany({
-          data: chapters.map((chapter, index) => ({
+      await this.prisma.$transaction(async (tx) => {
+        await tx.novelChapter.deleteMany({ where: { novelId } });
+          await tx.novelChapter.createMany({
+            data: chapters.map((chapter, index) => ({
             novelId,
             title: chapter.title,
             content: chapter.content,
@@ -472,17 +609,19 @@ export class NovelsService {
             price: null
           }))
         });
-      await tx.novel.update({
-        where: { id: novelId },
-        data: {
-          chapterCount: chapters.length,
-          wordCount: this.countWords(cleanedText),
-          needsChapterReview: autoChapters.length < 2,
-          parseStatus: "PARSED",
-          parseError: null
-        }
+        await tx.novel.update({
+          where: { id: novelId },
+          data: {
+            chapterCount: chapters.length,
+            wordCount: this.countWords(cleanedText),
+            needsChapterReview: autoChapters.length < 2,
+            parseStatus: "DONE",
+            parseError: null,
+            parsedChaptersCount: chapters.length,
+            lastParsedAt: new Date()
+          }
+        });
       });
-    });
 
     return { chapterCount: chapters.length };
   }

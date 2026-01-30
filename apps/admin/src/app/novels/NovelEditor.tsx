@@ -20,10 +20,12 @@ type NovelItem = {
   authorName: string | null;
   language: string | null;
   autoHallPost?: boolean;
-  parseStatus?: "PENDING" | "PARSED" | "FAILED";
+  parseStatus?: "IDLE" | "UPLOADING" | "PARSING" | "DONE" | "ERROR";
   parseError?: string | null;
   needsChapterReview?: boolean;
   contentRawText?: string | null;
+  parsedChaptersCount?: number | null;
+  lastParsedAt?: string | null;
   contentSourceType?: "DOC" | "DOCX" | "TXT" | "MD" | "PDF";
   attachmentUrl?: string | null;
   pricingMode?: "BOOK" | "CHAPTER";
@@ -117,6 +119,11 @@ export default function NovelEditor({ novelId }: Props) {
   const [contentFile, setContentFile] = useState<File | null>(null);
   const [contentUploading, setContentUploading] = useState(false);
   const [contentStatus, setContentStatus] = useState<string | null>(null);
+  const [parseDebug, setParseDebug] = useState<Record<string, unknown> | null>(
+    null
+  );
+  const [parseDebugError, setParseDebugError] = useState<string | null>(null);
+  const [parseDebugLoading, setParseDebugLoading] = useState(false);
 
   const authHeader = useMemo(() => {
     if (!token) return null;
@@ -438,7 +445,7 @@ export default function NovelEditor({ novelId }: Props) {
         setStep(3);
         return;
       }
-      if (refreshedNovel.parseStatus === "FAILED") {
+      if (refreshedNovel.parseStatus === "ERROR") {
         setStatus(
           refreshedNovel.parseError ??
             "Parsing failed. Please re-upload or contact support."
@@ -604,6 +611,39 @@ export default function NovelEditor({ novelId }: Props) {
     "Operational settings"
   ];
 
+  const handleParseDebug = async () => {
+    if (!authHeader || !selectedNovel) {
+      return;
+    }
+    setParseDebugLoading(true);
+    setParseDebugError(null);
+    try {
+      const res = await fetch(
+        `${API_BASE}/admin/novels/${selectedNovel.id}/parse-debug`,
+        {
+          headers: { ...authHeader }
+        }
+      );
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message = body?.message ?? `HTTP ${res.status}`;
+        if (res.status === 401 || String(message).includes("INVALID_ACCESS_TOKEN")) {
+          handleUnauthorized("Session expired. Please sign in again.");
+          return;
+        }
+        setParseDebugError(String(message));
+        return;
+      }
+      setParseDebug(body as Record<string, unknown>);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to load parse debug.";
+      setParseDebugError(message);
+    } finally {
+      setParseDebugLoading(false);
+    }
+  };
+
   return (
     <div className="mx-auto w-full max-w-5xl px-6 py-10 text-slate-100">
       <div className="flex items-center justify-between">
@@ -643,6 +683,55 @@ export default function NovelEditor({ novelId }: Props) {
       </div>
 
       {status && <p className="mt-4 text-sm text-rose-400">{status}</p>}
+
+      {selectedNovel && (
+        <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-xs text-slate-300">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="space-y-1">
+              <div>
+                <span className="text-slate-500">Parse status:</span>{" "}
+                <span className="text-slate-200">
+                  {selectedNovel.parseStatus ?? "Unknown"}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-500">Parse error:</span>{" "}
+                <span className="text-slate-200">
+                  {selectedNovel.parseError ?? "-"}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-500">Parsed chapters:</span>{" "}
+                <span className="text-slate-200">
+                  {selectedNovel.parsedChaptersCount ?? 0}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-500">Last parsed at:</span>{" "}
+                <span className="text-slate-200">
+                  {selectedNovel.lastParsedAt ?? "-"}
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="rounded-full border border-white/20 px-3 py-1 text-[10px] text-slate-200"
+              onClick={handleParseDebug}
+              disabled={parseDebugLoading}
+            >
+              {parseDebugLoading ? "Loading..." : "Parse Debug"}
+            </button>
+          </div>
+          {parseDebugError && (
+            <p className="mt-3 text-[11px] text-rose-300">{parseDebugError}</p>
+          )}
+          {parseDebug && (
+            <pre className="mt-3 max-h-64 overflow-auto rounded-xl border border-white/10 bg-slate-950/80 p-3 text-[10px] text-slate-200">
+              {JSON.stringify(parseDebug, null, 2)}
+            </pre>
+          )}
+        </div>
+      )}
 
       {step === 1 && (
         <section className="mt-8 space-y-6">

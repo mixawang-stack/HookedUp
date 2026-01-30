@@ -139,9 +139,11 @@ enum NovelReactionType {
 }
 
 enum NovelParseStatus {
-  PENDING
-  PARSED
-  FAILED
+  IDLE
+  UPLOADING
+  PARSING
+  DONE
+  ERROR
 }
 
 model User {
@@ -566,8 +568,10 @@ model Novel {
   currency           String          @default("USD") @db.VarChar(8)
   creemProductId     String?         @db.VarChar(120)
   paymentLink        String?         @db.Text
-  parseStatus        NovelParseStatus @default(PENDING)
+  parseStatus        NovelParseStatus @default(IDLE)
   parseError         String?         @db.Text
+  parsedChaptersCount Int            @default(0)
+  lastParsedAt       DateTime?
   needsChapterReview Boolean         @default(false)
   isFeatured         Boolean         @default(false)
   autoHallPost       Boolean         @default(true)
