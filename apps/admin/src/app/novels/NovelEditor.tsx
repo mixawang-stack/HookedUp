@@ -24,6 +24,8 @@ type NovelItem = {
   parseError?: string | null;
   needsChapterReview?: boolean;
   contentRawText?: string | null;
+  contentSourceType?: "DOC" | "DOCX" | "TXT" | "MD" | "PDF";
+  attachmentUrl?: string | null;
   pricingMode?: "BOOK" | "CHAPTER";
   bookPrice?: number | string | null;
   bookPromoPrice?: number | string | null;
