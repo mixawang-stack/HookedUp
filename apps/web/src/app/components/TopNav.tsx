@@ -187,7 +187,7 @@ export default function TopNav() {
             })}
           </div>
         </div>
-        {token && (
+        {token ? (
           <div className="flex items-center justify-end gap-3 pr-1">
             <div className="relative" ref={menuRef}>
               <button
@@ -286,6 +286,21 @@ export default function TopNav() {
                 </div>
               )}
             </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-end gap-2 pr-1">
+            <Link
+              href="/login"
+              className="rounded-full border border-border-default px-3 py-1 text-xs text-text-secondary transition hover:text-text-primary"
+            >
+              Sign in
+            </Link>
+            <Link
+              href="/register"
+              className="rounded-full bg-brand-primary px-3 py-1 text-xs font-semibold text-card"
+            >
+              Sign up
+            </Link>
           </div>
         )}
       </div>
