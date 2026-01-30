@@ -294,6 +294,10 @@ export class AuthService {
     try {
       await this.sendPasswordResetCode(normalizedEmail, resetCode);
     } catch (error) {
+      console.error("[auth] password reset email failed", {
+        email: normalizedEmail,
+        error: error instanceof Error ? error.message : String(error)
+      });
       await this.prisma.passwordResetToken.deleteMany({
         where: { userId: user.id }
       });
