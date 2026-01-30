@@ -169,6 +169,14 @@ export default function HallPage() {
   const [profileLoading, setProfileLoading] = useState(false);
   const [meProfile, setMeProfile] = useState<PublicProfile | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const redirectToLogin = () => {
+    if (typeof window !== "undefined") {
+      const fullPath = `${window.location.pathname}${window.location.search}`;
+      router.push(`/login?redirect=${encodeURIComponent(fullPath)}`);
+      return;
+    }
+    router.push("/login");
+  };
 
   const authHeader = useMemo(() => {
     if (!token) {
@@ -246,7 +254,7 @@ export default function HallPage() {
 
   const startConversation = async (userId: string) => {
     if (!authHeader) {
-      setStatus("Please sign in to start a private conversation.");
+      redirectToLogin();
       return;
     }
     if (currentUserId && userId === currentUserId) {
@@ -281,7 +289,7 @@ export default function HallPage() {
 
   const openProfileCard = async (userId: string) => {
     if (!authHeader) {
-      setStatus("Please sign in to view profiles.");
+      redirectToLogin();
       return;
     }
     setProfileLoading(true);
@@ -315,7 +323,7 @@ export default function HallPage() {
 
   const blockUser = async (userId: string) => {
     if (!authHeader) {
-      setStatus("Please sign in to manage blocks.");
+      redirectToLogin();
       return;
     }
     if (!confirm("Block this user? You won't be able to message each other.")) {
@@ -341,7 +349,7 @@ export default function HallPage() {
 
   const toggleLike = async (traceId: string) => {
     if (!authHeader) {
-      setStatus("Please sign in to like a post.");
+      redirectToLogin();
       return;
     }
     const trace = hall?.traces.find((item) => item.id === traceId);
@@ -423,7 +431,7 @@ export default function HallPage() {
 
   const reportUser = async (userId: string) => {
     if (!authHeader) {
-      setStatus("Please sign in to report.");
+      redirectToLogin();
       return;
     }
     const reasonRaw = window.prompt(
@@ -541,7 +549,7 @@ export default function HallPage() {
 
   const handlePostTrace = async () => {
     if (!authHeader) {
-      setStatus("Please sign in to post a trace.");
+      redirectToLogin();
       return;
     }
     if (!traceInput.trim()) {
@@ -657,7 +665,7 @@ export default function HallPage() {
 
   const handlePostReply = async () => {
     if (!authHeader || !selectedTraceId) {
-      setStatus("Please sign in to reply.");
+      redirectToLogin();
       return;
     }
     if (!replyInput.trim()) {
@@ -1406,7 +1414,7 @@ export default function HallPage() {
                   )}
                 </div>
 
-                <div className="border-t border-border-default px-6 py-4">
+                <div className="border-t border-border-default bg-card px-6 py-4">
                   <label className="text-xs font-semibold text-text-secondary">
                     Reply
                   </label>

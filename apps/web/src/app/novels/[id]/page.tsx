@@ -103,7 +103,9 @@ export default function NovelDetailPage() {
 
   const handleReaction = async (type: "LIKE" | "DISLIKE") => {
     if (!authHeader) {
-      setStatus("Please sign in to react.");
+      router.push(
+        `/login?redirect=${encodeURIComponent(`/novels/${novelId || ""}`)}`
+      );
       return;
     }
     if (!novelId) return;
@@ -181,7 +183,9 @@ export default function NovelDetailPage() {
 
   const startCheckout = async () => {
     if (!authHeader) {
-      setStatus("Please sign in to unlock.");
+      router.push(
+        `/login?redirect=${encodeURIComponent(`/novels/${novelId || ""}`)}`
+      );
       return;
     }
     if (!novel) return;
