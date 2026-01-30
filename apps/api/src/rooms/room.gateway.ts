@@ -10,6 +10,7 @@ import { JwtService } from "@nestjs/jwt";
 import { Server, Socket } from "socket.io";
 import { JWT_ACCESS_SECRET } from "../auth/auth.constants";
 import { PrismaService } from "../prisma.service";
+import { buildCorsOrigin } from "../cors/origin";
 
 const ROOM_PREFIX = "room";
 
@@ -17,7 +18,7 @@ type SocketWithUser = Socket & { data: { userId?: string; role?: string } };
 
 @WebSocketGateway({
   cors: {
-    origin: process.env.CORS_ORIGIN ?? "http://localhost:3000",
+    origin: buildCorsOrigin(),
     credentials: true
   }
 })

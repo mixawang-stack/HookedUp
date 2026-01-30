@@ -8,6 +8,7 @@ import bodyParser from "body-parser";
 import { NextFunction, Request, Response } from "express";
 import { AppModule } from "./app.module";
 import { STORAGE_DIR } from "./uploads/uploads.constants";
+import { buildCorsOrigin } from "./cors/origin";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -24,26 +25,7 @@ async function bootstrap() {
   );
 
   app.enableCors({
-    origin: (origin, callback) => {
-      const defaultAllowedOrigins = [
-        "https://hooked-up.vercel.app",
-        "https://hooked-up-admin.vercel.app",
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://localhost:3002"
-      ];
-      const allowedOrigins = (process.env.CORS_ORIGIN ?? "")
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-
-      const combinedOrigins = [...defaultAllowedOrigins, ...allowedOrigins];
-      if (!origin || combinedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
+    origin: buildCorsOrigin(),
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: [

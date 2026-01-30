@@ -12,6 +12,7 @@ import { JWT_ACCESS_SECRET } from "../auth/auth.constants";
 import { ChatService } from "./chat.service";
 import { CryptoService } from "../crypto.service";
 import { SendMessageDto } from "./dto/send-message.dto";
+import { buildCorsOrigin } from "../cors/origin";
 
 const ROOM_PREFIX = "match";
 
@@ -19,7 +20,7 @@ type SocketWithUser = Socket & { data: { userId?: string } };
 
 @WebSocketGateway({
   cors: {
-    origin: process.env.CORS_ORIGIN ?? "http://localhost:3000",
+    origin: buildCorsOrigin(),
     credentials: true
   }
 })
