@@ -267,10 +267,6 @@ export default function NovelEditor({ novelId }: Props) {
     setContentStatus(null);
     const form = new FormData();
     form.append("file", file);
-    const isPdf = file.name.toLowerCase().endsWith(".pdf");
-    if (isPdf) {
-      form.append("asAttachmentOnly", "true");
-    }
     try {
       const res = await fetch(`${API_BASE}/admin/novels/${id}/upload`, {
         method: "POST",
@@ -776,7 +772,7 @@ export default function NovelEditor({ novelId }: Props) {
           <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-6">
             <h2 className="text-sm font-semibold text-slate-200">Upload content</h2>
             <p className="mt-2 text-[11px] text-slate-500">
-              Supported: .doc, .docx, .txt, .md, .pdf (pdf saved as attachment only).
+              Supported: .doc, .docx, .txt, .md, .pdf.
             </p>
             <div className="mt-4 rounded-xl border border-white/10 bg-slate-950/70 p-4">
               <p className="text-xs font-semibold text-slate-200">Pricing mode</p>
