@@ -12,6 +12,7 @@ type NovelPreview = {
   title: string;
   coverImageUrl: string | null;
   description: string | null;
+  locked?: boolean;
   tagsJson?: string[] | null;
   viewCount?: number;
   favoriteCount?: number;
@@ -153,6 +154,8 @@ export default function NovelDetailPage() {
   const likeCount = novel?.favoriteCount ?? 0;
   const shouldShowAttachment = novel?.contentSourceType === "PDF" && novel.attachmentUrl;
   const lockedChapters = novel?.lockedChapters ?? [];
+  const isLocked = Boolean(novel?.locked);
+  const isSignedIn = Boolean(token);
 
   const refreshReading = async () => {
     const res = await fetch(`${API_BASE}/novels/${novelId}/reading`, {
@@ -241,6 +244,26 @@ export default function NovelDetailPage() {
               <p className="text-sm text-text-secondary">
                 Chapter 1 - Free / Grown-up
               </p>
+              {isLocked && (
+                <div className="rounded-2xl border border-border-default bg-surface px-4 py-3 text-sm text-text-secondary">
+                  <p className="text-text-primary">
+                    Preview mode: only free samples are visible.
+                  </p>
+                  <p className="mt-1 text-xs text-text-muted">
+                    {isSignedIn
+                      ? "Unlock the rest to read the full story."
+                      : "Sign in to unlock the full story."}
+                  </p>
+                  {!isSignedIn && (
+                    <Link
+                      href={`/login?redirect=${encodeURIComponent(`/novels/${novel.id}`)}`}
+                      className="mt-2 inline-flex text-xs font-semibold text-text-primary hover:text-brand-primary"
+                    >
+                      Sign in
+                    </Link>
+                  )}
+                </div>
+              )}
             </section>
 
             <div className="relative">

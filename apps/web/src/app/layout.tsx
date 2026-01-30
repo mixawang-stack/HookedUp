@@ -3,8 +3,6 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import AuthGate from "./components/AuthGate";
 import ActiveRoomPanel from "./components/ActiveRoomPanel";
-import GlobalTips from "./components/GlobalTips";
-import HostFloating from "./components/HostFloating";
 import PageShell from "./components/PageShell";
 import TopNav from "./components/TopNav";
 import Footer from "./components/Footer";
@@ -28,9 +26,7 @@ export default function RootLayout({
         <TopNav />
         {children}
         <Footer />
-        <GlobalTips />
         <ActiveRoomPanel />
-        <HostFloating />
       </body>
     </html>
   );

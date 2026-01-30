@@ -275,6 +275,36 @@ export default function RegisterPage() {
               Come back in.
             </Link>
           </p>
+          <p className="text-[11px] text-text-muted">
+            By continuing, you agree to our{" "}
+            <Link
+              href="/terms"
+              className="font-semibold text-text-secondary hover:text-text-primary"
+            >
+              Terms
+            </Link>{" "}
+            and acknowledge our{" "}
+            <Link
+              href="/privacy"
+              className="font-semibold text-text-secondary hover:text-text-primary"
+            >
+              Privacy Policy
+            </Link>
+            .{" "}
+            <Link
+              href="/refunds"
+              className="font-semibold text-text-secondary hover:text-text-primary"
+            >
+              Refunds
+            </Link>{" "}
+            ·{" "}
+            <Link
+              href="/support"
+              className="font-semibold text-text-secondary hover:text-text-primary"
+            >
+              Support
+            </Link>
+          </p>
         </section>
 
         <section className="ui-surface flex flex-col gap-6 p-8">

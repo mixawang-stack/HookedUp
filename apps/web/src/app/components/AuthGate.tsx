@@ -3,7 +3,26 @@
 import { useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-const PUBLIC_PATHS = new Set(["/login", "/register", "/privacy", "/terms", "/support"]);
+const PUBLIC_PATHS = new Set([
+  "/",
+  "/hall",
+  "/login",
+  "/register",
+  "/privacy",
+  "/terms",
+  "/refunds",
+  "/support",
+  "/novels"
+]);
+
+const PUBLIC_PREFIXES = ["/novels/"];
+
+const isPublicPath = (pathname: string) => {
+  if (PUBLIC_PATHS.has(pathname)) {
+    return true;
+  }
+  return PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+};
 
 export default function AuthGate() {
   const router = useRouter();
@@ -11,7 +30,7 @@ export default function AuthGate() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    if (PUBLIC_PATHS.has(pathname)) {
+    if (isPublicPath(pathname)) {
       return;
     }
     const token = localStorage.getItem("accessToken");

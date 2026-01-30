@@ -1325,6 +1325,25 @@ export class NovelsService {
         orderIndex: chapter.orderIndex,
         price: chapter.price
       }));
+    const hasLockedChapters = lockedChapters.length > 0;
+    let locked = !access.hasBookPurchase && hasLockedChapters;
+    let chapters = readableChapters;
+
+    if (chapters.length === 0 && novel.chapters.length > 0) {
+      const previewChapter = novel.chapters[0];
+      const rawContent = previewChapter.contentClean ?? previewChapter.content ?? "";
+      const previewContent = rawContent.slice(0, 800);
+      chapters = [
+        {
+          id: previewChapter.id,
+          title: previewChapter.title,
+          orderIndex: previewChapter.orderIndex,
+          isFree: previewChapter.isFree,
+          content: previewContent
+        }
+      ];
+      locked = true;
+    }
 
     await this.prisma.novel.update({
       where: { id: novelId },
@@ -1351,7 +1370,8 @@ export class NovelsService {
       creemProductId: novel.creemProductId,
       paymentLink: novel.paymentLink,
       myReaction: reaction?.type ?? null,
-      chapters: readableChapters,
+      locked,
+      chapters,
       lockedChapters,
       room: novel.room
     };

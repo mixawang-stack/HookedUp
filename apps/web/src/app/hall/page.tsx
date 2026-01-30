@@ -30,12 +30,6 @@ const resolveMediaUrl = (value?: string | null) => {
   return value;
 };
 
-const QUICK_PROMPTS = [
-  "Ask a question that makes you curious.",
-  "Listening well still counts as participating.",
-  "Say hello, then follow the energy."
-];
-
 const TRACE_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 const TRACE_IMAGE_MIME_TYPES = new Set([
   "image/jpeg",
