@@ -320,6 +320,35 @@ export class NovelsService {
     });
 
     try {
+      if (asAttachmentOnly) {
+        await this.prisma.$transaction(async (tx) => {
+          await tx.novel.update({
+            where: { id: novelId },
+            data: {
+              contentSourceType: inferredType,
+              attachmentUrl,
+              sourceType: inferredType === "MD" ? "MARKDOWN" : "TEXT",
+              parseStatus: "PARSED",
+              parseError: null,
+              chapterCount: 0,
+              wordCount: 0,
+              needsChapterReview: false
+            }
+          });
+          await tx.novelFile.update({
+            where: { id: novelFile.id },
+            data: { parseStatus: "PARSED", parseError: null }
+          });
+        });
+
+        return {
+          parseStatus: "PARSED",
+          chapterCount: 0,
+          needsChapterReview: false,
+          attachmentUrl
+        };
+      }
+
       const buffer = await readFile(file.path);
       const extractedText = await this.extractTextFromFile(
         buffer,

@@ -432,6 +432,14 @@ export default function NovelEditor({ novelId }: Props) {
       }
     }
     if (refreshedChapters.length === 0) {
+      const hasPdfAttachment =
+        refreshedNovel.contentSourceType === "PDF" &&
+        Boolean(refreshedNovel.attachmentUrl);
+      if (hasPdfAttachment) {
+        setStatus("PDF uploaded. Preview available as attachment.");
+        setStep(3);
+        return;
+      }
       if (refreshedNovel.parseStatus === "FAILED") {
         setStatus(
           refreshedNovel.parseError ??
