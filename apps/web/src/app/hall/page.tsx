@@ -1316,17 +1316,13 @@ export default function HallPage() {
           </section>
 
           {traceDetail && (
-            <div
-              className="fixed inset-0 z-50 flex items-stretch"
-              role="dialog"
-              aria-modal="true"
-            >
+            <div role="dialog" aria-modal="true">
               <div
-                className="absolute inset-0 bg-black/40 backdrop-blur-[1px] animate-trace-backdrop"
+                className="fixed inset-0 z-50 bg-black/40"
                 onClick={() => setSelectedTraceId(null)}
               />
-              <div className="relative z-10 ml-auto flex h-full w-full max-w-full flex-col overflow-hidden border-l border-border-default bg-card text-text-primary shadow-2xl animate-trace-drawer lg:max-w-[420px]">
-                <header className="sticky top-0 z-10 flex items-start justify-between border-b border-border-default bg-card/95 px-6 py-4 backdrop-blur">
+              <div className="fixed right-0 top-0 z-[60] flex h-screen w-full max-w-full flex-col overflow-hidden border-l border-border-default bg-card text-text-primary shadow-[0_8px_30px_rgba(0,0,0,0.18)] animate-trace-drawer lg:w-[420px]">
+                <header className="sticky top-0 z-10 flex items-start justify-between border-b border-border-default bg-card px-6 py-4">
                   <div>
                     <h3 className="text-lg font-semibold text-text-primary">
                       Trace details
