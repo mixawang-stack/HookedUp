@@ -126,12 +126,25 @@ export default function NovelEditor({ novelId }: Props) {
     if (stored) setToken(stored);
   }, []);
 
+  const handleUnauthorized = (message?: string) => {
+    localStorage.removeItem("accessToken");
+    setToken(null);
+    setStatus(message ?? "Session expired. Please sign in again.");
+    router.replace("/login");
+  };
+
   const loadNovel = async (id: string) => {
     if (!authHeader) return;
     const res = await fetch(`${API_BASE}/admin/novels/${id}`, {
       headers: { ...authHeader }
     });
     if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const message = body?.message ?? `HTTP ${res.status}`;
+      if (res.status === 401 || String(message).includes("INVALID_ACCESS_TOKEN")) {
+        handleUnauthorized("Session expired. Please sign in again.");
+        return;
+      }
       setStatus("Novel not found.");
       return;
     }
@@ -163,7 +176,15 @@ export default function NovelEditor({ novelId }: Props) {
       headers: { ...authHeader },
       cache: "no-store"
     });
-    if (!res.ok) return;
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const message = body?.message ?? `HTTP ${res.status}`;
+      if (res.status === 401 || String(message).includes("INVALID_ACCESS_TOKEN")) {
+        handleUnauthorized("Session expired. Please sign in again.");
+        return;
+      }
+      return;
+    }
     const data = (await res.json()) as ChapterItem[];
     setChapters(data);
     if (fullText.trim().length === 0 && data.length > 0) {
@@ -366,6 +387,10 @@ export default function NovelEditor({ novelId }: Props) {
   };
 
   const handleSkipToPreview = async () => {
+    if (!authHeader) {
+      handleUnauthorized("Please sign in to continue.");
+      return;
+    }
     if (!selectedNovel) return;
     let refreshedChapters = chapters;
     let refreshedNovel = selectedNovel;
