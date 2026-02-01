@@ -52,8 +52,8 @@ type TraceAuthor = {
   maskName: string | null;
   maskAvatarUrl: string | null;
   role: string;
-  gender: string | null;
-  dob: string | null;
+  gender?: string | null;
+  dob?: string | null;
   preference?: {
     gender: string | null;
     lookingForGender: string | null;
