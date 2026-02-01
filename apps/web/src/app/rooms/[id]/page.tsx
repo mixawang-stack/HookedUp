@@ -250,7 +250,7 @@ export default function RoomPage() {
           memberCount: roomData.memberships?.[0]?.count ?? 0,
           createdById: roomData.createdById,
           currentUserRole,
-          selectedGame: null
+          selectedGame: undefined
         });
         setMessages((messagesData ?? []) as RoomMessage[]);
       } catch (error) {
