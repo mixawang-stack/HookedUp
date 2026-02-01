@@ -5,25 +5,21 @@ import { useRouter } from "next/navigation";
 
 import ProfileCard from "../components/ProfileCard";
 import { emitHostStatus } from "../lib/hostStatus";
+import { getSupabaseClient } from "../lib/supabaseClient";
 
 export const dynamic = "force-dynamic";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+const STORAGE_BUCKET =
+  process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET ?? "uploads";
 
 const resolveMediaUrl = (value?: string | null) => {
   if (!value) return null;
-  if (value.startsWith("/uploads/")) {
-    return `${API_BASE}${value}`;
-  }
   if (!value.startsWith("http://") && !value.startsWith("https://")) {
     return value;
   }
   try {
     const parsed = new URL(value);
-    if (parsed.pathname.startsWith("/uploads/")) {
-      return `${API_BASE}${parsed.pathname}`;
-    }
+    return parsed.toString();
   } catch {
     return value;
   }
@@ -140,7 +136,6 @@ type PublicProfile = {
 
 export default function HallPage() {
   const router = useRouter();
-  const [token, setToken] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [hall, setHall] = useState<HallResponse | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -178,16 +173,7 @@ export default function HallPage() {
     router.push("/login");
   };
 
-  const authHeader = useMemo(() => {
-    if (!token) {
-      return null;
-    }
-    return { Authorization: `Bearer ${token}` };
-  }, [token]);
-
-  useEffect(() => {
-    setToken(localStorage.getItem("accessToken"));
-  }, []);
+  const isSignedIn = Boolean(currentUserId);
 
 
   useEffect(() => {
@@ -218,91 +204,168 @@ export default function HallPage() {
   }, []);
 
   useEffect(() => {
-    if (!authHeader) {
+    const loadMe = async () => {
+      const supabase = getSupabaseClient();
+      if (!supabase) return;
+      const { data } = await supabase.auth.getUser();
+      const userId = data.user?.id ?? null;
+      setCurrentUserId(userId);
+      if (!userId) {
+        setMeProfile(null);
+        return;
+      }
+      const { data: profile } = await supabase
+        .from("User")
+        .select(
+          "id,maskName,maskAvatarUrl,bio,city,country,preference:Preference(lookingForGender,smPreference,tagsJson,vibeTagsJson,interestsJson,allowStrangerPrivate)"
+        )
+        .eq("id", userId)
+        .maybeSingle();
+      setMeProfile(
+        profile
+          ? {
+              id: profile.id,
+              maskName: profile.maskName ?? null,
+              maskAvatarUrl: profile.maskAvatarUrl ?? null,
+              bio: profile.bio ?? null,
+              city: profile.city ?? null,
+              country: profile.country ?? null,
+              preference: profile.preference
+                ? {
+                    vibeTags: profile.preference.vibeTagsJson ?? null,
+                    interests: profile.preference.interestsJson ?? null,
+                    allowStrangerPrivate:
+                      profile.preference.allowStrangerPrivate ?? null,
+                    smPreference: profile.preference.smPreference ?? null
+                  }
+                : null
+            }
+          : null
+      );
+    };
+    loadMe().catch(() => {
       setCurrentUserId(null);
       setMeProfile(null);
-      return;
-    }
-    fetch(`${API_BASE}/me`, { headers: { ...authHeader } })
-      .then(async (res) => {
-        if (!res.ok) {
-          return null;
-        }
-        return res.json();
-      })
-      .then((data: PublicProfile | null) => {
-        setCurrentUserId(data?.id ?? null);
-        setMeProfile(data ?? null);
-      })
-      .catch(() => {
-        setCurrentUserId(null);
-        setMeProfile(null);
-      });
-  }, [authHeader]);
+    });
+  }, []);
 
   const fetchHall = async () => {
-    const res = await fetch(`${API_BASE}/hall`, {
-      headers: authHeader ? { ...authHeader } : undefined
-    });
-    if (!res.ok) {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setStatus("Forum is not configured.");
+      return;
+    }
+    const { data: tracesData, error: tracesError } = await supabase
+      .from("Trace")
+      .select(
+        `
+        id,
+        content,
+        createdAt,
+        imageUrl,
+        imageWidth,
+        imageHeight,
+        author:User(id,maskName,maskAvatarUrl,role,gender,dob)
+      `
+      )
+      .order("createdAt", { ascending: false })
+      .limit(60);
+    if (tracesError) {
       setStatus("Failed to load the Forum.");
       return;
     }
-    const data = (await res.json()) as HallResponse;
-    setHall(data);
+
+    const traceIds = (tracesData ?? []).map((trace) => trace.id);
+    const [repliesRes, likesRes] = await Promise.all([
+      supabase
+        .from("TraceReply")
+        .select("id,traceId")
+        .in("traceId", traceIds.length > 0 ? traceIds : ["__none__"]),
+      supabase
+        .from("TraceLike")
+        .select("traceId,userId")
+        .in("traceId", traceIds.length > 0 ? traceIds : ["__none__"])
+    ]);
+
+    const replyCounts = new Map<string, number>();
+    (repliesRes.data ?? []).forEach((reply) => {
+      replyCounts.set(reply.traceId, (replyCounts.get(reply.traceId) ?? 0) + 1);
+    });
+
+    const likeCounts = new Map<string, number>();
+    const likedByMe = new Set<string>();
+    (likesRes.data ?? []).forEach((like) => {
+      likeCounts.set(like.traceId, (likeCounts.get(like.traceId) ?? 0) + 1);
+      if (currentUserId && like.userId === currentUserId) {
+        likedByMe.add(like.traceId);
+      }
+    });
+
+    const traces: TraceItem[] =
+      tracesData?.map((trace) => ({
+        id: trace.id,
+        content: trace.content,
+        createdAt: trace.createdAt,
+        replyCount: replyCounts.get(trace.id) ?? 0,
+        likeCount: likeCounts.get(trace.id) ?? 0,
+        likedByMe: likedByMe.has(trace.id),
+        novelId: trace.novelId ?? null,
+        author: trace.author ?? null,
+        imageUrl: trace.imageUrl ?? null,
+        imageWidth: trace.imageWidth ?? null,
+        imageHeight: trace.imageHeight ?? null
+      })) ?? [];
+
+    const { data: novelsData } = await supabase
+      .from("Novel")
+      .select(
+        "id,title,coverImageUrl,description,tagsJson,viewCount,favoriteCount,dislikeCount"
+      )
+      .eq("status", "PUBLISHED")
+      .order("createdAt", { ascending: false })
+      .limit(8);
+
+    setHall({
+      rooms: { live: [], scheduled: [] },
+      traces,
+      novels: (novelsData ?? []) as NovelItem[]
+    });
   };
 
   const startConversation = async (userId: string) => {
-    if (!authHeader) {
+    if (!isSignedIn) {
       redirectToLogin();
       return;
     }
     if (currentUserId && userId === currentUserId) {
       return;
     }
-    try {
-      const res = await fetch(`${API_BASE}/private/conversations/start`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader
-        },
-        body: JSON.stringify({ userId })
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        const errorMessage = body?.message ?? `HTTP ${res.status}`;
-        if (errorMessage === "PRIVATE_NOT_ALLOWED") {
-          setStatus("This user only accepts private chats after they reply.");
-          return;
-        }
-        throw new Error(errorMessage);
-      }
-      const data = (await res.json()) as { conversationId: string };
-      router.push(`/private?conversationId=${data.conversationId}`);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to start conversation.";
-      setStatus(message);
-    }
+    setStatus("Private chat migration is in progress.");
   };
 
   const openProfileCard = async (userId: string) => {
-    if (!authHeader) {
+    if (!isSignedIn) {
       redirectToLogin();
       return;
     }
     setProfileLoading(true);
     try {
-      const isSelf = currentUserId && userId === currentUserId;
-      const res = await fetch(isSelf ? `${API_BASE}/me` : `${API_BASE}/users/${userId}`, {
-        headers: { ...authHeader }
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message ?? `HTTP ${res.status}`);
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        setStatus("Supabase is not configured.");
+        return;
       }
-      const data = (await res.json()) as PublicProfile;
+      const { data } = await supabase
+        .from("User")
+        .select(
+          "id,maskName,maskAvatarUrl,bio,city,country,preference:Preference(vibeTagsJson,interestsJson,allowStrangerPrivate,smPreference)"
+        )
+        .eq("id", userId)
+        .maybeSingle();
+      if (!data) {
+        throw new Error("Profile not found.");
+      }
+      const isSelf = currentUserId && userId === currentUserId;
       setProfileCard({
         id: data.id,
         maskName: data.maskName ?? (isSelf ? "You" : null),
@@ -310,7 +373,15 @@ export default function HallPage() {
         bio: data.bio ?? null,
         city: data.city ?? null,
         country: data.country ?? null,
-        preference: data.preference ?? null
+        preference: data.preference
+          ? {
+              vibeTags: data.preference.vibeTagsJson ?? null,
+              interests: data.preference.interestsJson ?? null,
+              allowStrangerPrivate:
+                data.preference.allowStrangerPrivate ?? null,
+              smPreference: data.preference.smPreference ?? null
+            }
+          : null
       });
     } catch (error) {
       const message =
@@ -322,33 +393,15 @@ export default function HallPage() {
   };
 
   const blockUser = async (userId: string) => {
-    if (!authHeader) {
+    if (!isSignedIn) {
       redirectToLogin();
       return;
     }
-    if (!confirm("Block this user? You won't be able to message each other.")) {
-      return;
-    }
-    try {
-      const res = await fetch(`${API_BASE}/users/${userId}/block`, {
-        method: "POST",
-        headers: { ...authHeader }
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message ?? `HTTP ${res.status}`);
-      }
-      setStatus("User blocked.");
-      setProfileCard(null);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to block user.";
-      setStatus(message);
-    }
+    setStatus("Blocking will be available after messaging migration.");
   };
 
   const toggleLike = async (traceId: string) => {
-    if (!authHeader) {
+    if (!isSignedIn) {
       redirectToLogin();
       return;
     }
@@ -376,35 +429,25 @@ export default function HallPage() {
     );
 
     try {
-      const res = await fetch(`${API_BASE}/traces/${traceId}/like`, {
-        method: nextLiked ? "POST" : "DELETE",
-        headers: { ...authHeader }
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message ?? `HTTP ${res.status}`);
+      const supabase = getSupabaseClient();
+      if (!supabase || !currentUserId) {
+        throw new Error("Supabase not ready.");
       }
-      const data = (await res.json()) as {
-        traceId: string;
-        likeCount: number;
-        likedByMe: boolean;
-      };
-      setHall((prev) =>
-        prev
-          ? {
-              ...prev,
-              traces: prev.traces.map((item) =>
-                item.id === data.traceId
-                  ? {
-                      ...item,
-                      likedByMe: data.likedByMe,
-                      likeCount: data.likeCount
-                    }
-                  : item
-              )
-            }
-          : prev
-      );
+      if (nextLiked) {
+        await supabase.from("TraceLike").upsert(
+          {
+            traceId,
+            userId: currentUserId
+          },
+          { onConflict: "traceId,userId" }
+        );
+      } else {
+        await supabase
+          .from("TraceLike")
+          .delete()
+          .eq("traceId", traceId)
+          .eq("userId", currentUserId);
+      }
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to update like.";
@@ -430,60 +473,64 @@ export default function HallPage() {
 
 
   const reportUser = async (userId: string) => {
-    if (!authHeader) {
+    if (!isSignedIn) {
       redirectToLogin();
       return;
     }
-    const reasonRaw = window.prompt(
-      "Report reason (SPAM / ABUSE / HARASSMENT / OTHER):",
-      "OTHER"
-    );
-    if (!reasonRaw) {
-      return;
-    }
-    const normalized = reasonRaw.trim().toUpperCase();
-    const reasonType = ["SPAM", "ABUSE", "HARASSMENT", "OTHER"].includes(normalized)
-      ? normalized
-      : "OTHER";
-    const detail = window.prompt("Optional details:", "") ?? "";
-    try {
-      const res = await fetch(`${API_BASE}/users/${userId}/report`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader
-        },
-        body: JSON.stringify({
-          reasonType,
-          detail: detail.trim() || undefined
-        })
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message ?? `HTTP ${res.status}`);
-      }
-      setStatus("Report submitted.");
-      setProfileCard(null);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to report user.";
-      setStatus(message);
-    }
+    setStatus("Reporting will be available after moderation migration.");
   };
 
   const fetchTraceDetail = async (traceId: string) => {
-    const res = await fetch(`${API_BASE}/traces/${traceId}`);
-    if (!res.ok) {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setStatus("Supabase is not configured.");
+      return;
+    }
+    const { data: trace } = await supabase
+      .from("Trace")
+      .select(
+        `
+        id,
+        content,
+        createdAt,
+        imageUrl,
+        imageWidth,
+        imageHeight,
+        author:User(id,maskName,maskAvatarUrl,role,gender,dob)
+      `
+      )
+      .eq("id", traceId)
+      .single();
+    if (!trace) {
       setStatus("Failed to load trace details.");
       return;
     }
-    const data = (await res.json()) as TraceDetailResponse;
-    setTraceDetail(data);
+    const { data: replies } = await supabase
+      .from("TraceReply")
+      .select("id,content,createdAt,author:User(id,maskName,maskAvatarUrl,role)")
+      .eq("traceId", traceId)
+      .order("createdAt", { ascending: true })
+      .limit(50);
+    setTraceDetail({
+      trace: {
+        id: trace.id,
+        content: trace.content,
+        createdAt: trace.createdAt,
+        replyCount: replies?.length ?? 0,
+        author: trace.author ?? null,
+        imageUrl: trace.imageUrl ?? null,
+        imageWidth: trace.imageWidth ?? null,
+        imageHeight: trace.imageHeight ?? null,
+        likeCount: 0
+      },
+      replies: (replies ?? []) as TraceReply[],
+      nextCursor: null
+    });
   };
 
   useEffect(() => {
     fetchHall().catch(() => setStatus("Failed to load the Forum."));
-  }, []);
+  }, [currentUserId]);
 
   useEffect(() => {
     emitHostStatus({
@@ -521,34 +568,25 @@ export default function HallPage() {
   }, [traceDetail]);
 
   const uploadTraceImage = async (file: File) => {
-    if (!authHeader) {
+    if (!isSignedIn) {
       throw new Error("Please sign in to upload an image.");
     }
-    const formData = new FormData();
-    formData.append("file", file, file.name);
-    const res = await fetch(`${API_BASE}/uploads/image`, {
-      method: "POST",
-      headers: {
-        ...authHeader
-      },
-      body: formData
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body?.message ?? "Image upload failed.");
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      throw new Error("Supabase is not configured.");
     }
-    const data = await res.json();
-    if (!data?.imageUrl) {
-      throw new Error("Upload failed: no imageUrl returned");
+    const path = `traces/${Date.now()}-${file.name}`;
+    const { error } = await supabase.storage
+      .from(STORAGE_BUCKET)
+      .upload(path, file, { upsert: true });
+    if (error) {
+      throw new Error("Image upload failed.");
     }
-    // Ensure imageUrl is a valid http/https URL
-    if (!data.imageUrl.startsWith("http://") && !data.imageUrl.startsWith("https://")) {
-      throw new Error(`Invalid imageUrl format: ${data.imageUrl}`);
-    }
+    const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
     return {
-      imageUrl: data.imageUrl,
-      width: data?.width ?? null,
-      height: data?.height ?? null
+      imageUrl: data.publicUrl,
+      width: null,
+      height: null
     };
   };
 
@@ -566,7 +604,7 @@ export default function HallPage() {
   };
 
   const handlePostTrace = async () => {
-    if (!authHeader) {
+    if (!isSignedIn) {
       redirectToLogin();
       return;
     }
@@ -603,19 +641,16 @@ export default function HallPage() {
           tracePayload.imageHeight = uploadedImageData.height;
         }
       }
-      const res = await fetch(`${API_BASE}/traces`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader
-        },
-        body: JSON.stringify(tracePayload)
+      const supabase = getSupabaseClient();
+      if (!supabase || !currentUserId) {
+        throw new Error("Supabase not ready.");
+      }
+      const { error } = await supabase.from("Trace").insert({
+        authorId: currentUserId,
+        ...tracePayload
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        const errorMessage = body?.message ?? body?.error ?? Array.isArray(body?.message) ? body.message.join(", ") : `HTTP ${res.status}`;
-        console.error("Trace creation failed:", { status: res.status, body, tracePayload });
-        throw new Error(errorMessage);
+      if (error) {
+        throw new Error("Failed to post.");
       }
       setTraceInput("");
       clearSelectedImage();
@@ -651,7 +686,7 @@ export default function HallPage() {
     setUploadedImageData(null);
     
     // Auto-upload image when selected
-    if (authHeader) {
+    if (isSignedIn) {
       try {
         setUploadingImage(true);
         const imageData = await uploadTraceImage(file);
@@ -682,7 +717,7 @@ export default function HallPage() {
   };
 
   const handlePostReply = async () => {
-    if (!authHeader || !selectedTraceId) {
+    if (!isSignedIn || !selectedTraceId) {
       redirectToLogin();
       return;
     }
@@ -693,17 +728,17 @@ export default function HallPage() {
     setPostingReply(true);
     setStatus(null);
     try {
-      const res = await fetch(`${API_BASE}/traces/${selectedTraceId}/replies`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader
-        },
-        body: JSON.stringify({ content: replyInput })
+      const supabase = getSupabaseClient();
+      if (!supabase || !currentUserId) {
+        throw new Error("Supabase not ready.");
+      }
+      const { error } = await supabase.from("TraceReply").insert({
+        traceId: selectedTraceId,
+        authorId: currentUserId,
+        content: replyInput.trim()
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message ?? `HTTP ${res.status}`);
+      if (error) {
+        throw new Error("Failed to reply.");
       }
       setReplyInput("");
       await fetchTraceDetail(selectedTraceId);
@@ -717,29 +752,10 @@ export default function HallPage() {
   };
 
   const loadMoreReplies = async () => {
-    if (!traceDetail?.nextCursor || !selectedTraceId) {
+    if (!selectedTraceId) {
       return;
     }
-    setLoadingReplies(true);
-    try {
-      const params = new URLSearchParams();
-      params.set("cursor", traceDetail.nextCursor);
-      const res = await fetch(`${API_BASE}/traces/${selectedTraceId}?${params}`);
-      if (!res.ok) {
-        throw new Error("Failed to load more replies.");
-      }
-      const data = (await res.json()) as TraceDetailResponse;
-      setTraceDetail({
-        trace: data.trace,
-        replies: [...(traceDetail?.replies ?? []), ...data.replies],
-        nextCursor: data.nextCursor
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to load more.";
-      setStatus(message);
-    } finally {
-      setLoadingReplies(false);
-    }
+    setLoadingReplies(false);
   };
 
   const renderTraceAuthor = (author: TraceAuthor) => {
@@ -1240,11 +1256,7 @@ export default function HallPage() {
                   <div className="ui-surface p-3">
                     <div className="overflow-hidden rounded-2xl bg-card relative">
                       <img
-                        src={
-                          imagePreview?.startsWith("http")
-                            ? imagePreview
-                            : `${API_BASE}${imagePreview}`
-                        }
+                        src={resolveMediaUrl(imagePreview) ?? ""}
                         alt={selectedImageFile.name}
                         className="h-32 w-full object-cover"
                       />
