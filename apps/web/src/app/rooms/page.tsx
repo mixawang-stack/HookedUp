@@ -109,7 +109,9 @@ export default function RoomsPage() {
       let items =
         data?.map((room) => ({
           ...room,
-          memberCount: room.memberships?.[0]?.count ?? 0
+          memberCount: room.memberships?.[0]?.count ?? 0,
+          createdBy: room.createdBy?.[0] ?? null,
+          novel: room.novel?.[0] ?? null
         })) ?? [];
 
       if (statusValue !== "all") {
