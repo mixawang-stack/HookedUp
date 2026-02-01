@@ -9,8 +9,7 @@ import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+import { supabase } from "../lib/supabaseClient";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -26,13 +25,8 @@ function LoginFormContent() {
   const [loading, setLoading] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
-  const [resetCode, setResetCode] = useState("");
-  const [resetPassword, setResetPassword] = useState("");
-  const [resetConfirm, setResetConfirm] = useState("");
   const [resetStatus, setResetStatus] = useState<string | null>(null);
-  const [resetRequested, setResetRequested] = useState(false);
   const [resetSending, setResetSending] = useState(false);
-  const [resetSubmitting, setResetSubmitting] = useState(false);
 
   const {
     register,
@@ -47,28 +41,13 @@ function LoginFormContent() {
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        credentials: "include",
-        body: JSON.stringify(values)
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: values.email.trim().toLowerCase(),
+        password: values.password
       });
-
-      const raw = await res.text();
-      const body = raw ? JSON.parse(raw) : null;
-
-      if (!res.ok) {
-        throw new Error(body?.message ?? `HTTP ${res.status}`);
+      if (authError) {
+        throw new Error(authError.message);
       }
-
-      if (!body?.accessToken) {
-        throw new Error("EMPTY_LOGIN_RESPONSE");
-      }
-
-      const data = body as { accessToken: string };
-      localStorage.setItem("accessToken", data.accessToken);
 
       const redirect = searchParams?.get("redirect");
       const nextPath = redirect && redirect.startsWith("/") ? redirect : "/hall";
@@ -76,18 +55,10 @@ function LoginFormContent() {
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not get you in.";
       const friendly =
-        message === "INVALID_CREDENTIALS"
+        message.toLowerCase().includes("invalid login")
           ? "Email or password is incorrect."
-          : message === "EMAIL_NOT_VERIFIED"
+          : message.toLowerCase().includes("email not confirmed")
           ? "Email is not verified yet. Please verify first."
-          : message === "USER_BANNED"
-          ? "This account is disabled."
-          : message === "USER_DELETED"
-          ? "This account has been deleted."
-          : message === "USER_NOT_ACTIVE"
-          ? "Account status is inactive. Please contact support."
-          : message === "EMPTY_LOGIN_RESPONSE"
-          ? "Could not get you in. Try again."
           : message;
       setError(friendly);
     } finally {
@@ -98,7 +69,6 @@ function LoginFormContent() {
   const handleOpenReset = () => {
     setResetOpen((prev) => !prev);
     setResetStatus(null);
-    setResetRequested(false);
     const emailValue = getValues("email");
     if (emailValue) {
       setResetEmail(emailValue);
@@ -113,65 +83,24 @@ function LoginFormContent() {
     setResetStatus(null);
     setResetSending(true);
     try {
-      const res = await fetch(`${API_BASE}/auth/password-reset/request`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: resetEmail.trim() })
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(body?.message ?? "Failed to send reset code.");
+      const origin =
+        typeof window !== "undefined" ? window.location.origin : "";
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+        resetEmail.trim().toLowerCase(),
+        {
+          redirectTo: origin ? `${origin}/reset-password` : undefined
+        }
+      );
+      if (resetError) {
+        throw new Error(resetError.message);
       }
-      setResetRequested(true);
-      setResetStatus("Reset code sent. Check your email.");
+      setResetStatus("Reset email sent. Check your inbox.");
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Failed to send reset code.";
+        err instanceof Error ? err.message : "Failed to send reset email.";
       setResetStatus(message);
     } finally {
       setResetSending(false);
-    }
-  };
-
-  const handleConfirmReset = async () => {
-    if (!resetEmail.trim() || !resetCode.trim()) {
-      setResetStatus("Please enter your email and code.");
-      return;
-    }
-    if (resetPassword.length < 8) {
-      setResetStatus("New password must be at least 8 characters.");
-      return;
-    }
-    if (resetPassword !== resetConfirm) {
-      setResetStatus("Passwords do not match.");
-      return;
-    }
-    setResetStatus(null);
-    setResetSubmitting(true);
-    try {
-      const res = await fetch(`${API_BASE}/auth/password-reset/confirm`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: resetEmail.trim(),
-          code: resetCode.trim(),
-          newPassword: resetPassword
-        })
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(body?.message ?? "Failed to reset password.");
-      }
-      setResetStatus("Password updated. You can sign in now.");
-      setResetCode("");
-      setResetPassword("");
-      setResetConfirm("");
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to reset password.";
-      setResetStatus(message);
-    } finally {
-      setResetSubmitting(false);
     }
   };
 
@@ -245,7 +174,7 @@ function LoginFormContent() {
                 Reset your password
               </p>
               <p className="mt-1 text-xs text-text-secondary">
-                We will email you a verification code.
+                We will email you a reset link.
               </p>
 
               <div className="mt-3 space-y-3">
@@ -268,63 +197,12 @@ function LoginFormContent() {
                   onClick={handleRequestReset}
                   disabled={resetSending}
                 >
-                  {resetSending ? "Sending..." : "Send verification code"}
+                  {resetSending ? "Sending..." : "Send reset email"}
                 </button>
-
-                <div>
-                  <label className="text-xs font-semibold text-text-secondary">
-                    Verification code
-                  </label>
-                  <input
-                    type="text"
-                    className="mt-1 w-full rounded-2xl border border-border-default bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted"
-                    value={resetCode}
-                    onChange={(event) => setResetCode(event.target.value)}
-                    placeholder="6-digit code"
-                    disabled={!resetRequested}
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-text-secondary">
-                    New password
-                  </label>
-                  <input
-                    type="password"
-                    className="mt-1 w-full rounded-2xl border border-border-default bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted"
-                    value={resetPassword}
-                    onChange={(event) => setResetPassword(event.target.value)}
-                    placeholder="At least 8 characters"
-                    disabled={!resetRequested}
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-text-secondary">
-                    Confirm new password
-                  </label>
-                  <input
-                    type="password"
-                    className="mt-1 w-full rounded-2xl border border-border-default bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted"
-                    value={resetConfirm}
-                    onChange={(event) => setResetConfirm(event.target.value)}
-                    placeholder="Repeat password"
-                    disabled={!resetRequested}
-                  />
-                </div>
 
                 {resetStatus && (
                   <p className="text-xs text-brand-secondary">{resetStatus}</p>
                 )}
-
-                <button
-                  type="button"
-                  className="btn-primary w-full py-2 text-xs disabled:opacity-60"
-                  onClick={handleConfirmReset}
-                  disabled={resetSubmitting || !resetRequested}
-                >
-                  {resetSubmitting ? "Resetting..." : "Reset password"}
-                </button>
               </div>
             </div>
           )}

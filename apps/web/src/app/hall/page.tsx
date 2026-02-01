@@ -1116,25 +1116,28 @@ export default function HallPage() {
               Stories &amp; Spaces
             </p>
             <h1 className="mt-3 text-3xl font-semibold text-text-primary">
-              Say something. Or just watch.
+              Here, users can explore and read digital fiction.
             </h1>
             <p className="mt-2 text-sm text-text-secondary">
-              People talk about anything here.
-              <br />
-              Some stay polite. Some do not.
+              Some of the stories are free to enjoy, and some require a purchase to
+              unlock the full experience.
             </p>
             <div className="mt-4 space-y-2 text-sm text-text-secondary">
-              <p>It is public. It is messy.</p>
-              <p>It still feels alive.</p>
+              <p>It is a place for entertainment.</p>
+              <p>Some stories are light and fun, others are intense and immersive.</p>
+              <p>Whatever you're in the mood for, there's something here.</p>
             </div>
           </section>
 
           {showWelcome && (
             <div className="mt-4 ui-surface p-4 text-sm text-text-secondary">
               <p>Welcome to HookedUp?</p>
-              <p>This is the main hall of the castle.</p>
-              <p>Look around. See what's happening.</p>
-              <p>Join when something catches your interest.</p>
+              <p>This is the main hub of our platform.</p>
+              <p>Look around and discover the stories you love.</p>
+              <p>
+                If something catches your interest, feel free to unlock more content
+                and continue reading.
+              </p>
               <button
                 type="button"
                 className="btn-secondary mt-3 px-3 py-1 text-xs"
@@ -1318,11 +1321,11 @@ export default function HallPage() {
           {traceDetail && (
             <div role="dialog" aria-modal="true">
               <div
-                className="fixed inset-0 z-50 bg-black/40"
+                className="fixed inset-0 z-50 bg-black/40 animate-trace-backdrop"
                 onClick={() => setSelectedTraceId(null)}
               />
-              <div className="fixed right-0 top-0 z-[60] flex h-screen w-full max-w-full flex-col overflow-hidden border-l border-border-default bg-card text-text-primary shadow-[0_8px_30px_rgba(0,0,0,0.18)] animate-trace-drawer lg:w-[420px]">
-                <header className="sticky top-0 z-10 flex items-start justify-between border-b border-border-default bg-card px-6 py-4">
+              <div className="fixed right-0 top-0 z-[60] flex h-screen w-[420px] max-w-full flex-col overflow-hidden border-l border-black/10 bg-[rgb(var(--color-card-bg))] text-[rgb(var(--color-text-primary))] shadow-[0_8px_30px_rgba(0,0,0,0.18)] animate-trace-drawer">
+                <header className="sticky top-0 z-10 flex min-h-[80px] items-start justify-between border-b border-black/10 bg-[rgb(var(--color-card-bg))] px-6 py-4">
                   <div>
                     <h3 className="text-lg font-semibold text-text-primary">
                       Trace details
@@ -1362,7 +1365,7 @@ export default function HallPage() {
                   </button>
                 </header>
 
-                <div className="flex-1 overflow-y-auto px-6 py-5">
+                <div className="h-[calc(100vh-80px)] overflow-y-auto px-6 py-5">
                   {traceDetail.trace.imageUrl && (
                     <div className="overflow-hidden rounded-2xl bg-surface">
                       <img
@@ -1428,7 +1431,7 @@ export default function HallPage() {
                   )}
                 </div>
 
-                <div className="border-t border-border-default bg-card px-6 py-4">
+                <div className="border-t border-black/10 bg-[rgb(var(--color-card-bg))] px-6 py-4">
                   <label className="text-xs font-semibold text-text-secondary">
                     Reply
                   </label>

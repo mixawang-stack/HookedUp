@@ -8,9 +8,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+import { supabase } from "../lib/supabaseClient";
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -23,18 +21,11 @@ const registerSchema = z.object({
 
 type RegisterForm = z.infer<typeof registerSchema>;
 
-type VerifyForm = {
-  code: string;
-};
-
 export default function RegisterPage() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
-  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
-  const [verifyStatus, setVerifyStatus] = useState<string | null>(null);
-  const [verifyLoading, setVerifyLoading] = useState(false);
 
   const registerForm = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
@@ -43,112 +34,43 @@ export default function RegisterPage() {
     }
   });
 
-  const verifyForm = useForm<VerifyForm>({
-    defaultValues: {
-      code: ""
-    }
-  });
-
   const handleRegister = registerForm.handleSubmit(async (values) => {
     setError(null);
     setStatus(null);
-    setPendingEmail(null);
-    setVerifyStatus(null);
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/auth/register`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(values)
+      const { error: signUpError } = await supabase.auth.signUp({
+        email: values.email.trim().toLowerCase(),
+        password: values.password,
+        options: {
+          data: {
+            dob: values.dob,
+            agreeTerms: values.agreeTerms
+          }
+        }
       });
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        const rawMessage = Array.isArray(body?.message)
-          ? body.message.join("; ")
-          : body?.message;
-        throw new Error(rawMessage ?? `HTTP ${res.status}`);
+      if (signUpError) {
+        throw new Error(signUpError.message);
       }
 
-      const payload = (await res.json().catch(() => ({}))) as {
-        verificationToken?: string;
-      };
-      setPendingEmail(values.email.trim().toLowerCase());
-      setStatus("A verification code has been sent. Enter it to finish.");
-      if (payload?.verificationToken) {
-        setVerifyStatus(`Verification code: ${payload.verificationToken}`);
-      }
+      setStatus("Check your email to confirm your account.");
       registerForm.reset({
         email: "",
         password: "",
         dob: "",
         agreeTerms: false
       });
-      verifyForm.reset({ code: "" });
+      setTimeout(() => router.push("/login"), 1200);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Registration failed";
       const friendly =
-        message === "REGION_NOT_SUPPORTED"
-          ? "This region is not supported."
-          : message === "TERMS_NOT_ACCEPTED"
-          ? "Please accept the terms first."
-          : message === "INVALID_DOB"
-          ? "Date of birth format is invalid."
-          : message === "EMAIL_ALREADY_REGISTERED"
+        message.toLowerCase().includes("already registered") ||
+        message.toLowerCase().includes("user already registered")
           ? "This email is already registered."
-          : message === "EMAIL_SEND_FAILED"
-          ? "Failed to send verification email. Please try again."
-          : message === "SMTP_NOT_CONFIGURED"
-          ? "Email service is not configured."
           : message;
       setError(friendly);
     } finally {
       setLoading(false);
-    }
-  });
-
-  const handleVerify = verifyForm.handleSubmit(async (values) => {
-    if (!pendingEmail) {
-      return;
-    }
-    setVerifyStatus(null);
-    setVerifyLoading(true);
-    try {
-      const res = await fetch(`${API_BASE}/auth/verify-code`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          email: pendingEmail,
-          code: values.code.trim()
-        })
-      });
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        const rawMessage = Array.isArray(body?.message)
-          ? body.message.join("; ")
-          : body?.message;
-        throw new Error(rawMessage ?? `HTTP ${res.status}`);
-      }
-
-      setVerifyStatus("Email verified. Redirecting to login.");
-      router.push("/login");
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Verification failed";
-      const friendly =
-        message === "INVALID_VERIFY_TOKEN"
-          ? "Invalid or expired verification code."
-          : message === "EMAIL_ALREADY_REGISTERED"
-          ? "This email is already registered."
-          : message;
-      setVerifyStatus(friendly);
-    } finally {
-      setVerifyLoading(false);
     }
   });
 
@@ -241,31 +163,6 @@ export default function RegisterPage() {
             </button>
           </form>
 
-          {pendingEmail && (
-            <form className="space-y-3" onSubmit={handleVerify}>
-              <label className="text-xs font-semibold text-text-secondary">
-                Verification code
-              </label>
-              <input
-                type="text"
-                inputMode="numeric"
-                maxLength={6}
-                className="w-full rounded-2xl border border-border-default bg-card px-3 py-3 text-sm text-text-primary placeholder:text-text-muted focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
-                {...verifyForm.register("code")}
-              />
-              <button
-                type="submit"
-                className="btn-primary w-full py-3 text-sm"
-                disabled={verifyLoading}
-              >
-                {verifyLoading ? "Verifying..." : "Finish"}
-              </button>
-              {verifyStatus && (
-                <p className="text-sm text-text-secondary">{verifyStatus}</p>
-              )}
-            </form>
-          )}
-
           <p className="text-sm text-text-secondary">
             Already have an account?{" "}
             <Link
@@ -297,7 +194,7 @@ export default function RegisterPage() {
             >
               Refunds
             </Link>{" "}
-            ·{" "}
+            &{" "}
             <Link
               href="/support"
               className="font-semibold text-text-secondary hover:text-text-primary"
@@ -324,40 +221,16 @@ export default function RegisterPage() {
                 </svg>
               </span>
               <p className="text-xs font-semibold uppercase tracking-[0.4em] text-text-muted">
-                WELCOME TO
+                HookedUp
               </p>
             </div>
-            <h2 className="mt-2 text-3xl font-semibold text-text-primary">
-              HookedUp?
+            <h2 className="mt-4 text-2xl font-semibold text-text-primary">
+              The next room feels better.
             </h2>
-          </div>
-          <p className="text-sm leading-relaxed text-text-secondary">
-            A late room where people stay a while.
-          </p>
-          <ul className="space-y-3 text-sm leading-relaxed text-text-secondary">
-            <li>Leave a trace. See who answers.</li>
-            <li>Drift into rooms. Linger if it feels right.</li>
-            <li>Keep it light. Keep it human.</li>
-          </ul>
-          <p className="text-xs leading-relaxed text-text-muted">
-            Do what feels right. Stop when it does not.
-          </p>
-          <div className="ui-card p-4 text-sm text-text-secondary">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-text-muted">
-              TONIGHT, YOU MIGHT RUN INTO:
+            <p className="mt-3 text-sm text-text-secondary">
+              You will need to confirm your email to complete your registration.
             </p>
-            <ul className="mt-2 space-y-1 text-sm text-text-secondary">
-              <li>Whispered confessions</li>
-              <li>Truths and dares</li>
-              <li>Soft talk, sharp edges</li>
-            </ul>
           </div>
-          <Link
-            href="/register"
-            className="btn-primary mt-auto py-3 text-sm"
-          >
-            Create an account
-          </Link>
         </section>
       </div>
     </main>
