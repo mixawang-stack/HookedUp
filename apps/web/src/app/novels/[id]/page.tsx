@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { getSupabaseClient } from "@/app/lib/supabaseClient";
+import { getSupabaseClient } from "../../lib/supabaseClient";
 
 type NovelPreview = {
   id: string;
