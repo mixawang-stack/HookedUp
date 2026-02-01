@@ -252,7 +252,12 @@ export default function RoomPage() {
           currentUserRole,
           selectedGame: undefined
         });
-        setMessages((messagesData ?? []) as RoomMessage[]);
+        setMessages(
+          (messagesData ?? []).map((message) => ({
+            ...message,
+            sender: message.sender?.[0] ?? null
+          })) as RoomMessage[]
+        );
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Failed to load room.";
