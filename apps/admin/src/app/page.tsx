@@ -4,6 +4,11 @@ export const dynamic = "force-dynamic";
 
 const MODULES = [
   {
+    title: "Users",
+    description: "Review user profiles and status in one place.",
+    href: "/users"
+  },
+  {
     title: "Novels",
     description: "Publish, tag, feature, and control visibility for content.",
     href: "/novels"

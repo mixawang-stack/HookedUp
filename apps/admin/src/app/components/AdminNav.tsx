@@ -5,7 +5,10 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { getSupabaseClient } from "../lib/supabaseClient";
 
-const NAV_ITEMS = [{ href: "/novels", label: "Novels" }];
+const NAV_ITEMS = [
+  { href: "/users", label: "Users" },
+  { href: "/novels", label: "Novels" }
+];
 
 export default function AdminNav() {
   const pathname = usePathname() ?? "";
