@@ -4,26 +4,19 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { emitHostStatus } from "../lib/hostStatus";
-
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+import { getSupabaseClient } from "../lib/supabaseClient";
 
 const resolveMediaUrl = (value?: string | null) => {
   if (!value) return null;
-  if (value.startsWith("/uploads/")) {
-    return `${API_BASE}${value}`;
-  }
   if (!value.startsWith("http://") && !value.startsWith("https://")) {
     return value;
   }
   try {
     const parsed = new URL(value);
-    if (parsed.pathname.startsWith("/uploads/")) {
-      return `${API_BASE}${parsed.pathname}`;
-    }
+    return parsed.toString();
   } catch {
     return value;
   }
@@ -43,6 +36,7 @@ type RoomItem = {
   capacity: number | null;
   memberCount: number;
   createdAt: string;
+  createdBy?: { maskName: string | null; maskAvatarUrl: string | null } | null;
   novel?: {
     id: string;
     title: string;
@@ -55,16 +49,10 @@ type RoomsResponse = {
   nextCursor: string | null;
 };
 
-type NovelItem = {
-  id: string;
-  title: string;
-  coverImageUrl: string | null;
-  description: string | null;
-};
 
 export default function RoomsPage() {
   const router = useRouter();
-  const [token, setToken] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [rooms, setRooms] = useState<RoomItem[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -78,14 +66,6 @@ export default function RoomsPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [capacity, setCapacity] = useState("");
-  const [novels, setNovels] = useState<NovelItem[]>([]);
-
-  const authHeader = useMemo(() => {
-    if (!token) {
-      return null;
-    }
-    return { Authorization: `Bearer ${token}` };
-  }, [token]);
 
   const loadRooms = async (
     nextCursor?: string | null,
@@ -93,32 +73,69 @@ export default function RoomsPage() {
   ) => {
     setLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (nextCursor) {
-        params.set("cursor", nextCursor);
-      }
       const statusValue = overrides?.status ?? filterStatus;
       const tagsValue = overrides?.tags ?? filterTags;
       const searchValue = overrides?.search ?? filterQuery;
-      if (statusValue !== "all") {
-        params.set("status", statusValue.toUpperCase());
-      }
-      if (tagsValue.trim()) {
-        params.set("tags", tagsValue);
-      }
-      if (searchValue?.trim()) {
-        params.set("search", searchValue.trim());
-      }
-      const query = params.toString();
-      const res = await fetch(
-        `${API_BASE}/rooms${query ? `?${query}` : ""}`
-      );
-      if (!res.ok) {
+      const supabase = getSupabaseClient();
+      if (!supabase) {
         throw new Error("Rooms unavailable.");
       }
-      const data = (await res.json()) as RoomsResponse;
-      setRooms((prev) => (nextCursor ? [...prev, ...data.items] : data.items));
-      setCursor(data.nextCursor);
+      const { data, error } = await supabase
+        .from("Room")
+        .select(
+          `
+          id,
+          title,
+          description,
+          tagsJson,
+          status,
+          startsAt,
+          endsAt,
+          isOfficial,
+          allowSpectators,
+          capacity,
+          createdAt,
+          novel:Novel(id,title,coverImageUrl),
+          createdBy:User(maskName,maskAvatarUrl),
+          memberships:RoomMembership(count)
+        `
+        )
+        .order("createdAt", { ascending: false })
+        .limit(50);
+      if (error) {
+        throw new Error("Rooms unavailable.");
+      }
+
+      let items =
+        data?.map((room) => ({
+          ...room,
+          memberCount: room.memberships?.[0]?.count ?? 0
+        })) ?? [];
+
+      if (statusValue !== "all") {
+        items = items.filter(
+          (room) => room.status === statusValue.toUpperCase()
+        );
+      }
+      if (tagsValue.trim()) {
+        const tag = tagsValue.trim().toLowerCase();
+        items = items.filter((room) =>
+          (room.tagsJson ?? []).some(
+            (roomTag) => roomTag.toLowerCase() === tag
+          )
+        );
+      }
+      if (searchValue?.trim()) {
+        const term = searchValue.trim().toLowerCase();
+        items = items.filter(
+          (room) =>
+            room.title.toLowerCase().includes(term) ||
+            (room.description ?? "").toLowerCase().includes(term)
+        );
+      }
+
+      setRooms(items as RoomItem[]);
+      setCursor(null);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to load.";
       setStatus(message);
@@ -128,20 +145,14 @@ export default function RoomsPage() {
   };
 
   useEffect(() => {
-    setToken(localStorage.getItem("accessToken"));
-    loadRooms(null).catch(() => setStatus("Failed to load."));
-  }, []);
-
-  useEffect(() => {
-    const loadNovels = async () => {
-      const res = await fetch(`${API_BASE}/novels?featured=true&limit=3`);
-      if (!res.ok) {
-        return;
-      }
-      const data = (await res.json()) as NovelItem[];
-      setNovels(data);
+    const loadUser = async () => {
+      const supabase = getSupabaseClient();
+      if (!supabase) return;
+      const { data } = await supabase.auth.getUser();
+      setCurrentUserId(data.user?.id ?? null);
     };
-    loadNovels().catch(() => undefined);
+    loadUser().catch(() => undefined);
+    loadRooms(null).catch(() => setStatus("Failed to load."));
   }, []);
 
   useEffect(() => {
@@ -180,7 +191,7 @@ export default function RoomsPage() {
   };
 
   const handleCreateRoom = async () => {
-    if (!authHeader) {
+    if (!currentUserId) {
       setFormStatus("Please sign in to create a room.");
       return;
     }
@@ -203,38 +214,34 @@ export default function RoomsPage() {
       const payload: Record<string, unknown> = {
         title: title.trim(),
         description: description.trim() || null,
-        capacity: capacityValue
+        capacity: capacityValue,
+        createdById: currentUserId,
+        status: "LIVE",
+        allowSpectators: true
       };
-      const res = await fetch(`${API_BASE}/rooms`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader
-        },
-        body: JSON.stringify(payload)
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message ?? `HTTP ${res.status}`);
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        throw new Error("Supabase not configured.");
       }
-      const created = (await res.json()) as { id?: string };
+      const { data, error } = await supabase
+        .from("Room")
+        .insert(payload)
+        .select("id")
+        .single();
+      if (error || !data) {
+        throw new Error("Failed to create.");
+      }
+      await supabase.from("RoomMembership").insert({
+        roomId: data.id,
+        userId: currentUserId,
+        role: "OWNER",
+        mode: "PARTICIPANT"
+      });
       resetForm();
       setShowCreate(false);
-      if (created?.id) {
-        await fetch(`${API_BASE}/rooms/${created.id}/join`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...authHeader
-          },
-          body: JSON.stringify({})
-        }).catch(() => undefined);
-        window.dispatchEvent(new Event("active-room-changed"));
-        router.push(`/rooms/${created.id}`);
-        return;
-      }
       window.dispatchEvent(new Event("active-room-changed"));
-      await loadRooms(null);
+      router.push(`/rooms/${data.id}`);
+      return;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to create.";
       setFormStatus(message);

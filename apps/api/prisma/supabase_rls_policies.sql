@@ -6,6 +6,8 @@ alter table if exists "Trace" enable row level security;
 alter table if exists "TraceReply" enable row level security;
 alter table if exists "TraceLike" enable row level security;
 alter table if exists "User" enable row level security;
+alter table if exists "Room" enable row level security;
+alter table if exists "RoomMembership" enable row level security;
 alter table if exists "NovelReaction" enable row level security;
 alter table if exists "Entitlement" enable row level security;
 alter table if exists "NovelPurchase" enable row level security;
@@ -47,6 +49,51 @@ on "NovelChapter"
 for all
 using ((auth.jwt() ->> 'email') = 'admin@hookedup.me')
 with check ((auth.jwt() ->> 'email') = 'admin@hookedup.me');
+
+-- Rooms.
+drop policy if exists "Public read rooms" on "Room";
+create policy "Public read rooms"
+on "Room"
+for select
+using (true);
+
+drop policy if exists "Insert own room" on "Room";
+create policy "Insert own room"
+on "Room"
+for insert
+with check (auth.uid()::text = "createdById");
+
+drop policy if exists "Update own room" on "Room";
+create policy "Update own room"
+on "Room"
+for update
+using (auth.uid()::text = "createdById")
+with check (auth.uid()::text = "createdById");
+
+drop policy if exists "Delete own room" on "Room";
+create policy "Delete own room"
+on "Room"
+for delete
+using (auth.uid()::text = "createdById");
+
+-- Room memberships.
+drop policy if exists "Read room memberships" on "RoomMembership";
+create policy "Read room memberships"
+on "RoomMembership"
+for select
+using (true);
+
+drop policy if exists "Insert own membership" on "RoomMembership";
+create policy "Insert own membership"
+on "RoomMembership"
+for insert
+with check (auth.uid()::text = "userId");
+
+drop policy if exists "Delete own membership" on "RoomMembership";
+create policy "Delete own membership"
+on "RoomMembership"
+for delete
+using (auth.uid()::text = "userId");
 
 -- Public read for forum traces.
 drop policy if exists "Public read traces" on "Trace";
