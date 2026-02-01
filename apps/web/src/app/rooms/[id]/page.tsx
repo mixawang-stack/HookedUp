@@ -343,7 +343,11 @@ export default function RoomPage() {
       if (error || !data) {
         throw new Error("Failed to send.");
       }
-      setMessages((prev) => [...prev, data as RoomMessage]);
+      const normalizedMessage = {
+        ...data,
+        sender: data.sender?.[0] ?? null
+      } as RoomMessage;
+      setMessages((prev) => [...prev, normalizedMessage]);
       if (!overrideContent || content === messageInput.trim()) {
       setMessageInput("");
       }
