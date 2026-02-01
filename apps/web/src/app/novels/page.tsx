@@ -2,9 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+import { getSupabaseClient } from "../lib/supabaseClient";
 
 type NovelItem = {
   id: string;
@@ -21,17 +19,12 @@ const CATEGORY_TABS: Array<{ id: "DRAMA" | "AFTER_DARK"; label: string }> = [
 
 const resolveMediaUrl = (value?: string | null) => {
   if (!value) return null;
-  if (value.startsWith("/uploads/")) {
-    return `${API_BASE}${value}`;
-  }
   if (!value.startsWith("http://") && !value.startsWith("https://")) {
     return value;
   }
   try {
     const parsed = new URL(value);
-    if (parsed.pathname.startsWith("/uploads/")) {
-      return `${API_BASE}${parsed.pathname}`;
-    }
+    return parsed.toString();
   } catch {
     return value;
   }
@@ -46,15 +39,24 @@ export default function StoriesPage() {
 
   useEffect(() => {
     const load = async () => {
-      const res = await fetch(
-        `${API_BASE}/novels?limit=30&category=${activeTab}`
-      );
-      if (!res.ok) {
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        setStatus("Stories service is not configured.");
+        return;
+      }
+      const { data, error } = await supabase
+        .from("Novel")
+        .select("id,title,coverImageUrl,description,category,isFeatured,createdAt,status")
+        .eq("status", "PUBLISHED")
+        .eq("category", activeTab)
+        .order("isFeatured", { ascending: false })
+        .order("createdAt", { ascending: false })
+        .limit(30);
+      if (error) {
         setStatus("Failed to load stories.");
         return;
       }
-      const data = (await res.json()) as NovelItem[];
-      setNovels(data);
+      setNovels((data ?? []) as NovelItem[]);
     };
     load().catch(() => setStatus("Failed to load stories."));
   }, [activeTab]);

@@ -1,11 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+import { getSupabaseClient } from "@/app/lib/supabaseClient";
 
 type NovelPreview = {
   id: string;
@@ -26,9 +24,7 @@ type NovelPreview = {
   bookPrice?: string | number | null;
   bookPromoPrice?: string | number | null;
   currency?: string | null;
-  creemProductId?: string | null;
-  paymentLink?: string | null;
-  room?: { id: string; title: string; _count: { memberships: number } } | null;
+  room?: { id: string; title: string } | null;
   chapters: Array<{
     id: string;
     title: string;
@@ -37,106 +33,61 @@ type NovelPreview = {
     isPublished: boolean;
     content: string;
   }>;
-  lockedChapters?: Array<{
-    id: string;
-    title: string;
-    orderIndex: number;
-    price?: string | number | null;
-  }>;
 };
 
 export default function NovelDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const novelId = typeof params?.id === "string" ? params.id : "";
-  const [token, setToken] = useState<string | null>(null);
   const [novel, setNovel] = useState<NovelPreview | null>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const [reactionLoading, setReactionLoading] = useState(false);
-  const [unlocking, setUnlocking] = useState(false);
-  const [meId, setMeId] = useState<string | null>(null);
-
-  const authHeader = useMemo(
-    () => (token ? { Authorization: `Bearer ${token}` } : null),
-    [token]
-  );
-
-  useEffect(() => {
-    setToken(localStorage.getItem("accessToken"));
-  }, []);
-
-  useEffect(() => {
-    if (!authHeader) {
-      setMeId(null);
-      return;
-    }
-    fetch(`${API_BASE}/me`, { headers: { ...authHeader } })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => setMeId(data?.id ?? null))
-      .catch(() => setMeId(null));
-  }, [authHeader]);
 
   useEffect(() => {
     if (!novelId) return;
     const load = async () => {
       setStatus(null);
-      const res = await fetch(`${API_BASE}/novels/${novelId}/reading`, {
-        headers: authHeader ? { ...authHeader } : undefined
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setStatus(body?.message ?? "Failed to load novel.");
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        setStatus("Supabase is not configured.");
         return;
       }
-      console.debug("Novel payload", {
-        id: body?.id,
-        contentSourceType: body?.contentSourceType,
-        chapterCount: body?.chapterCount,
-        attachmentUrl: body?.attachmentUrl,
-        apiBase: API_BASE
-      });
-      setNovel(body as NovelPreview);
+      const { data, error } = await supabase
+        .from("Novel")
+        .select(
+          `
+          id,
+          title,
+          coverImageUrl,
+          description,
+          contentSourceType,
+          attachmentUrl,
+          wordCount,
+          chapterCount,
+          pricingMode,
+          bookPrice,
+          bookPromoPrice,
+          currency,
+          room:Room(id,title),
+          chapters:NovelChapter(
+            id,
+            title,
+            orderIndex,
+            isFree,
+            isPublished,
+            content
+          )
+        `
+        )
+        .eq("id", novelId)
+        .single();
+      if (error || !data) {
+        setStatus("Failed to load novel.");
+        return;
+      }
+      setNovel(data as NovelPreview);
     };
     load().catch(() => setStatus("Failed to load novel."));
-  }, [novelId, authHeader]);
-
-  const handleReaction = async (type: "LIKE" | "DISLIKE") => {
-    if (!authHeader) {
-      router.push(
-        `/login?redirect=${encodeURIComponent(`/novels/${novelId || ""}`)}`
-      );
-      return;
-    }
-    if (!novelId) return;
-    setReactionLoading(true);
-    try {
-      const endpoint = type === "LIKE" ? "like" : "dislike";
-      const res = await fetch(`${API_BASE}/novels/${novelId}/${endpoint}`, {
-        method: "POST",
-        headers: { ...authHeader }
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(body?.message ?? "Failed to react.");
-      }
-      setNovel((prev) =>
-        prev
-          ? {
-              ...prev,
-              favoriteCount: body.favoriteCount ?? prev.favoriteCount,
-              dislikeCount: body.dislikeCount ?? prev.dislikeCount,
-              myReaction: body.myReaction ?? prev.myReaction
-            }
-          : prev
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to react.";
-      setStatus(message);
-    } finally {
-      setReactionLoading(false);
-    }
-  };
+  }, [novelId]);
 
   const handleShare = async () => {
     const url = typeof window !== "undefined" ? window.location.href : "";
@@ -152,82 +103,23 @@ export default function NovelDetailPage() {
     }
   };
 
-  const chapters = novel?.chapters ?? [];
-  const likeCount = novel?.favoriteCount ?? 0;
-  const shouldShowAttachment = novel?.contentSourceType === "PDF" && novel.attachmentUrl;
-  const lockedChapters = novel?.lockedChapters ?? [];
-  const isLocked = Boolean(novel?.locked);
-  const isSignedIn = Boolean(token);
-
-  const refreshReading = async () => {
-    const res = await fetch(`${API_BASE}/novels/${novelId}/reading`, {
-      headers: authHeader ? { ...authHeader } : undefined
-    });
-    const body = await res.json().catch(() => ({}));
-    if (res.ok) {
-      setNovel(body as NovelPreview);
-    }
-  };
-
-  useEffect(() => {
-    if (!authHeader || !novelId || !searchParams) return;
-    const paymentSuccess = searchParams.get("payment") === "success";
-    if (!paymentSuccess || unlocking) {
-      return;
-    }
-    setUnlocking(true);
-    refreshReading()
-      .catch(() => undefined)
-      .finally(() => setUnlocking(false));
-  }, [authHeader, novelId, searchParams, unlocking]);
-
-  const startCheckout = async () => {
-    if (!authHeader) {
-      router.push(
-        `/login?redirect=${encodeURIComponent(`/novels/${novelId || ""}`)}`
-      );
-      return;
-    }
-    if (!novel) return;
-    if (!novel.creemProductId && !novel.paymentLink) {
-      setStatus("Payment is not configured yet.");
-      return;
-    }
-    setUnlocking(true);
-    try {
-      if (novel.creemProductId) {
-        const res = await fetch(`${API_BASE}/billing/creem/checkout`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...authHeader
-          },
-          body: JSON.stringify({ novelId })
-        });
-        const body = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          setStatus(body?.message ?? "Failed to start checkout.");
-          return;
-        }
-        if (body?.checkoutUrl) {
-          window.location.href = body.checkoutUrl;
-          return;
-        }
-        setStatus("Checkout link unavailable.");
-        return;
-      }
-
-      if (novel.paymentLink) {
-        const url = new URL(novel.paymentLink);
-        if (meId) {
-          url.searchParams.set("metadata[user_id]", meId);
-        }
-        window.location.href = url.toString();
-      }
-    } finally {
-      setUnlocking(false);
-    }
-  };
+  const chapters = useMemo(() => {
+    const all = novel?.chapters ?? [];
+    return all.filter((chapter) => chapter.isPublished);
+  }, [novel]);
+  const freeChapters = useMemo(
+    () => chapters.filter((chapter) => chapter.isFree),
+    [chapters]
+  );
+  const lockedChapters = useMemo(
+    () => chapters.filter((chapter) => !chapter.isFree),
+    [chapters]
+  );
+  const chaptersToRender =
+    lockedChapters.length > 0 ? freeChapters : chapters;
+  const shouldShowAttachment =
+    novel?.contentSourceType === "PDF" && novel.attachmentUrl;
+  const isLocked = lockedChapters.length > 0;
 
   return (
     <main className="ui-page">
@@ -254,18 +146,8 @@ export default function NovelDetailPage() {
                     Preview mode: only free samples are visible.
                   </p>
                   <p className="mt-1 text-xs text-text-muted">
-                    {isSignedIn
-                      ? "Unlock the rest to read the full story."
-                      : "Sign in to unlock the full story."}
+                    Unlocking is temporarily unavailable in this preview.
                   </p>
-                  {!isSignedIn && (
-                    <Link
-                      href={`/login?redirect=${encodeURIComponent(`/novels/${novel.id}`)}`}
-                      className="mt-2 inline-flex text-xs font-semibold text-text-primary hover:text-brand-primary"
-                    >
-                      Sign in
-                    </Link>
-                  )}
                 </div>
               )}
             </section>
@@ -276,13 +158,8 @@ export default function NovelDetailPage() {
                   <div className="sticky top-[140px] flex flex-col gap-3">
                     <button
                       type="button"
-                      className={`flex items-center gap-2 rounded-full px-3 py-2 text-sm transition hover:bg-surface ${
-                        novel?.myReaction === "LIKE"
-                          ? "text-brand-primary"
-                          : "text-text-muted hover:text-text-primary"
-                      }`}
-                      onClick={() => handleReaction("LIKE")}
-                      disabled={reactionLoading}
+                      className="flex items-center gap-2 rounded-full px-3 py-2 text-sm text-text-muted transition hover:bg-surface hover:text-text-primary"
+                      disabled
                       title="More like this"
                     >
                       <svg
@@ -294,9 +171,7 @@ export default function NovelDetailPage() {
                       >
                         <path
                           d="M12 20.5c-5.05-3.62-8.5-6.7-8.5-10.6 0-2.3 1.74-4.1 4.06-4.1 1.62 0 3.18.9 4.44 2.38 1.26-1.48 2.82-2.38 4.44-2.38 2.32 0 4.06 1.8 4.06 4.1 0 3.9-3.45 6.98-8.5 10.6z"
-                          fill={
-                            novel?.myReaction === "LIKE" ? "currentColor" : "none"
-                          }
+                          fill="none"
                           stroke="currentColor"
                           strokeWidth="1.4"
                         />
@@ -305,13 +180,8 @@ export default function NovelDetailPage() {
                     </button>
                     <button
                       type="button"
-                      className={`flex items-center gap-2 rounded-full px-3 py-2 text-sm transition hover:bg-surface ${
-                        novel?.myReaction === "DISLIKE"
-                          ? "text-text-primary"
-                          : "text-text-muted hover:text-text-primary"
-                      }`}
-                      onClick={() => handleReaction("DISLIKE")}
-                      disabled={reactionLoading}
+                      className="flex items-center gap-2 rounded-full px-3 py-2 text-sm text-text-muted transition hover:bg-surface hover:text-text-primary"
+                      disabled
                       title="Show me less"
                     >
                       <svg
@@ -323,22 +193,14 @@ export default function NovelDetailPage() {
                       >
                         <path
                           d="M14 10V4a2 2 0 0 0-2-2l-1 5-4 4v7h7a2 2 0 0 0 2-2v-4.5l2.5-.5c.8-.2 1.5-.9 1.5-1.8V9h-6Z"
-                          fill={
-                            novel?.myReaction === "DISLIKE"
-                              ? "currentColor"
-                              : "none"
-                          }
+                          fill="none"
                           stroke="currentColor"
                           strokeWidth="1.4"
                           strokeLinejoin="round"
                         />
                         <path
                           d="M3 10h3v8H3z"
-                          fill={
-                            novel?.myReaction === "DISLIKE"
-                              ? "currentColor"
-                              : "none"
-                          }
+                          fill="none"
                           stroke="currentColor"
                           strokeWidth="1.4"
                         />
@@ -386,9 +248,9 @@ export default function NovelDetailPage() {
                 </div>
 
                 <section className="mx-auto w-full max-w-[720px]">
-                  {chapters.length > 0 ? (
+                  {chaptersToRender.length > 0 ? (
                     <div className="mt-6 space-y-10 text-base leading-8 text-text-primary">
-                      {chapters.map((chapter) => (
+                      {chaptersToRender.map((chapter) => (
                         <section key={chapter.id} className="space-y-4">
                           <h2 className="text-xl font-semibold text-text-primary">
                             {chapter.title || `Chapter ${chapter.orderIndex}`}
@@ -440,15 +302,8 @@ export default function NovelDetailPage() {
                             {novel.currency ?? "USD"}
                           </p>
                           <p className="text-[11px] text-text-muted">
-                            Taxes will be calculated at checkout.
+                            Checkout will be enabled again soon.
                           </p>
-                          <button
-                            type="button"
-                            className="btn-primary mt-2 px-4 py-2 text-xs"
-                            onClick={startCheckout}
-                          >
-                            Unlock more
-                          </button>
                         </div>
                       ) : (
                         <div className="mt-4 space-y-2 text-xs">
@@ -460,13 +315,9 @@ export default function NovelDetailPage() {
                               <span>
                                 Chapter {chapter.orderIndex} · {chapter.title}
                               </span>
-                              <button
-                                type="button"
-                                className="rounded-full border border-border-default px-3 py-1 text-[11px]"
-                                onClick={startCheckout}
-                              >
-                                Unlock more
-                              </button>
+                              <span className="text-[11px] text-text-muted">
+                                Unlocking soon
+                              </span>
                             </div>
                           ))}
                         </div>
@@ -516,13 +367,8 @@ export default function NovelDetailPage() {
         <div className="ui-container flex items-center justify-around py-2 text-xs text-text-secondary">
           <button
             type="button"
-            className={`flex flex-col items-center gap-1 px-3 py-2 transition ${
-              novel?.myReaction === "LIKE"
-                ? "text-brand-primary"
-                : "text-text-muted"
-            }`}
-            onClick={() => handleReaction("LIKE")}
-            disabled={reactionLoading}
+            className="flex flex-col items-center gap-1 px-3 py-2 text-text-muted transition"
+            disabled
             title="More like this"
           >
             <svg
@@ -534,24 +380,17 @@ export default function NovelDetailPage() {
             >
               <path
                 d="M12 20.5c-5.05-3.62-8.5-6.7-8.5-10.6 0-2.3 1.74-4.1 4.06-4.1 1.62 0 3.18.9 4.44 2.38 1.26-1.48 2.82-2.38 4.44-2.38 2.32 0 4.06 1.8 4.06 4.1 0 3.9-3.45 6.98-8.5 10.6z"
-                fill={novel?.myReaction === "LIKE" ? "currentColor" : "none"}
+                fill="none"
                 stroke="currentColor"
                 strokeWidth="1.4"
               />
             </svg>
-            <span className="text-[10px] font-semibold text-text-secondary">
-              {likeCount}
-            </span>
+            <span className="text-[10px] font-semibold text-text-secondary">0</span>
           </button>
           <button
             type="button"
-            className={`flex flex-col items-center gap-1 px-3 py-2 transition ${
-              novel?.myReaction === "DISLIKE"
-                ? "text-text-primary"
-                : "text-text-muted"
-            }`}
-            onClick={() => handleReaction("DISLIKE")}
-            disabled={reactionLoading}
+            className="flex flex-col items-center gap-1 px-3 py-2 text-text-muted transition"
+            disabled
             title="Show me less"
           >
             <svg
@@ -563,14 +402,14 @@ export default function NovelDetailPage() {
             >
               <path
                 d="M14 10V4a2 2 0 0 0-2-2l-1 5-4 4v7h7a2 2 0 0 0 2-2v-4.5l2.5-.5c.8-.2 1.5-.9 1.5-1.8V9h-6Z"
-                fill={novel?.myReaction === "DISLIKE" ? "currentColor" : "none"}
+                fill="none"
                 stroke="currentColor"
                 strokeWidth="1.4"
                 strokeLinejoin="round"
               />
               <path
                 d="M3 10h3v8H3z"
-                fill={novel?.myReaction === "DISLIKE" ? "currentColor" : "none"}
+                fill="none"
                 stroke="currentColor"
                 strokeWidth="1.4"
               />
