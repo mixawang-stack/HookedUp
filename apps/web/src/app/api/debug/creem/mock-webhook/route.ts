@@ -2,11 +2,6 @@ import crypto from "crypto";
 
 export const runtime = "nodejs";
 
-const API_BASE =
-  process.env.API_BASE_URL ??
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  "http://localhost:3001";
-
 export async function POST(request: Request) {
   if (process.env.NODE_ENV === "production") {
     return new Response("Not Found", { status: 404 });
@@ -55,7 +50,8 @@ export async function POST(request: Request) {
     .update(rawBody)
     .digest("hex");
 
-  const res = await fetch(`${API_BASE}/webhooks/creem`, {
+  const targetUrl = new URL("/api/creem/webhook", request.url);
+  const res = await fetch(targetUrl.toString(), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

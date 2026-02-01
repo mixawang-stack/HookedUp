@@ -1,9 +1,15 @@
+import { createClient } from "@supabase/supabase-js";
+
 export const runtime = "nodejs";
 
-const API_BASE =
-  process.env.API_BASE_URL ??
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  "http://localhost:3001";
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+const SUPABASE_SERVICE_ROLE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+
+const getSupabaseAdmin = () => {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return null;
+  return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+};
 
 export async function POST(request: Request) {
   const rawBody = await request.text();
@@ -28,25 +34,91 @@ export async function POST(request: Request) {
     // ignore parse failure
   }
 
-  console.log("Creem webhook", {
-    eventType,
-    eventId,
-    productId,
-    userId,
-    novelId
-  });
+  const supabase = getSupabaseAdmin();
+  if (!supabase) {
+    return new Response(
+      JSON.stringify({ received: true, warning: "supabase-not-configured" }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  let amount = 0;
+  let currency = "USD";
+  let orderId = "";
+  let checkoutId = "";
+  let orderStatus = "";
 
   try {
-    await fetch(`${API_BASE}/webhooks/creem`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "creem-signature": signature
+    const parsed = JSON.parse(rawBody);
+    const order = parsed?.data?.object?.order;
+    amount = Number(order?.amount ?? 0) / 100;
+    currency = String(order?.currency ?? "USD").toUpperCase();
+    orderId = String(order?.id ?? "");
+    checkoutId = String(order?.checkout?.id ?? "");
+    orderStatus = String(order?.status ?? "");
+  } catch {
+    // ignore parse failure
+  }
+
+  const isPaid =
+    ["paid", "succeeded", "completed"].includes(orderStatus) ||
+    /completed|paid|succeeded/i.test(eventType);
+
+  try {
+    await supabase.from("PaymentWebhookEvent").upsert(
+      {
+        provider: "CREEM",
+        eventId,
+        eventType,
+        payload: JSON.parse(rawBody),
+        processedAt: new Date().toISOString()
       },
-      body: rawBody
-    });
-  } catch (error) {
-    console.error("Creem webhook forward failed", error);
+      { onConflict: "provider,eventId" }
+    );
+  } catch {
+    // ignore logging failure
+  }
+
+  if (isPaid && userId && novelId) {
+    await supabase.from("Entitlement").upsert(
+      {
+        userId,
+        novelId,
+        scope: "BOOK"
+      },
+      { onConflict: "userId,novelId,scope" }
+    );
+    await supabase.from("NovelPurchase").upsert(
+      {
+        userId,
+        novelId,
+        pricingMode: "BOOK",
+        amount,
+        currency,
+        provider: "CREEM",
+        providerOrderId: orderId || null,
+        providerEventId: eventId || null,
+        providerCheckoutId: checkoutId || null
+      },
+      { onConflict: "provider,providerEventId" }
+    );
+  }
+
+  if (eventId) {
+    await supabase.from("CreemOrder").upsert(
+      {
+        creemEventId: eventId,
+        creemOrderId: orderId || null,
+        creemCheckoutId: checkoutId || null,
+        creemProductId: productId || null,
+        amount: amount || 0,
+        currency: currency || "USD",
+        status: orderStatus || eventType,
+        userId: userId || null,
+        novelId: novelId || null
+      },
+      { onConflict: "creemEventId" }
+    );
   }
 
   return new Response(JSON.stringify({ received: true }), {
