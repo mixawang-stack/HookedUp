@@ -26,6 +26,8 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  const [resendLoading, setResendLoading] = useState(false);
 
   const registerForm = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
@@ -57,14 +59,16 @@ export default function RegisterPage() {
         throw new Error(signUpError.message);
       }
 
-      setStatus("Check your email to confirm your account.");
+      setPendingEmail(values.email.trim().toLowerCase());
+      setStatus(
+        "Check your email to confirm your account. You can sign in after verification."
+      );
       registerForm.reset({
         email: "",
         password: "",
         dob: "",
         agreeTerms: false
       });
-      setTimeout(() => router.push("/login"), 1200);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Registration failed";
       const friendly =
@@ -79,6 +83,32 @@ export default function RegisterPage() {
       setLoading(false);
     }
   });
+
+  const handleResend = async () => {
+    if (!pendingEmail) return;
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setStatus("Auth service is not configured. Please contact support.");
+      return;
+    }
+    setResendLoading(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: pendingEmail
+      });
+      if (error) {
+        throw new Error(error.message);
+      }
+      setStatus("Verification email resent.");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to resend email.";
+      setStatus(message);
+    } finally {
+      setResendLoading(false);
+    }
+  };
 
   return (
     <main className="ui-page flex w-full items-center justify-center px-4 py-12">
@@ -159,6 +189,35 @@ export default function RegisterPage() {
 
             {error && <p className="text-sm text-brand-secondary">{error}</p>}
             {status && <p className="text-sm text-text-secondary">{status}</p>}
+
+            {pendingEmail && (
+              <div className="rounded-2xl border border-border-default bg-surface px-4 py-3 text-sm text-text-secondary">
+                <p className="text-xs font-semibold text-text-primary">
+                  Verification required
+                </p>
+                <p className="mt-1 text-xs text-text-secondary">
+                  We sent a confirmation email to{" "}
+                  <span className="font-semibold">{pendingEmail}</span>.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="btn-secondary px-3 py-1 text-xs"
+                    onClick={handleResend}
+                    disabled={resendLoading}
+                  >
+                    {resendLoading ? "Sending..." : "Resend email"}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-primary px-3 py-1 text-xs"
+                    onClick={() => router.push("/login")}
+                  >
+                    Go to login
+                  </button>
+                </div>
+              </div>
+            )}
 
             <button
               type="submit"
