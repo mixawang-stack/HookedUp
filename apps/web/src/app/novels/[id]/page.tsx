@@ -33,6 +33,7 @@ type NovelPreview = {
     isFree: boolean;
     isPublished: boolean;
     content: string;
+    price?: string | number | null;
   }>;
 };
 
@@ -49,6 +50,7 @@ export default function NovelDetailPage() {
   const [dislikeCount, setDislikeCount] = useState(0);
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
+  const isSignedIn = Boolean(userId);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -93,7 +95,8 @@ export default function NovelDetailPage() {
             orderIndex,
             isFree,
             isPublished,
-            content
+            content,
+            price
           )
         `
         )
@@ -287,7 +290,7 @@ export default function NovelDetailPage() {
         userId,
         novelId,
         pricingMode: novel.pricingMode ?? "BOOK",
-        amount: 0,
+        amount: novel.bookPromoPrice ?? novel.bookPrice ?? 0,
         currency: novel.currency ?? "USD"
       });
       await refreshEntitlement(novelId);
@@ -323,7 +326,9 @@ export default function NovelDetailPage() {
                     Preview mode: only free samples are visible.
                   </p>
                   <p className="mt-1 text-xs text-text-muted">
-                    Sign in to unlock the rest of the story.
+                    {isSignedIn
+                      ? "Unlock the rest of the story to keep reading."
+                      : "Sign in to unlock the rest of the story."}
                   </p>
                 </div>
               )}
