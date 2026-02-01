@@ -54,7 +54,7 @@ type TraceAuthor = {
   role: string;
   gender: string | null;
   dob: string | null;
-  preference: {
+  preference?: {
     gender: string | null;
     lookingForGender: string | null;
     smPreference: string | null;
