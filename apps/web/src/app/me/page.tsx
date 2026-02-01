@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { getSupabaseClient } from "../lib/supabaseClient";
 
 export const dynamic = "force-dynamic";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+const STORAGE_BUCKET =
+  process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET ?? "uploads";
 
 type MeResponse = {
   id: string;
@@ -46,7 +47,6 @@ const toDateInput = (value?: string | null) => {
 
 export default function MePage() {
   const router = useRouter();
-  const [token, setToken] = useState<string | null>(null);
   const [me, setMe] = useState<MeResponse | null>(null);
   const [maskName, setMaskName] = useState("");
   const [bio, setBio] = useState("");
@@ -62,48 +62,73 @@ export default function MePage() {
   const [status, setStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
-
-  const authHeader = useMemo(() => {
-    if (!token) {
-      return null;
-    }
-    return { Authorization: `Bearer ${token}` };
-  }, [token]);
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    const stored = localStorage.getItem("accessToken");
-    if (!stored) {
-      router.push("/login?redirect=/me");
-      return;
-    }
-    setToken(stored);
+    const loadUser = async () => {
+      const supabase = getSupabaseClient();
+      if (!supabase) return;
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) {
+        router.push("/login?redirect=/me");
+        return;
+      }
+      setUserId(data.user.id);
+    };
+    loadUser().catch(() => undefined);
   }, [router]);
 
   useEffect(() => {
-    if (!authHeader) {
+    if (!userId) {
       return;
     }
     const fetchMe = async () => {
-      const res = await fetch(`${API_BASE}/me`, { headers: { ...authHeader } });
-      if (!res.ok) {
+      const supabase = getSupabaseClient();
+      if (!supabase) return;
+      const { data, error } = await supabase
+        .from("User")
+        .select(
+          "id,email,maskName,maskAvatarUrl,bio,language,city,gender,dob,country,preference:Preference(vibeTagsJson,interestsJson,allowStrangerPrivate)"
+        )
+        .eq("id", userId)
+        .maybeSingle();
+      if (error || !data) {
         setStatus("Failed to load profile.");
         return;
       }
-      const data = (await res.json()) as MeResponse;
-      setMe(data);
-      setMaskName(data.maskName ?? "");
-      setBio(data.bio ?? "");
-      setLanguage(data.language ?? "");
-      setCity(data.city ?? "");
-      setGender(data.gender ?? "");
-      setDob(toDateInput(data.dob));
-      setVibeTags((data.preference?.vibeTags ?? []).join(", "));
-      setInterests((data.preference?.interests ?? []).join(", "));
-      setAllowStrangerPrivate(data.preference?.allowStrangerPrivate ?? true);
-      setAvatarPreview(data.maskAvatarUrl ?? null);
+      const response: MeResponse = {
+        id: data.id,
+        email: data.email,
+        maskName: data.maskName ?? null,
+        maskAvatarUrl: data.maskAvatarUrl ?? null,
+        bio: data.bio ?? null,
+        language: data.language ?? null,
+        city: data.city ?? null,
+        gender: data.gender ?? null,
+        dob: data.dob ?? null,
+        country: data.country ?? null,
+        preference: data.preference
+          ? {
+              vibeTags: data.preference.vibeTagsJson ?? null,
+              interests: data.preference.interestsJson ?? null,
+              allowStrangerPrivate: data.preference.allowStrangerPrivate ?? null
+            }
+          : null
+      };
+      setMe(response);
+      setMaskName(response.maskName ?? "");
+      setBio(response.bio ?? "");
+      setLanguage(response.language ?? "");
+      setCity(response.city ?? "");
+      setGender(response.gender ?? "");
+      setDob(toDateInput(response.dob));
+      setVibeTags((response.preference?.vibeTags ?? []).join(", "));
+      setInterests((response.preference?.interests ?? []).join(", "));
+      setAllowStrangerPrivate(response.preference?.allowStrangerPrivate ?? true);
+      setAvatarPreview(response.maskAvatarUrl ?? null);
     };
     fetchMe().catch(() => setStatus("Failed to load profile."));
-  }, [authHeader]);
+  }, [userId]);
 
   useEffect(() => {
     if (!avatarFile) {
@@ -115,37 +140,34 @@ export default function MePage() {
   }, [avatarFile]);
 
   const handleSave = async () => {
-    if (!authHeader) {
+    if (!userId) {
       setStatus("Please sign in again.");
       return;
     }
     setSaving(true);
     setStatus(null);
     try {
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        setStatus("Supabase is not configured.");
+        return;
+      }
       let avatarUrl = me?.maskAvatarUrl ?? null;
       if (avatarFile) {
-        const formData = new FormData();
-        formData.append("file", avatarFile);
-        const uploadRes = await fetch(`${API_BASE}/uploads/avatar`, {
-          method: "POST",
-          headers: { ...authHeader },
-          body: formData
-        });
-        if (!uploadRes.ok) {
-          const body = await uploadRes.json().catch(() => ({}));
-          throw new Error(body?.message ?? "Avatar upload failed.");
+        const path = `avatars/${userId}/${Date.now()}-${avatarFile.name}`;
+        const { error } = await supabase.storage
+          .from(STORAGE_BUCKET)
+          .upload(path, avatarFile, { upsert: true });
+        if (error) {
+          throw new Error("Avatar upload failed.");
         }
-        const data = (await uploadRes.json()) as { avatarUrl?: string };
-        avatarUrl = data.avatarUrl ?? null;
+        const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+        avatarUrl = data.publicUrl ?? null;
       }
 
-      const profileRes = await fetch(`${API_BASE}/me`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader
-        },
-        body: JSON.stringify({
+      const { error: profileError } = await supabase
+        .from("User")
+        .update({
           maskName: maskName.trim(),
           bio: bio.trim(),
           language: language.trim(),
@@ -154,35 +176,52 @@ export default function MePage() {
           ...(dob.trim() ? { dob: dob.trim() } : {}),
           ...(avatarUrl ? { maskAvatarUrl: avatarUrl } : {})
         })
-      });
-      if (!profileRes.ok) {
-        const body = await profileRes.json().catch(() => ({}));
-        throw new Error(body?.message ?? "Profile update failed.");
+        .eq("id", userId);
+      if (profileError) {
+        throw new Error("Profile update failed.");
       }
 
-      const prefRes = await fetch(`${API_BASE}/me/preferences`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader
-        },
-        body: JSON.stringify({
+      const { error: prefError } = await supabase.from("Preference").upsert(
+        {
+          userId,
           vibeTagsJson: parseTags(vibeTags),
           interestsJson: parseTags(interests),
           allowStrangerPrivate
-        })
-      });
-      if (!prefRes.ok) {
-        const body = await prefRes.json().catch(() => ({}));
-        throw new Error(body?.message ?? "Preference update failed.");
+        },
+        { onConflict: "userId" }
+      );
+      if (prefError) {
+        throw new Error("Preference update failed.");
       }
 
-      const refreshRes = await fetch(`${API_BASE}/me`, {
-        headers: { ...authHeader }
-      });
-      if (refreshRes.ok) {
-        const updated = (await refreshRes.json()) as MeResponse;
-        setMe(updated);
+      const { data: updated } = await supabase
+        .from("User")
+        .select(
+          "id,email,maskName,maskAvatarUrl,bio,language,city,gender,dob,country,preference:Preference(vibeTagsJson,interestsJson,allowStrangerPrivate)"
+        )
+        .eq("id", userId)
+        .maybeSingle();
+      if (updated) {
+        setMe({
+          id: updated.id,
+          email: updated.email,
+          maskName: updated.maskName ?? null,
+          maskAvatarUrl: updated.maskAvatarUrl ?? null,
+          bio: updated.bio ?? null,
+          language: updated.language ?? null,
+          city: updated.city ?? null,
+          gender: updated.gender ?? null,
+          dob: updated.dob ?? null,
+          country: updated.country ?? null,
+          preference: updated.preference
+            ? {
+                vibeTags: updated.preference.vibeTagsJson ?? null,
+                interests: updated.preference.interestsJson ?? null,
+                allowStrangerPrivate:
+                  updated.preference.allowStrangerPrivate ?? null
+              }
+            : null
+        });
       }
       setStatus("Profile saved.");
       setAvatarFile(null);

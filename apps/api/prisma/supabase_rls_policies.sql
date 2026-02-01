@@ -9,6 +9,7 @@ alter table if exists "User" enable row level security;
 alter table if exists "Room" enable row level security;
 alter table if exists "RoomMembership" enable row level security;
 alter table if exists "RoomMessage" enable row level security;
+alter table if exists "Preference" enable row level security;
 alter table if exists "NovelReaction" enable row level security;
 alter table if exists "Entitlement" enable row level security;
 alter table if exists "NovelPurchase" enable row level security;
@@ -173,6 +174,28 @@ create policy "Read profiles"
 on "User"
 for select
 using (auth.uid() is not null);
+
+-- User profile updates (self only).
+drop policy if exists "Update own profile" on "User";
+create policy "Update own profile"
+on "User"
+for update
+using (auth.uid()::text = "id")
+with check (auth.uid()::text = "id");
+
+-- Preferences (self only).
+drop policy if exists "Read own preference" on "Preference";
+create policy "Read own preference"
+on "Preference"
+for select
+using (auth.uid()::text = "userId");
+
+drop policy if exists "Upsert own preference" on "Preference";
+create policy "Upsert own preference"
+on "Preference"
+for all
+using (auth.uid()::text = "userId")
+with check (auth.uid()::text = "userId");
 
 -- Reactions: authenticated users can read/insert/update/delete their own.
 drop policy if exists "Read reactions" on "NovelReaction";
