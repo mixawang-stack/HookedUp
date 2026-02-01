@@ -19,7 +19,7 @@ create policy "Public read published chapters"
 on "NovelChapter"
 for select
 using (
-  isPublished = true
+  "isPublished" = true
   and exists (
     select 1
     from "Novel" n
