@@ -106,7 +106,11 @@ export default function NovelDetailPage() {
         setStatus("Failed to load novel.");
         return;
       }
-      setNovel(data as NovelPreview);
+      const normalized = {
+        ...data,
+        room: data.room?.[0] ?? null
+      } as NovelPreview;
+      setNovel(normalized);
     };
     load().catch(() => setStatus("Failed to load novel."));
   }, [novelId]);
