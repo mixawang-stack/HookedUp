@@ -1,21 +1,21 @@
 "use client";
 
 import { useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 
 export default function AdminGate() {
-  const router = useRouter();
   const pathname = usePathname() ?? "";
 
   useEffect(() => {
-    if (pathname.startsWith("/login")) {
+    if (typeof window === "undefined") {
       return;
     }
-    const token = localStorage.getItem("accessToken");
-    if (!token) {
-      router.replace("/login");
-    }
-  }, [pathname, router]);
+    const base = process.env.NEXT_PUBLIC_WEB_BASE_URL ?? "https://hookedup.me";
+    const targetPath = pathname.startsWith("/login")
+      ? "/login?redirect=/admin"
+      : `/admin${pathname === "/" ? "" : pathname}`;
+    window.location.replace(`${base}${targetPath}`);
+  }, [pathname]);
 
   return null;
 }
