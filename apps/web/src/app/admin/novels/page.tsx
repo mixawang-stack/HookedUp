@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { getSupabaseClient } from "@/app/lib/supabaseClient";
 
 export const dynamic = "force-dynamic";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+const STORAGE_BUCKET =
+  process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET ?? "uploads";
+const ADMIN_EMAIL = "admin@hookedup.me";
 
 type NovelItem = {
   id: string;
@@ -17,6 +19,10 @@ type NovelItem = {
   category: "DRAMA" | "AFTER_DARK";
   isFeatured: boolean;
   _count?: { chapters: number };
+  pricingMode?: "BOOK" | "CHAPTER";
+  bookPrice?: number | string | null;
+  bookPromoPrice?: number | string | null;
+  currency?: string | null;
 };
 
 type ChapterItem = {
@@ -34,8 +40,63 @@ const parseTags = (value: string) =>
     .map((item) => item.trim())
     .filter((item) => item.length > 0);
 
+const extractTextFromFile = async (file: File) => {
+  return await file.text();
+};
+
+const splitChapters = (text: string) => {
+  const lines = text.replace(/\r\n/g, "\n").split("\n");
+  const markers: Array<{ title: string }> = [];
+
+  lines.forEach((line) => {
+    const match = line.match(
+      /^\s*(INTRO|EPILOGUE|CHAPTER\s*\d+)\s*\|\s*(.+)$/i
+    );
+    if (match) {
+      markers.push({ title: match[2].trim() });
+    }
+  });
+
+  if (markers.length === 0) {
+    return [
+      {
+        title: "Chapter 1",
+        content: text.trim()
+      }
+    ];
+  }
+
+  const chapters: Array<{ title: string; content: string }> = [];
+  let currentTitle = "";
+  let currentLines: string[] = [];
+
+  const pushChapter = () => {
+    if (!currentTitle) return;
+    chapters.push({
+      title: currentTitle,
+      content: currentLines.join("\n").trim()
+    });
+  };
+
+  lines.forEach((line) => {
+    const match = line.match(
+      /^\s*(INTRO|EPILOGUE|CHAPTER\s*\d+)\s*\|\s*(.+)$/i
+    );
+    if (match) {
+      pushChapter();
+      currentTitle = match[2].trim();
+      currentLines = [];
+      return;
+    }
+    currentLines.push(line);
+  });
+  pushChapter();
+
+  return chapters.filter((chapter) => chapter.content.length > 0);
+};
+
 export default function AdminNovelsPage() {
-  const [token, setToken] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [novels, setNovels] = useState<NovelItem[]>([]);
   const [selectedNovel, setSelectedNovel] = useState<NovelItem | null>(null);
   const [chapters, setChapters] = useState<ChapterItem[]>([]);
@@ -51,53 +112,81 @@ export default function AdminNovelsPage() {
   const [contentFile, setContentFile] = useState<File | null>(null);
   const [contentUploading, setContentUploading] = useState(false);
   const [contentStatus, setContentStatus] = useState<string | null>(null);
+  const [contentMode, setContentMode] = useState<"BOOK" | "CHAPTER">("BOOK");
+  const [bookPrice, setBookPrice] = useState("");
+  const [bookPromoPrice, setBookPromoPrice] = useState("");
+  const [currency, setCurrency] = useState("USD");
 
   const [chapterTitle, setChapterTitle] = useState("");
   const [chapterContent, setChapterContent] = useState("");
   const [chapterOrder, setChapterOrder] = useState(1);
   const [chapterFree, setChapterFree] = useState(false);
 
-  const authHeader = useMemo(() => {
-    if (!token) return null;
-    return { Authorization: `Bearer ${token}` };
-  }, [token]);
-
   useEffect(() => {
-    const stored = localStorage.getItem("accessToken");
-    if (stored) setToken(stored);
+    const loadUser = async () => {
+      const supabase = getSupabaseClient();
+      if (!supabase) return;
+      const { data } = await supabase.auth.getUser();
+      setUserEmail(data.user?.email ?? null);
+    };
+    loadUser().catch(() => undefined);
   }, []);
 
   const loadNovels = async () => {
-    if (!authHeader) return;
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
     setStatus(null);
-    const res = await fetch(`${API_BASE}/admin/novels`, {
-      headers: { ...authHeader }
-    });
-    if (!res.ok) {
+    const { data, error } = await supabase
+      .from("Novel")
+      .select(
+        `
+        id,
+        title,
+        coverImageUrl,
+        description,
+        tagsJson,
+        status,
+        category,
+        isFeatured,
+        pricingMode,
+        bookPrice,
+        bookPromoPrice,
+        currency,
+        chapters:NovelChapter(count)
+      `
+      )
+      .order("createdAt", { ascending: false });
+    if (error) {
       setStatus("Failed to load novels.");
       return;
     }
-    const data = (await res.json()) as NovelItem[];
-    setNovels(data);
+    const normalized =
+      data?.map((item) => ({
+        ...item,
+        _count: { chapters: item.chapters?.[0]?.count ?? 0 }
+      })) ?? [];
+    setNovels(normalized as NovelItem[]);
   };
 
   const loadChapters = async (novelId: string) => {
-    if (!authHeader) return;
-    const res = await fetch(`${API_BASE}/admin/novels/${novelId}/chapters`, {
-      headers: { ...authHeader }
-    });
-    if (!res.ok) {
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+    const { data, error } = await supabase
+      .from("NovelChapter")
+      .select("id,title,content,orderIndex,isFree,isPublished")
+      .eq("novelId", novelId)
+      .order("orderIndex", { ascending: true });
+    if (error) {
       setStatus("Failed to load chapters.");
       return;
     }
-    const data = (await res.json()) as ChapterItem[];
-    setChapters(data);
+    setChapters((data ?? []) as ChapterItem[]);
   };
 
   useEffect(() => {
-    if (!authHeader) return;
+    if (!userEmail) return;
     loadNovels().catch(() => undefined);
-  }, [authHeader]);
+  }, [userEmail]);
 
   const resetForm = () => {
     setTitle("");
@@ -109,10 +198,15 @@ export default function AdminNovelsPage() {
     setIsFeatured(false);
     setContentFile(null);
     setContentStatus(null);
+    setContentMode("BOOK");
+    setBookPrice("");
+    setBookPromoPrice("");
+    setCurrency("USD");
   };
 
   const handleSaveNovel = async () => {
-    if (!authHeader) return;
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
     setStatus(null);
     const payload = {
       title,
@@ -121,31 +215,49 @@ export default function AdminNovelsPage() {
       tagsJson: parseTags(tags),
       status: novelStatus,
       category,
-      isFeatured
+      isFeatured,
+      pricingMode: contentMode,
+      bookPrice: bookPrice ? Number(bookPrice) : null,
+      bookPromoPrice: bookPromoPrice ? Number(bookPromoPrice) : null,
+      currency
     };
-    const res = await fetch(
-      `${API_BASE}/admin/novels${selectedNovel ? `/${selectedNovel.id}` : ""}`,
-      {
-        method: selectedNovel ? "PATCH" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader
-        },
-        body: JSON.stringify(payload)
+    if (selectedNovel) {
+      const { error } = await supabase
+        .from("Novel")
+        .update(payload)
+        .eq("id", selectedNovel.id);
+      if (error) {
+        setStatus("Failed to save novel.");
+        return;
       }
-    );
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      setStatus(body?.message ?? "Failed to save novel.");
-      return;
+    } else {
+      const { error } = await supabase.from("Novel").insert(payload);
+      if (error) {
+        setStatus("Failed to save novel.");
+        return;
+      }
     }
     resetForm();
     setSelectedNovel(null);
     await loadNovels();
   };
 
+  const uploadFileToStorage = async (file: File, novelId: string) => {
+    const supabase = getSupabaseClient();
+    if (!supabase) return null;
+    const path = `novels/${novelId}/${Date.now()}-${file.name}`;
+    const { error } = await supabase.storage
+      .from(STORAGE_BUCKET)
+      .upload(path, file, { upsert: true });
+    if (error) {
+      throw new Error("Upload failed.");
+    }
+    const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+    return data.publicUrl;
+  };
+
   const handleUploadContent = async () => {
-    if (!authHeader || !contentFile) return;
+    if (!contentFile) return;
     if (!selectedNovel) {
       setStatus("Save the novel first, then upload content.");
       return;
@@ -153,33 +265,80 @@ export default function AdminNovelsPage() {
     setContentUploading(true);
     setStatus(null);
     setContentStatus(null);
-    const form = new FormData();
-    form.append("file", contentFile);
-    const isPdf = contentFile.name.toLowerCase().endsWith(".pdf");
-    if (isPdf) {
-      form.append("asAttachmentOnly", "true");
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setStatus("Supabase is not configured.");
+      setContentUploading(false);
+      return;
     }
+    const isPdf = contentFile.name.toLowerCase().endsWith(".pdf");
+    const isDocx = contentFile.name.toLowerCase().endsWith(".docx");
+    const isTxt = contentFile.name.toLowerCase().endsWith(".txt");
+    const isMd = contentFile.name.toLowerCase().endsWith(".md");
     try {
-      const res = await fetch(
-        `${API_BASE}/admin/novels/${selectedNovel.id}/content`,
-        {
-          method: "POST",
-          headers: { ...authHeader },
-          body: form
-        }
-      );
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setStatus(data?.message ?? "Failed to upload content.");
+      const fileUrl = await uploadFileToStorage(contentFile, selectedNovel.id);
+      if (!fileUrl) {
+        setStatus("Failed to upload file.");
         return;
       }
-      setContentStatus(
-        `Parsed ${data?.chapterCount ?? 0} chapters - ${data?.wordCount ?? 0} words`
-      );
-      setContentFile(null);
-      await loadChapters(selectedNovel.id);
+      if (isPdf || isDocx) {
+        await supabase
+          .from("Novel")
+          .update({
+            attachmentUrl: fileUrl,
+            contentSourceType: isPdf ? "PDF" : "DOCX",
+            parseStatus: "DONE",
+            parsedChaptersCount: 0,
+            lastParsedAt: new Date().toISOString()
+          })
+          .eq("id", selectedNovel.id);
+        setContentStatus(
+          "Uploaded attachment. Parsing not available for this file type."
+        );
+        return;
+      }
+
+      if (isTxt || isMd) {
+        const text = await extractTextFromFile(contentFile);
+        const chaptersParsed = splitChapters(text);
+        const chaptersPayload = chaptersParsed.map((chapter, index) => ({
+          novelId: selectedNovel.id,
+          title: chapter.title,
+          content: chapter.content,
+          orderIndex: index + 1,
+          isFree: index === 0,
+          isPublished: true
+        }));
+        await supabase
+          .from("NovelChapter")
+          .delete()
+          .eq("novelId", selectedNovel.id);
+        if (chaptersPayload.length > 0) {
+          await supabase.from("NovelChapter").insert(chaptersPayload);
+        }
+        const wordCount = text.split(/\s+/).filter(Boolean).length;
+        await supabase
+          .from("Novel")
+          .update({
+            contentSourceType: isMd ? "MD" : "TXT",
+            parseStatus: "DONE",
+            parsedChaptersCount: chaptersPayload.length,
+            chapterCount: chaptersPayload.length,
+            wordCount,
+            lastParsedAt: new Date().toISOString()
+          })
+          .eq("id", selectedNovel.id);
+        setContentStatus(
+          `Parsed ${chaptersPayload.length} chapters - ${wordCount} words`
+        );
+        await loadChapters(selectedNovel.id);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Upload failed.";
+      setStatus(message);
     } finally {
       setContentUploading(false);
+      setContentFile(null);
     }
   };
 
@@ -192,17 +351,19 @@ export default function AdminNovelsPage() {
     setNovelStatus(novel.status);
     setCategory(novel.category ?? "DRAMA");
     setIsFeatured(novel.isFeatured);
+    setContentMode(novel.pricingMode ?? "BOOK");
+    setBookPrice(novel.bookPrice ? String(novel.bookPrice) : "");
+    setBookPromoPrice(novel.bookPromoPrice ? String(novel.bookPromoPrice) : "");
+    setCurrency(novel.currency ?? "USD");
     loadChapters(novel.id).catch(() => undefined);
   };
 
   const handleDeleteNovel = async (novelId: string) => {
-    if (!authHeader) return;
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
     if (!confirm("Delete this novel?")) return;
-    const res = await fetch(`${API_BASE}/admin/novels/${novelId}`, {
-      method: "DELETE",
-      headers: { ...authHeader }
-    });
-    if (!res.ok) {
+    const { error } = await supabase.from("Novel").delete().eq("id", novelId);
+    if (error) {
       setStatus("Failed to delete novel.");
       return;
     }
@@ -212,27 +373,25 @@ export default function AdminNovelsPage() {
   };
 
   const handleAddChapter = async () => {
-    if (!authHeader || !selectedNovel) return;
-    const res = await fetch(
-      `${API_BASE}/admin/novels/${selectedNovel.id}/chapters`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader
-        },
-        body: JSON.stringify({
-          title: chapterTitle,
-          content: chapterContent,
-          orderIndex: chapterOrder,
-          isFree: chapterFree
-        })
-      }
-    );
-    if (!res.ok) {
+    if (!selectedNovel) return;
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+    const { error } = await supabase.from("NovelChapter").insert({
+      novelId: selectedNovel.id,
+      title: chapterTitle,
+      content: chapterContent,
+      orderIndex: chapterOrder,
+      isFree: chapterFree,
+      isPublished: true
+    });
+    if (error) {
       setStatus("Failed to add chapter.");
       return;
     }
+    await supabase
+      .from("Novel")
+      .update({ chapterCount: chapterOrder })
+      .eq("id", selectedNovel.id);
     setChapterTitle("");
     setChapterContent("");
     setChapterOrder((prev) => prev + 1);
@@ -242,6 +401,11 @@ export default function AdminNovelsPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-10 text-slate-100">
+      {userEmail && userEmail !== ADMIN_EMAIL && (
+        <p className="mb-4 rounded-xl border border-rose-400/60 bg-rose-500/10 p-3 text-xs text-rose-200">
+          You are signed in as {userEmail}. This page is restricted to admins.
+        </p>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Novel management</h1>
@@ -336,6 +500,51 @@ export default function AdminNovelsPage() {
               className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
               value={tags}
               onChange={(event) => setTags(event.target.value)}
+            />
+          </label>
+          <label className="text-xs text-slate-300">
+            Pricing mode
+            <select
+              className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
+              value={contentMode}
+              onChange={(event) =>
+                setContentMode(event.target.value as "BOOK" | "CHAPTER")
+              }
+            >
+              <option value="BOOK">Book</option>
+              <option value="CHAPTER">Chapter</option>
+            </select>
+          </label>
+          {contentMode === "BOOK" && (
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className="text-xs text-slate-300">
+                Book price
+                <input
+                  type="number"
+                  min={0}
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
+                  value={bookPrice}
+                  onChange={(event) => setBookPrice(event.target.value)}
+                />
+              </label>
+              <label className="text-xs text-slate-300">
+                Promo price
+                <input
+                  type="number"
+                  min={0}
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
+                  value={bookPromoPrice}
+                  onChange={(event) => setBookPromoPrice(event.target.value)}
+                />
+              </label>
+            </div>
+          )}
+          <label className="text-xs text-slate-300">
+            Currency
+            <input
+              className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
+              value={currency}
+              onChange={(event) => setCurrency(event.target.value)}
             />
           </label>
           <div className="rounded-xl border border-white/10 bg-slate-950/60 p-3 text-xs text-slate-300">

@@ -13,6 +13,14 @@ on "Novel"
 for select
 using (status = 'PUBLISHED');
 
+-- Admin write access for novels.
+drop policy if exists "Admin write novels" on "Novel";
+create policy "Admin write novels"
+on "Novel"
+for all
+using ((auth.jwt() ->> 'email') = 'admin@hookedup.me')
+with check ((auth.jwt() ->> 'email') = 'admin@hookedup.me');
+
 -- Public read for published chapters that belong to published novels.
 drop policy if exists "Public read published chapters" on "NovelChapter";
 create policy "Public read published chapters"
@@ -27,6 +35,14 @@ using (
       and n.status = 'PUBLISHED'
   )
 );
+
+-- Admin write access for chapters.
+drop policy if exists "Admin write chapters" on "NovelChapter";
+create policy "Admin write chapters"
+on "NovelChapter"
+for all
+using ((auth.jwt() ->> 'email') = 'admin@hookedup.me')
+with check ((auth.jwt() ->> 'email') = 'admin@hookedup.me');
 
 -- Reactions: authenticated users can read/insert/update/delete their own.
 drop policy if exists "Read reactions" on "NovelReaction";
