@@ -104,12 +104,13 @@ function PrivateListPageInner() {
 
       const items =
         data?.map((row) => {
-          const match = row.conversation?.match;
+          const conversation = row.conversation?.[0];
+          const match = conversation?.match?.[0];
           const other =
-            match?.user1Id === userId ? match.user2 : match?.user1;
+            match?.user1Id === userId ? match?.user2?.[0] : match?.user1?.[0];
           return {
-            id: row.conversation?.id ?? row.conversationId,
-            matchId: row.conversation?.matchId ?? "",
+            id: conversation?.id ?? row.conversationId,
+            matchId: conversation?.matchId ?? "",
             otherUser: {
               id: other?.id ?? "",
               maskName: other?.maskName ?? null,
