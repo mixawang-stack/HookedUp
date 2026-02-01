@@ -458,7 +458,11 @@ function PrivateConversationDrawer({
         throw new Error("Failed to load.");
       }
 
-      const incoming = (data ?? []) as MessageItem[];
+      const incoming =
+        data?.map((item) => ({
+          ...item,
+          sender: item.sender?.[0] ?? null
+        })) ?? [];
       setMessages((prev) => (nextCursor ? [...incoming, ...prev] : incoming));
       setCursor(null);
       setIsMuted(Boolean(conversation.isMuted));
@@ -512,7 +516,11 @@ function PrivateConversationDrawer({
       if (error || !data) {
         throw new Error("Failed to send.");
       }
-      setMessages((prev) => [...prev, data as MessageItem]);
+      const normalizedMessage = {
+        ...data,
+        sender: data.sender?.[0] ?? null
+      } as MessageItem;
+      setMessages((prev) => [...prev, normalizedMessage]);
       if (!overrideContent || content === input.trim()) {
         setInput("");
       }
