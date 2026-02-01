@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { getSupabaseClient } from "../lib/supabaseClient";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+const ADMIN_EMAIL = "admin@hookedup.me";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -14,30 +14,38 @@ export default function AdminLoginPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem("accessToken");
-    if (token) {
-      router.replace("/");
-    }
+    const checkSession = async () => {
+      const supabase = getSupabaseClient();
+      if (!supabase) return;
+      const { data } = await supabase.auth.getUser();
+      if (data.user?.email) {
+        router.replace("/");
+      }
+    };
+    checkSession().catch(() => undefined);
   }, [router]);
 
   const handleLogin = async () => {
     setStatus(null);
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/admin/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password })
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        setStatus("Supabase is not configured.");
+        return;
+      }
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
       });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(body?.message ?? `HTTP ${res.status}`);
+      if (error) {
+        throw new Error(error.message);
       }
-      if (!body?.accessToken) {
-        throw new Error("Login failed.");
+      if (data.user?.email !== ADMIN_EMAIL) {
+        await supabase.auth.signOut();
+        throw new Error("Admin access only.");
       }
-      localStorage.setItem("accessToken", body.accessToken);
-      router.replace("/");
+      router.replace("/novels");
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Login failed.";
@@ -52,7 +60,7 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-md rounded-3xl border border-white/10 bg-slate-900/80 p-8 shadow-[0_25px_60px_rgba(2,6,23,0.65)]">
         <h1 className="text-2xl font-semibold text-white">Admin login</h1>
         <p className="mt-2 text-sm text-slate-400">
-          Sign in to manage novels and moderation queues.
+          Sign in to manage novels.
         </p>
         <div className="mt-6 space-y-4">
           <label className="text-xs text-slate-300">

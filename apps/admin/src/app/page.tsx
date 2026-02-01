@@ -4,20 +4,10 @@ export const dynamic = "force-dynamic";
 
 const MODULES = [
   {
-    title: "Users",
-    description: "Segment users, review activity, and manage compliance.",
-    href: "/users"
-  },
-  {
     title: "Novels",
     description: "Publish, tag, feature, and control visibility for content.",
     href: "/novels"
   }
-];
-
-const OPERATIONS = [
-  { label: "Verifications", href: "/verifications" },
-  { label: "Reports", href: "/reports" }
 ];
 
 export default function AdminHomePage() {
@@ -46,22 +36,6 @@ export default function AdminHomePage() {
         ))}
       </section>
 
-      <section className="mt-10">
-        <h3 className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-500">
-          Operations
-        </h3>
-        <div className="mt-4 flex flex-wrap gap-3">
-          {OPERATIONS.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="rounded-full border border-white/10 bg-slate-900/50 px-4 py-2 text-xs text-slate-200 hover:border-white/30"
-            >
-              {item.label}
-            </Link>
-          ))}
-        </div>
-      </section>
     </main>
   );
 }
