@@ -39,43 +39,43 @@ drop policy if exists "Insert own reaction" on "NovelReaction";
 create policy "Insert own reaction"
 on "NovelReaction"
 for insert
-with check (auth.uid() = "userId");
+with check (auth.uid()::text = "userId");
 
 drop policy if exists "Update own reaction" on "NovelReaction";
 create policy "Update own reaction"
 on "NovelReaction"
 for update
-using (auth.uid() = "userId")
-with check (auth.uid() = "userId");
+using (auth.uid()::text = "userId")
+with check (auth.uid()::text = "userId");
 
 drop policy if exists "Delete own reaction" on "NovelReaction";
 create policy "Delete own reaction"
 on "NovelReaction"
 for delete
-using (auth.uid() = "userId");
+using (auth.uid()::text = "userId");
 
 -- Entitlements: authenticated users can read/insert their own.
 drop policy if exists "Read own entitlements" on "Entitlement";
 create policy "Read own entitlements"
 on "Entitlement"
 for select
-using (auth.uid() = "userId");
+using (auth.uid()::text = "userId");
 
 drop policy if exists "Insert own entitlements" on "Entitlement";
 create policy "Insert own entitlements"
 on "Entitlement"
 for insert
-with check (auth.uid() = "userId");
+with check (auth.uid()::text = "userId");
 
 -- Purchases: authenticated users can insert/read their own.
 drop policy if exists "Read own purchases" on "NovelPurchase";
 create policy "Read own purchases"
 on "NovelPurchase"
 for select
-using (auth.uid() = "userId");
+using (auth.uid()::text = "userId");
 
 drop policy if exists "Insert own purchases" on "NovelPurchase";
 create policy "Insert own purchases"
 on "NovelPurchase"
 for insert
-with check (auth.uid() = "userId");
+with check (auth.uid()::text = "userId");
