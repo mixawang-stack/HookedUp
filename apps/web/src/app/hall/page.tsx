@@ -524,7 +524,11 @@ export default function HallPage() {
         imageHeight: trace.imageHeight ?? null,
         likeCount: 0
       },
-      replies: (replies ?? []) as TraceReply[],
+      replies:
+        replies?.map((reply) => ({
+          ...reply,
+          author: reply.author?.[0] ?? null
+        })) ?? [],
       nextCursor: null
     });
   };
