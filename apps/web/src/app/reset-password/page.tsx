@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../lib/supabaseClient";
+import { getSupabaseClient } from "../lib/supabaseClient";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +15,12 @@ export default function ResetPasswordPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setStatus("Auth service is not configured. Please contact support.");
+      setReady(true);
+      return;
+    }
     supabase.auth
       .getSession()
       .then(({ data }) => {
@@ -41,6 +47,10 @@ export default function ResetPasswordPage() {
     setSaving(true);
     setStatus(null);
     try {
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        throw new Error("SUPABASE_NOT_CONFIGURED");
+      }
       const { error } = await supabase.auth.updateUser({ password });
       if (error) {
         throw new Error(error.message);
@@ -51,6 +61,10 @@ export default function ResetPasswordPage() {
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to update password.";
+      if (message === "SUPABASE_NOT_CONFIGURED") {
+        setStatus("Auth service is not configured. Please contact support.");
+        return;
+      }
       setStatus(message);
     } finally {
       setSaving(false);

@@ -9,7 +9,7 @@ import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
-import { supabase } from "../lib/supabaseClient";
+import { getSupabaseClient } from "../lib/supabaseClient";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -41,6 +41,10 @@ function LoginFormContent() {
     setError(null);
     setLoading(true);
     try {
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        throw new Error("SUPABASE_NOT_CONFIGURED");
+      }
       const { error: authError } = await supabase.auth.signInWithPassword({
         email: values.email.trim().toLowerCase(),
         password: values.password
@@ -57,9 +61,11 @@ function LoginFormContent() {
       const friendly =
         message.toLowerCase().includes("invalid login")
           ? "Email or password is incorrect."
-          : message.toLowerCase().includes("email not confirmed")
+        : message.toLowerCase().includes("email not confirmed")
           ? "Email is not verified yet. Please verify first."
-          : message;
+        : message === "SUPABASE_NOT_CONFIGURED"
+          ? "Auth service is not configured. Please contact support."
+        : message;
       setError(friendly);
     } finally {
       setLoading(false);
@@ -83,6 +89,10 @@ function LoginFormContent() {
     setResetStatus(null);
     setResetSending(true);
     try {
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        throw new Error("SUPABASE_NOT_CONFIGURED");
+      }
       const origin =
         typeof window !== "undefined" ? window.location.origin : "";
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(
@@ -98,6 +108,10 @@ function LoginFormContent() {
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to send reset email.";
+      if (message === "SUPABASE_NOT_CONFIGURED") {
+        setResetStatus("Auth service is not configured. Please contact support.");
+        return;
+      }
       setResetStatus(message);
     } finally {
       setResetSending(false);

@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { supabase } from "../lib/supabaseClient";
+import { getSupabaseClient } from "../lib/supabaseClient";
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -39,6 +39,10 @@ export default function RegisterPage() {
     setStatus(null);
     setLoading(true);
     try {
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        throw new Error("SUPABASE_NOT_CONFIGURED");
+      }
       const { error: signUpError } = await supabase.auth.signUp({
         email: values.email.trim().toLowerCase(),
         password: values.password,
@@ -67,6 +71,8 @@ export default function RegisterPage() {
         message.toLowerCase().includes("already registered") ||
         message.toLowerCase().includes("user already registered")
           ? "This email is already registered."
+          : message === "SUPABASE_NOT_CONFIGURED"
+            ? "Auth service is not configured. Please contact support."
           : message;
       setError(friendly);
     } finally {
