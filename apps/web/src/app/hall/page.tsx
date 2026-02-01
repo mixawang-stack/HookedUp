@@ -230,13 +230,13 @@ export default function HallPage() {
               bio: profile.bio ?? null,
               city: profile.city ?? null,
               country: profile.country ?? null,
-              preference: profile.preference
+              preference: profile.preference?.[0]
                 ? {
-                    vibeTags: profile.preference.vibeTagsJson ?? null,
-                    interests: profile.preference.interestsJson ?? null,
+                    vibeTags: profile.preference[0].vibeTagsJson ?? null,
+                    interests: profile.preference[0].interestsJson ?? null,
                     allowStrangerPrivate:
-                      profile.preference.allowStrangerPrivate ?? null,
-                    smPreference: profile.preference.smPreference ?? null
+                      profile.preference[0].allowStrangerPrivate ?? null,
+                    smPreference: profile.preference[0].smPreference ?? null
                   }
                 : null
             }
@@ -373,13 +373,13 @@ export default function HallPage() {
         bio: data.bio ?? null,
         city: data.city ?? null,
         country: data.country ?? null,
-        preference: data.preference
+        preference: data.preference?.[0]
           ? {
-              vibeTags: data.preference.vibeTagsJson ?? null,
-              interests: data.preference.interestsJson ?? null,
+              vibeTags: data.preference[0].vibeTagsJson ?? null,
+              interests: data.preference[0].interestsJson ?? null,
               allowStrangerPrivate:
-                data.preference.allowStrangerPrivate ?? null,
-              smPreference: data.preference.smPreference ?? null
+                data.preference[0].allowStrangerPrivate ?? null,
+              smPreference: data.preference[0].smPreference ?? null
             }
           : null
       });
