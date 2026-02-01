@@ -310,7 +310,7 @@ export default function HallPage() {
         likeCount: likeCounts.get(trace.id) ?? 0,
         likedByMe: likedByMe.has(trace.id),
         novelId: trace.novelId ?? null,
-        author: trace.author ?? null,
+        author: trace.author?.[0] ?? null,
         imageUrl: trace.imageUrl ?? null,
         imageWidth: trace.imageWidth ?? null,
         imageHeight: trace.imageHeight ?? null
