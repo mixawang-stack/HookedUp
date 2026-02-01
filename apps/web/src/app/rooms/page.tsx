@@ -121,7 +121,7 @@ export default function RoomsPage() {
         const tag = tagsValue.trim().toLowerCase();
         items = items.filter((room) =>
           (room.tagsJson ?? []).some(
-            (roomTag) => roomTag.toLowerCase() === tag
+            (roomTag: string) => roomTag.toLowerCase() === tag
           )
         );
       }
