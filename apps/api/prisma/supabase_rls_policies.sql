@@ -8,6 +8,7 @@ alter table if exists "TraceLike" enable row level security;
 alter table if exists "User" enable row level security;
 alter table if exists "Room" enable row level security;
 alter table if exists "RoomMembership" enable row level security;
+alter table if exists "RoomMessage" enable row level security;
 alter table if exists "NovelReaction" enable row level security;
 alter table if exists "Entitlement" enable row level security;
 alter table if exists "NovelPurchase" enable row level security;
@@ -94,6 +95,19 @@ create policy "Delete own membership"
 on "RoomMembership"
 for delete
 using (auth.uid()::text = "userId");
+
+-- Room messages.
+drop policy if exists "Read room messages" on "RoomMessage";
+create policy "Read room messages"
+on "RoomMessage"
+for select
+using (true);
+
+drop policy if exists "Insert own room message" on "RoomMessage";
+create policy "Insert own room message"
+on "RoomMessage"
+for insert
+with check (auth.uid()::text = "senderId");
 
 -- Public read for forum traces.
 drop policy if exists "Public read traces" on "Trace";

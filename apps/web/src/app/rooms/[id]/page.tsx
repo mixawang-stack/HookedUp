@@ -2,13 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { io, Socket } from "socket.io-client";
-
 import { emitHostStatus } from "../../lib/hostStatus";
 import ProfileCard from "../../components/ProfileCard";
-
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+import { getSupabaseClient } from "../../lib/supabaseClient";
 
 const GAME_OPTIONS = [
   { value: "NONE", label: "None" },
@@ -60,7 +56,6 @@ export default function RoomPage() {
   const router = useRouter();
   const roomId = typeof params.id === "string" ? params.id : params.id?.[0];
 
-  const [token, setToken] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [room, setRoom] = useState<RoomDetail | null>(null);
   const [messages, setMessages] = useState<RoomMessage[]>([]);
@@ -94,42 +89,44 @@ export default function RoomPage() {
   } | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
 
-  const socketRef = useRef<Socket | null>(null);
-
-  const authHeader = useMemo(() => {
-    if (!token) {
-      return null;
-    }
-    return { Authorization: `Bearer ${token}` };
-  }, [token]);
+  const isSignedIn = Boolean(userId);
 
   const openProfileCard = async (targetUserId: string) => {
-    if (!authHeader) {
+    if (!isSignedIn) {
       setStatus("Please sign in to view profiles.");
       return;
     }
     setProfileLoading(true);
     try {
-      const isSelf = userId && targetUserId === userId;
-      const res = await fetch(isSelf ? `${API_BASE}/me` : `${API_BASE}/users/${targetUserId}`, {
-        headers: { ...authHeader }
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        const errorMessage = body?.message ?? `HTTP ${res.status}`;
-        if (errorMessage === "PRIVATE_NOT_ALLOWED") {
-          setStatus("This user only accepts private chats after they reply.");
-          return;
-        }
-        throw new Error(errorMessage);
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        setStatus("Supabase is not configured.");
+        return;
       }
-      const data = await res.json();
+      const { data } = await supabase
+        .from("User")
+        .select(
+          "id,maskName,maskAvatarUrl,bio,preference:Preference(vibeTagsJson,interestsJson,allowStrangerPrivate)"
+        )
+        .eq("id", targetUserId)
+        .maybeSingle();
+      if (!data) {
+        throw new Error("Profile not found.");
+      }
+      const isSelf = userId && targetUserId === userId;
       setProfileCard({
         id: data.id,
         maskName: data.maskName ?? (isSelf ? "You" : null),
         maskAvatarUrl: data.maskAvatarUrl ?? null,
         bio: data.bio ?? null,
-        preference: data.preference ?? null
+        preference: data.preference
+          ? {
+              vibeTags: data.preference.vibeTagsJson ?? null,
+              interests: data.preference.interestsJson ?? null,
+              allowStrangerPrivate:
+                data.preference.allowStrangerPrivate ?? null
+            }
+          : null
       });
     } catch (error) {
       const message =
@@ -141,115 +138,41 @@ export default function RoomPage() {
   };
 
   const blockUser = async (targetUserId: string) => {
-    if (!authHeader) {
+    if (!isSignedIn) {
       setStatus("Please sign in to manage blocks.");
       return;
     }
-    if (!confirm("Block this user? You won't be able to message each other.")) {
-      return;
-    }
-    try {
-      const res = await fetch(`${API_BASE}/users/${targetUserId}/block`, {
-        method: "POST",
-        headers: { ...authHeader }
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message ?? `HTTP ${res.status}`);
-      }
-      setStatus("User blocked.");
-      setProfileCard(null);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to block user.";
-      setStatus(message);
-    }
+    setStatus("Blocking will be available after messaging migration.");
   };
 
   const reportUser = async (targetUserId: string) => {
-    if (!authHeader) {
+    if (!isSignedIn) {
       setStatus("Please sign in to report.");
       return;
     }
-    const reasonRaw = window.prompt(
-      "Report reason (SPAM / ABUSE / HARASSMENT / OTHER):",
-      "OTHER"
-    );
-    if (!reasonRaw) {
-      return;
-    }
-    const normalized = reasonRaw.trim().toUpperCase();
-    const reasonType = ["SPAM", "ABUSE", "HARASSMENT", "OTHER"].includes(normalized)
-      ? normalized
-      : "OTHER";
-    const detail = window.prompt("Optional details:", "") ?? "";
-    try {
-      const res = await fetch(`${API_BASE}/users/${targetUserId}/report`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader
-        },
-        body: JSON.stringify({
-          reasonType,
-          detail: detail.trim() || undefined
-        })
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message ?? `HTTP ${res.status}`);
-      }
-      setStatus("Report submitted.");
-      setProfileCard(null);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to report user.";
-      setStatus(message);
-    }
+    setStatus("Reporting will be available after moderation migration.");
   };
 
   const startConversation = async (targetUserId: string) => {
-    if (!authHeader) {
+    if (!isSignedIn) {
       setStatus("Please sign in to start a private conversation.");
       return;
     }
-    try {
-      const res = await fetch(`${API_BASE}/private/conversations/start`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeader },
-        body: JSON.stringify({ userId: targetUserId })
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message ?? `HTTP ${res.status}`);
-      }
-      const data = (await res.json()) as { conversationId: string };
-      router.push(`/private?conversationId=${data.conversationId}`);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to start conversation.";
-      setStatus(message);
-    }
+    setStatus("Private chat migration is in progress.");
   };
 
   useEffect(() => {
-    setToken(localStorage.getItem("accessToken"));
+    const loadUser = async () => {
+      const supabase = getSupabaseClient();
+      if (!supabase) return;
+      const { data } = await supabase.auth.getUser();
+      setUserId(data.user?.id ?? null);
+    };
+    loadUser().catch(() => setUserId(null));
   }, []);
 
   useEffect(() => {
-    if (!authHeader) {
-      return;
-    }
-    fetch(`${API_BASE}/me`, { headers: { ...authHeader } })
-      .then(async (res) => (res.ok ? res.json() : null))
-      .then((data: { id: string } | null) => {
-        setUserId(data?.id ?? null);
-      })
-      .catch(() => setUserId(null));
-  }, [authHeader]);
-
-  useEffect(() => {
-    if (!authHeader || !roomId) {
+    if (!roomId) {
       return;
     }
 
@@ -258,51 +181,78 @@ export default function RoomPage() {
       setLoading(true);
       setStatus(null);
       try {
-        const joinRes = await fetch(`${API_BASE}/rooms/${roomId}/join`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...authHeader
-          },
-          body: JSON.stringify({})
-        });
-        if (!joinRes.ok) {
-          const body = await joinRes.json().catch(() => ({}));
-          const errorMessage = body?.message ?? `HTTP ${joinRes.status}`;
-          if (joinRes.status === 401 || errorMessage.includes("INVALID_ACCESS_TOKEN") || errorMessage.includes("token")) {
-            // Clear invalid token and redirect to login
-            localStorage.removeItem("accessToken");
-            router.push(`/login?redirect=${encodeURIComponent(`/rooms/${roomId}`)}`);
-            return;
-          }
-          throw new Error(errorMessage);
-        }
-        window.dispatchEvent(new Event("active-room-changed"));
-
-        const [roomRes, messagesRes] = await Promise.all([
-          fetch(`${API_BASE}/rooms/${roomId}`, { headers: { ...authHeader } }),
-          fetch(`${API_BASE}/rooms/${roomId}/messages`, {
-            headers: { ...authHeader }
-          })
-        ]);
-
-        if (!roomRes.ok) {
-          const body = await roomRes.json().catch(() => ({}));
-          throw new Error(body?.message ?? `HTTP ${roomRes.status}`);
-        }
-        if (!messagesRes.ok) {
-          const body = await messagesRes.json().catch(() => ({}));
-          throw new Error(body?.message ?? `HTTP ${messagesRes.status}`);
+        const supabase = getSupabaseClient();
+        if (!supabase) {
+          throw new Error("Supabase not configured.");
         }
 
-        const roomData = (await roomRes.json()) as RoomDetail;
-        const messagesData = (await messagesRes.json()) as MessagesResponse;
+        if (userId) {
+          await supabase.from("RoomMembership").upsert(
+            {
+              roomId,
+              userId,
+              role: "MEMBER",
+              mode: "PARTICIPANT"
+            },
+            { onConflict: "roomId,userId" }
+          );
+          window.dispatchEvent(new Event("active-room-changed"));
+        }
+
+        const { data: roomData } = await supabase
+          .from("Room")
+          .select(
+            `
+            id,
+            title,
+            description,
+            capacity,
+            createdById,
+            status,
+            memberships:RoomMembership(count)
+          `
+          )
+          .eq("id", roomId)
+          .single();
+
+        const { data: messagesData } = await supabase
+          .from("RoomMessage")
+          .select("id,roomId,senderId,content,createdAt,sender:User(id,maskName,maskAvatarUrl)")
+          .eq("roomId", roomId)
+          .order("createdAt", { ascending: true })
+          .limit(200);
 
         if (!active) {
           return;
         }
-        setRoom(roomData);
-        setMessages((messagesData.items ?? []).slice().reverse());
+
+        if (!roomData) {
+          throw new Error("Room unavailable.");
+        }
+
+        let currentUserRole: RoomDetail["currentUserRole"] = null;
+        if (userId) {
+          const { data: membership } = await supabase
+            .from("RoomMembership")
+            .select("role")
+            .eq("roomId", roomId)
+            .eq("userId", userId)
+            .maybeSingle();
+          currentUserRole =
+            (membership?.role as RoomDetail["currentUserRole"]) ?? null;
+        }
+
+        setRoom({
+          id: roomData.id,
+          title: roomData.title,
+          description: roomData.description ?? null,
+          capacity: roomData.capacity ?? null,
+          memberCount: roomData.memberships?.[0]?.count ?? 0,
+          createdById: roomData.createdById,
+          currentUserRole,
+          selectedGame: null
+        });
+        setMessages((messagesData ?? []) as RoomMessage[]);
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Failed to load room.";
@@ -314,12 +264,12 @@ export default function RoomPage() {
       }
     };
 
-      loadRoom();
+    loadRoom();
 
-      return () => {
-        active = false;
-      };
-    }, [authHeader, roomId]);
+    return () => {
+      active = false;
+    };
+  }, [roomId, userId]);
 
   useEffect(() => {
     if (!room) {
@@ -335,77 +285,25 @@ export default function RoomPage() {
     chatListRef.current.scrollTop = chatListRef.current.scrollHeight;
   }, [messages]);
 
-  useEffect(() => {
-    if (!token || !roomId) {
-      return;
-    }
-    const socket = io(API_BASE, {
-      auth: { token }
-    });
-    socketRef.current = socket;
-
-    socket.on("connect", () => {
-      socket.emit("room:join", { roomId });
-    });
-
-    socket.on("room:message", (payload: { roomId: string; message: RoomMessage }) => {
-      if (payload?.roomId !== roomId || !payload?.message) {
-        return;
-      }
-      setMessages((prev) => {
-        // Remove temp message if exists and add real message
-        const filtered = prev.filter((msg) => !msg.id.startsWith("temp-"));
-        // Check if message already exists to avoid duplicates
-        const exists = filtered.some((msg) => msg.id === payload.message.id);
-        if (exists) {
-          return filtered;
-        }
-        return [...filtered, payload.message];
-      });
-    });
-
-    socket.on("room:memberCount", (payload: { roomId: string; memberCount: number }) => {
-      if (payload?.roomId !== roomId) {
-        return;
-      }
-      setRoom((prev) => (prev ? { ...prev, memberCount: payload.memberCount } : prev));
-    });
-
-    const handleGame = (payload: {
-      roomId: string;
-      selectedGame?: { type: string; selectedAt: string | null; selectedById: string | null };
-    }) => {
-      if (payload?.roomId !== roomId || !payload?.selectedGame) {
-        return;
-      }
-      setRoom((prev) => (prev ? { ...prev, selectedGame: payload.selectedGame } : prev));
-    };
-
-    socket.on("room:gameSelected", handleGame);
-    socket.on("room:game", handleGame);
-
-    return () => {
-      socket.emit("room:leave", { roomId });
-      socket.disconnect();
-    };
-  }, [roomId, token]);
+  // Real-time room messaging will be re-enabled after Supabase Realtime migration.
 
   const ensureJoined = async () => {
-    if (!authHeader || !roomId) {
+    if (!isSignedIn || !roomId) {
       throw new Error("Please sign in to continue.");
     }
-    const res = await fetch(`${API_BASE}/rooms/${roomId}/join`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...authHeader
-      },
-      body: JSON.stringify({})
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body?.message ?? `HTTP ${res.status}`);
+    const supabase = getSupabaseClient();
+    if (!supabase || !userId) {
+      throw new Error("Supabase not ready.");
     }
+    await supabase.from("RoomMembership").upsert(
+      {
+        roomId,
+        userId,
+        role: "MEMBER",
+        mode: "PARTICIPANT"
+      },
+      { onConflict: "roomId,userId" }
+    );
   };
 
   const handleSendMessage = async (overrideContent?: string) => {
@@ -420,43 +318,27 @@ export default function RoomPage() {
     setStatus(null);
     try {
       await ensureJoined();
-      if (socketRef.current?.connected) {
-        // Optimistically add message immediately
-        const tempMessage: RoomMessage = {
-          id: `temp-${Date.now()}`,
-          roomId,
-          senderId: userId ?? "",
-          content,
-          createdAt: new Date().toISOString()
-        };
-        setMessages((prev) => [...prev, tempMessage]);
-        if (!overrideContent || content === messageInput.trim()) {
-        setMessageInput("");
-        }
-        // Send via socket - the server will broadcast back the real message
-        socketRef.current.emit("room:message:send", { roomId, content });
-        setLastFailedMessage(null);
-        setSending(false);
-        return;
-      }
-      if (!authHeader) {
+      if (!isSignedIn) {
         setStatus("Please sign in to send a message.");
         return;
       }
-      const res = await fetch(`${API_BASE}/rooms/${roomId}/messages`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader
-        },
-        body: JSON.stringify({ content })
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message ?? `HTTP ${res.status}`);
+      const supabase = getSupabaseClient();
+      if (!supabase || !userId) {
+        throw new Error("Supabase not ready.");
       }
-      const message = (await res.json()) as RoomMessage;
-      setMessages((prev) => [...prev, message]);
+      const { data, error } = await supabase
+        .from("RoomMessage")
+        .insert({
+          roomId,
+          senderId: userId,
+          content
+        })
+        .select("id,roomId,senderId,content,createdAt,sender:User(id,maskName,maskAvatarUrl)")
+        .single();
+      if (error || !data) {
+        throw new Error("Failed to send.");
+      }
+      setMessages((prev) => [...prev, data as RoomMessage]);
       if (!overrideContent || content === messageInput.trim()) {
       setMessageInput("");
       }
@@ -480,18 +362,19 @@ export default function RoomPage() {
   };
 
   const handleLeaveRoom = async () => {
-    if (!authHeader || !roomId) {
+    if (!isSignedIn || !roomId) {
       return;
     }
     try {
-      const res = await fetch(`${API_BASE}/rooms/${roomId}/leave`, {
-        method: "POST",
-        headers: { ...authHeader }
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message ?? `HTTP ${res.status}`);
+      const supabase = getSupabaseClient();
+      if (!supabase || !userId) {
+        throw new Error("Supabase not ready.");
       }
+      await supabase
+        .from("RoomMembership")
+        .delete()
+        .eq("roomId", roomId)
+        .eq("userId", userId);
       window.dispatchEvent(new Event("active-room-changed"));
       router.push("/rooms");
     } catch (error) {
@@ -502,56 +385,19 @@ export default function RoomPage() {
   };
 
   const handleSelectGame = async (gameType: string) => {
-    if (!authHeader || !roomId) {
+    if (!isSignedIn || !roomId) {
       setStatus("Please sign in to select a game.");
       return;
     }
-    setStatus(null);
-    try {
-      const res = await fetch(`${API_BASE}/rooms/${roomId}/game`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader
-        },
-        body: JSON.stringify({ selectedGame: gameType })
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message ?? `HTTP ${res.status}`);
-      }
-      const payload = (await res.json()) as RoomDetail["selectedGame"];
-      setRoom((prev) => (prev ? { ...prev, selectedGame: payload ?? prev.selectedGame } : prev));
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to select game.";
-      setStatus(message);
-    }
+    setStatus("Game selection will be available after room game migration.");
   };
 
   const loadInviteCandidates = async () => {
-    if (!authHeader || !roomId) {
+    if (!isSignedIn || !roomId) {
       return;
     }
-    setInviteLoading(true);
-    setInviteStatus(null);
-    try {
-      const res = await fetch(`${API_BASE}/rooms/${roomId}/invite-candidates`, {
-        headers: { ...authHeader }
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message ?? `HTTP ${res.status}`);
-      }
-      const data = (await res.json()) as { items: InviteCandidate[] };
-      setInviteCandidates(data.items ?? []);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to load candidates.";
-      setInviteStatus(message);
-    } finally {
-      setInviteLoading(false);
-    }
+    setInviteLoading(false);
+    setInviteStatus("Invites will be available after messaging migration.");
   };
 
   const handleOpenInvite = async () => {
@@ -560,65 +406,20 @@ export default function RoomPage() {
   };
 
   const handleSendInvite = async (inviteeId: string) => {
-    if (!authHeader || !roomId) {
+    if (!isSignedIn || !roomId) {
       return;
     }
     setInvitingId(inviteeId);
-    setInviteStatus(null);
-    try {
-      const res = await fetch(`${API_BASE}/rooms/${roomId}/invites`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader
-        },
-        body: JSON.stringify({ inviteeId })
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message ?? `HTTP ${res.status}`);
-      }
-      setInviteCandidates((prev) => prev.filter((item) => item.userId !== inviteeId));
-      setInviteStatus("Invite sent.");
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to send invite.";
-      setInviteStatus(message);
-    } finally {
-      setInvitingId(null);
-    }
+    setInviteStatus("Invites will be available after messaging migration.");
+    setInvitingId(null);
   };
 
   const handleGenerateShareLink = async () => {
-    if (!authHeader || !roomId) {
+    if (!isSignedIn || !roomId) {
       return;
     }
-    setShareLoading(true);
-    setShareStatus(null);
-    try {
-      const res = await fetch(`${API_BASE}/rooms/${roomId}/share-links`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader
-        },
-        body: JSON.stringify({})
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message ?? `HTTP ${res.status}`);
-      }
-      const data = (await res.json()) as { shareUrlPath: string };
-      if (data?.shareUrlPath) {
-        setShareLink(`${window.location.origin}${data.shareUrlPath}`);
-      }
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to generate link.";
-      setShareStatus(message);
-    } finally {
-      setShareLoading(false);
-    }
+    setShareLoading(false);
+    setShareStatus("Share links will be available after room migration.");
   };
 
   const handleCopyShareLink = async () => {
