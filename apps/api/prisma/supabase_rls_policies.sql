@@ -14,6 +14,8 @@ alter table if exists "Conversation" enable row level security;
 alter table if exists "ConversationParticipant" enable row level security;
 alter table if exists "Match" enable row level security;
 alter table if exists "Message" enable row level security;
+alter table if exists "Verification" enable row level security;
+alter table if exists "Report" enable row level security;
 alter table if exists "NovelReaction" enable row level security;
 alter table if exists "Entitlement" enable row level security;
 alter table if exists "NovelPurchase" enable row level security;
@@ -262,6 +264,33 @@ with check (
       and (m."user1Id" = auth.uid()::text or m."user2Id" = auth.uid()::text)
   )
 );
+
+-- Admin review queue.
+drop policy if exists "Admin read verifications" on "Verification";
+create policy "Admin read verifications"
+on "Verification"
+for select
+using ((auth.jwt() ->> 'email') = 'admin@hookedup.me');
+
+drop policy if exists "Admin update verifications" on "Verification";
+create policy "Admin update verifications"
+on "Verification"
+for update
+using ((auth.jwt() ->> 'email') = 'admin@hookedup.me')
+with check ((auth.jwt() ->> 'email') = 'admin@hookedup.me');
+
+drop policy if exists "Admin read reports" on "Report";
+create policy "Admin read reports"
+on "Report"
+for select
+using ((auth.jwt() ->> 'email') = 'admin@hookedup.me');
+
+drop policy if exists "Admin update reports" on "Report";
+create policy "Admin update reports"
+on "Report"
+for update
+using ((auth.jwt() ->> 'email') = 'admin@hookedup.me')
+with check ((auth.jwt() ->> 'email') = 'admin@hookedup.me');
 
 -- Reactions: authenticated users can read/insert/update/delete their own.
 drop policy if exists "Read reactions" on "NovelReaction";

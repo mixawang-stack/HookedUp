@@ -1,11 +1,11 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { getSupabaseClient } from "../lib/supabaseClient";
 
 export const dynamic = "force-dynamic";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+const ADMIN_EMAIL = "admin@hookedup.me";
 
 type VerificationItem = {
   id: string;
@@ -17,74 +17,78 @@ type VerificationItem = {
 };
 
 export default function AdminPage() {
-  const [token, setToken] = useState<string | null>(null);
+  const [adminId, setAdminId] = useState<string | null>(null);
   const [items, setItems] = useState<VerificationItem[]>([]);
   const [statusFilter, setStatusFilter] = useState("PENDING");
   const [typeFilter, setTypeFilter] = useState("ALL");
   const [message, setMessage] = useState<string | null>(null);
 
-  const authHeader = useMemo(() => {
-    if (!token) {
-      return null;
-    }
-    return { Authorization: `Bearer ${token}` };
-  }, [token]);
-
   useEffect(() => {
-    const stored = localStorage.getItem("accessToken");
-    if (stored) {
-      setToken(stored);
-    }
+    const loadAdmin = async () => {
+      const supabase = getSupabaseClient();
+      if (!supabase) return;
+      const { data } = await supabase.auth.getUser();
+      if (!data.user || data.user.email !== ADMIN_EMAIL) {
+        setMessage("Admin access only.");
+        return;
+      }
+      setAdminId(data.user.id);
+    };
+    loadAdmin().catch(() => undefined);
   }, []);
 
   const loadQueue = async () => {
-    if (!authHeader) {
+    const supabase = getSupabaseClient();
+    if (!supabase || !adminId) {
       return;
     }
 
     setMessage(null);
-    const params = new URLSearchParams();
+    let query = supabase
+      .from("Verification")
+      .select("id,type,status,createdAt,userId,user:User(email)");
+
     if (statusFilter !== "ALL") {
-      params.set("status", statusFilter.toLowerCase());
+      query = query.eq("status", statusFilter);
     }
     if (typeFilter !== "ALL") {
-      params.set("type", typeFilter.toLowerCase());
+      query = query.eq("type", typeFilter);
     }
-
-    const res = await fetch(`${API_BASE}/admin/verifications?${params}`, {
-      headers: {
-        ...authHeader
-      }
-    });
-
-    if (!res.ok) {
+    const { data, error } = await query.order("createdAt", { ascending: false });
+    if (error) {
       setMessage("Failed to load queue.");
       return;
     }
-
-    const data = (await res.json()) as VerificationItem[];
-    setItems(data);
+    const normalized =
+      data?.map((item) => ({
+        ...item,
+        user: item.user?.[0] ?? null
+      })) ?? [];
+    setItems(normalized as VerificationItem[]);
   };
 
   useEffect(() => {
     loadQueue().catch(() => {
       setMessage("Failed to load queue.");
     });
-  }, [authHeader, statusFilter, typeFilter]);
+  }, [adminId, statusFilter, typeFilter]);
 
   const approve = async (id: string) => {
-    if (!authHeader) {
+    const supabase = getSupabaseClient();
+    if (!supabase || !adminId) {
       return;
     }
 
-    const res = await fetch(`${API_BASE}/admin/verifications/${id}/approve`, {
-      method: "POST",
-      headers: {
-        ...authHeader
-      }
-    });
+    const { error } = await supabase
+      .from("Verification")
+      .update({
+        status: "APPROVED",
+        reviewedAt: new Date().toISOString(),
+        reviewedBy: adminId
+      })
+      .eq("id", id);
 
-    if (res.ok) {
+    if (!error) {
       setMessage("Approved.");
       await loadQueue();
     } else {
@@ -93,7 +97,8 @@ export default function AdminPage() {
   };
 
   const reject = async (id: string) => {
-    if (!authHeader) {
+    const supabase = getSupabaseClient();
+    if (!supabase || !adminId) {
       return;
     }
 
@@ -103,16 +108,17 @@ export default function AdminPage() {
       return;
     }
 
-    const res = await fetch(`${API_BASE}/admin/verifications/${id}/reject`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...authHeader
-      },
-      body: JSON.stringify({ reason })
-    });
+    const { error } = await supabase
+      .from("Verification")
+      .update({
+        status: "REJECTED",
+        reviewedAt: new Date().toISOString(),
+        reviewedBy: adminId,
+        reason
+      })
+      .eq("id", id);
 
-    if (res.ok) {
+    if (!error) {
       setMessage("Rejected.");
       await loadQueue();
     } else {

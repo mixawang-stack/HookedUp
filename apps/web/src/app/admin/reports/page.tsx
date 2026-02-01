@@ -1,11 +1,11 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { getSupabaseClient } from "../../lib/supabaseClient";
 
 export const dynamic = "force-dynamic";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+const ADMIN_EMAIL = "admin@hookedup.me";
 
 type ReportItem = {
   id: string;
@@ -19,66 +19,66 @@ type ReportItem = {
 };
 
 export default function AdminReportsPage() {
-  const [token, setToken] = useState<string | null>(null);
+  const [adminId, setAdminId] = useState<string | null>(null);
   const [reports, setReports] = useState<ReportItem[]>([]);
   const [statusFilter, setStatusFilter] = useState("OPEN");
   const [message, setMessage] = useState<string | null>(null);
 
-  const authHeader = useMemo(() => {
-    if (!token) {
-      return null;
-    }
-    return { Authorization: `Bearer ${token}` };
-  }, [token]);
-
   useEffect(() => {
-    const stored = localStorage.getItem("accessToken");
-    if (stored) {
-      setToken(stored);
-    }
+    const loadAdmin = async () => {
+      const supabase = getSupabaseClient();
+      if (!supabase) return;
+      const { data } = await supabase.auth.getUser();
+      if (!data.user || data.user.email !== ADMIN_EMAIL) {
+        setMessage("Admin access only.");
+        return;
+      }
+      setAdminId(data.user.id);
+    };
+    loadAdmin().catch(() => undefined);
   }, []);
 
   const loadReports = async () => {
-    if (!authHeader) {
+    const supabase = getSupabaseClient();
+    if (!supabase || !adminId) {
       return;
     }
 
-    const params = new URLSearchParams();
-    params.set("status", statusFilter.toLowerCase());
-
-    const res = await fetch(`${API_BASE}/admin/reports?${params}`, {
-      headers: { ...authHeader }
-    });
-
-    if (!res.ok) {
+    const { data, error } = await supabase
+      .from("Report")
+      .select("id,reporterId,targetType,targetId,reasonType,detail,status,createdAt")
+      .eq("status", statusFilter)
+      .order("createdAt", { ascending: false });
+    if (error) {
       setMessage("Failed to load reports.");
       return;
     }
 
-    const data = (await res.json()) as ReportItem[];
-    setReports(data);
+    setReports((data ?? []) as ReportItem[]);
   };
 
   useEffect(() => {
     loadReports().catch(() => setMessage("Failed to load reports."));
-  }, [authHeader, statusFilter]);
+  }, [adminId, statusFilter]);
 
   const resolve = async (id: string, action: "warn" | "mute" | "ban") => {
-    if (!authHeader) {
+    const supabase = getSupabaseClient();
+    if (!supabase || !adminId) {
       return;
     }
 
     const note = window.prompt("Resolution note?") ?? "";
-    const res = await fetch(`${API_BASE}/admin/reports/${id}/resolve`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...authHeader
-      },
-      body: JSON.stringify({ action, note })
-    });
+    const { error } = await supabase
+      .from("Report")
+      .update({
+        status: "RESOLVED",
+        handledBy: adminId,
+        handledAt: new Date().toISOString(),
+        detail: note || null
+      })
+      .eq("id", id);
 
-    if (res.ok) {
+    if (!error) {
       setMessage("Report resolved.");
       await loadReports();
     } else {
