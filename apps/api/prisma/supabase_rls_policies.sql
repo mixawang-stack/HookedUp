@@ -10,6 +10,10 @@ alter table if exists "Room" enable row level security;
 alter table if exists "RoomMembership" enable row level security;
 alter table if exists "RoomMessage" enable row level security;
 alter table if exists "Preference" enable row level security;
+alter table if exists "Conversation" enable row level security;
+alter table if exists "ConversationParticipant" enable row level security;
+alter table if exists "Match" enable row level security;
+alter table if exists "Message" enable row level security;
 alter table if exists "NovelReaction" enable row level security;
 alter table if exists "Entitlement" enable row level security;
 alter table if exists "NovelPurchase" enable row level security;
@@ -196,6 +200,68 @@ on "Preference"
 for all
 using (auth.uid()::text = "userId")
 with check (auth.uid()::text = "userId");
+
+-- Private conversations.
+drop policy if exists "Read conversations" on "Conversation";
+create policy "Read conversations"
+on "Conversation"
+for select
+using (
+  exists (
+    select 1
+    from "ConversationParticipant" cp
+    where cp."conversationId" = "Conversation".id
+      and cp."userId" = auth.uid()::text
+  )
+);
+
+drop policy if exists "Read conversation participants" on "ConversationParticipant";
+create policy "Read conversation participants"
+on "ConversationParticipant"
+for select
+using (auth.uid()::text = "userId");
+
+drop policy if exists "Update own conversation participant" on "ConversationParticipant";
+create policy "Update own conversation participant"
+on "ConversationParticipant"
+for update
+using (auth.uid()::text = "userId")
+with check (auth.uid()::text = "userId");
+
+-- Matches.
+drop policy if exists "Read own matches" on "Match";
+create policy "Read own matches"
+on "Match"
+for select
+using (auth.uid()::text = "user1Id" or auth.uid()::text = "user2Id");
+
+-- Messages.
+drop policy if exists "Read match messages" on "Message";
+create policy "Read match messages"
+on "Message"
+for select
+using (
+  exists (
+    select 1
+    from "Match" m
+    where m.id = "Message"."matchId"
+      and (m."user1Id" = auth.uid()::text or m."user2Id" = auth.uid()::text)
+  )
+);
+
+drop policy if exists "Insert own match message" on "Message";
+create policy "Insert own match message"
+on "Message"
+for insert
+with check (
+  auth.uid()::text = "senderId"
+  and exists (
+    select 1
+    from "Match" m
+    where m.id = "Message"."matchId"
+      and (m."user1Id" = auth.uid()::text or m."user2Id" = auth.uid()::text)
+  )
+);
 
 -- Reactions: authenticated users can read/insert/update/delete their own.
 drop policy if exists "Read reactions" on "NovelReaction";
