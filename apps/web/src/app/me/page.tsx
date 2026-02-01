@@ -107,11 +107,12 @@ export default function MePage() {
         gender: data.gender ?? null,
         dob: data.dob ?? null,
         country: data.country ?? null,
-        preference: data.preference
+        preference: data.preference?.[0]
           ? {
-              vibeTags: data.preference.vibeTagsJson ?? null,
-              interests: data.preference.interestsJson ?? null,
-              allowStrangerPrivate: data.preference.allowStrangerPrivate ?? null
+              vibeTags: data.preference[0].vibeTagsJson ?? null,
+              interests: data.preference[0].interestsJson ?? null,
+              allowStrangerPrivate:
+                data.preference[0].allowStrangerPrivate ?? null
             }
           : null
       };
@@ -213,12 +214,12 @@ export default function MePage() {
           gender: updated.gender ?? null,
           dob: updated.dob ?? null,
           country: updated.country ?? null,
-          preference: updated.preference
+          preference: updated.preference?.[0]
             ? {
-                vibeTags: updated.preference.vibeTagsJson ?? null,
-                interests: updated.preference.interestsJson ?? null,
+                vibeTags: updated.preference[0].vibeTagsJson ?? null,
+                interests: updated.preference[0].interestsJson ?? null,
                 allowStrangerPrivate:
-                  updated.preference.allowStrangerPrivate ?? null
+                  updated.preference[0].allowStrangerPrivate ?? null
               }
             : null
         });
