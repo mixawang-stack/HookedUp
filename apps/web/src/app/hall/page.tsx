@@ -518,7 +518,7 @@ export default function HallPage() {
         content: trace.content,
         createdAt: trace.createdAt,
         replyCount: replies?.length ?? 0,
-        author: trace.author ?? null,
+        author: trace.author?.[0] ?? null,
         imageUrl: trace.imageUrl ?? null,
         imageWidth: trace.imageWidth ?? null,
         imageHeight: trace.imageHeight ?? null,
