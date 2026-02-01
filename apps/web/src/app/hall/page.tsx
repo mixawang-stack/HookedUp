@@ -262,6 +262,7 @@ export default function HallPage() {
         id,
         content,
         createdAt,
+        novelId,
         imageUrl,
         imageWidth,
         imageHeight,
