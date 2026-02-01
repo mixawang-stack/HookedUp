@@ -119,12 +119,12 @@ export default function RoomPage() {
         maskName: data.maskName ?? (isSelf ? "You" : null),
         maskAvatarUrl: data.maskAvatarUrl ?? null,
         bio: data.bio ?? null,
-        preference: data.preference
+        preference: data.preference?.[0]
           ? {
-              vibeTags: data.preference.vibeTagsJson ?? null,
-              interests: data.preference.interestsJson ?? null,
+              vibeTags: data.preference[0].vibeTagsJson ?? null,
+              interests: data.preference[0].interestsJson ?? null,
               allowStrangerPrivate:
-                data.preference.allowStrangerPrivate ?? null
+                data.preference[0].allowStrangerPrivate ?? null
             }
           : null
       });
