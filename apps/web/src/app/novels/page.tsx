@@ -61,6 +61,44 @@ export default function StoriesPage() {
     load().catch(() => setStatus("Failed to load stories."));
   }, [activeTab]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const handleRefresh = () => {
+      if (document.visibilityState && document.visibilityState !== "visible") {
+        return;
+      }
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        setStatus("Stories service is not configured.");
+        return;
+      }
+      supabase
+        .from("Novel")
+        .select("id,title,coverImageUrl,description,category,isFeatured,createdAt,status")
+        .eq("status", "PUBLISHED")
+        .eq("category", activeTab)
+        .order("isFeatured", { ascending: false })
+        .order("createdAt", { ascending: false })
+        .limit(30)
+        .then(({ data, error }) => {
+          if (error) {
+            setStatus("Failed to load stories.");
+            return;
+          }
+          setNovels((data ?? []) as NovelItem[]);
+        })
+        .catch(() => setStatus("Failed to load stories."));
+    };
+    window.addEventListener("focus", handleRefresh);
+    document.addEventListener("visibilitychange", handleRefresh);
+    return () => {
+      window.removeEventListener("focus", handleRefresh);
+      document.removeEventListener("visibilitychange", handleRefresh);
+    };
+  }, [activeTab]);
+
   return (
     <main className="ui-page mx-auto w-full max-w-6xl px-4 py-10 text-text-primary">
       <div>
@@ -96,7 +134,7 @@ export default function StoriesPage() {
               <button
                 type="button"
                 className="block w-full text-left"
-                onClick={() => router.push(`/novels/${novel.id}`)}
+                onClick={() => router.push(`/stories/${novel.id}`)}
               >
                 <div className="overflow-hidden rounded-xl border border-border-default bg-card">
                   {novel.coverImageUrl ? (
@@ -121,7 +159,7 @@ export default function StoriesPage() {
               <button
                 type="button"
                 className="btn-primary mt-3 w-full px-3 py-2 text-xs"
-                onClick={() => router.push(`/novels/${novel.id}`)}
+                onClick={() => router.push(`/stories/${novel.id}`)}
               >
                 Continue reading
               </button>

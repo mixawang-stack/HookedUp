@@ -7,6 +7,7 @@ import { useSupabaseSession } from "../lib/useSupabaseSession";
 
 const PUBLIC_PATHS = new Set([
   "/",
+  "/forum",
   "/hall",
   "/login",
   "/register",
@@ -14,10 +15,11 @@ const PUBLIC_PATHS = new Set([
   "/terms",
   "/refunds",
   "/support",
+  "/stories",
   "/novels"
 ]);
 
-const PUBLIC_PREFIXES = ["/novels/"];
+const PUBLIC_PREFIXES = ["/novels/", "/stories/"];
 
 const isPublicPath = (pathname: string) => {
   if (PUBLIC_PATHS.has(pathname)) {
@@ -42,7 +44,7 @@ export default function AuthGate() {
     if (!session) {
       const search = searchParams?.toString();
       const fullPath = search ? `${pathname}?${search}` : pathname;
-      const redirect = encodeURIComponent(fullPath || "/hall");
+      const redirect = encodeURIComponent(fullPath || "/forum");
       router.replace(`/login?redirect=${redirect}`);
     }
   }, [pathname, router, searchParams, ready, session]);

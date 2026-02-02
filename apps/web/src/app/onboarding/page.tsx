@@ -193,7 +193,7 @@ export default function OnboardingPage() {
       }
 
       setSubmitStatus("That's enough for now. The rest happens naturally.");
-      setTimeout(() => router.push("/hall"), 800);
+      setTimeout(() => router.push("/forum"), 800);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Submission failed.";
       setSubmitStatus(message);

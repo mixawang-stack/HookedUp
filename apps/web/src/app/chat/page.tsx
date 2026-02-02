@@ -268,7 +268,7 @@ function ChatPageContent() {
           {matches.length === 0 && (
             <div className="rounded-2xl border border-dashed border-border-default bg-surface p-3 text-xs text-text-secondary">
               <p>No traces to start a private conversation yet.</p>
-              <Link href="/hall" className="btn-primary mt-2">
+              <Link href="/forum" className="btn-primary mt-2">
                 Forum
               </Link>
             </div>

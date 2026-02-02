@@ -158,6 +158,24 @@ export default function RoomsPage() {
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const handleRefresh = () => {
+      if (document.visibilityState && document.visibilityState !== "visible") {
+        return;
+      }
+      loadRooms(null).catch(() => setStatus("Failed to load."));
+    };
+    window.addEventListener("focus", handleRefresh);
+    document.addEventListener("visibilitychange", handleRefresh);
+    return () => {
+      window.removeEventListener("focus", handleRefresh);
+      document.removeEventListener("visibilitychange", handleRefresh);
+    };
+  }, [filterStatus, filterTags, filterQuery]);
+
+  useEffect(() => {
     emitHostStatus({ page: "rooms", cold: rooms.length === 0 });
   }, [rooms]);
 

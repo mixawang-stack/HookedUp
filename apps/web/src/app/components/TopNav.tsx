@@ -8,8 +8,8 @@ import { getSupabaseClient } from "../lib/supabaseClient";
 import { useSupabaseSession } from "../lib/useSupabaseSession";
 
 const NAV_ITEMS = [
-  { href: "/novels", label: "Stories" },
-  { href: "/hall", label: "Forum" },
+  { href: "/stories", label: "Stories" },
+  { href: "/forum", label: "Forum" },
   { href: "/rooms", label: "Rooms" }
 ];
 

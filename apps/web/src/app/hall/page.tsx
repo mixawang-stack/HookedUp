@@ -160,6 +160,8 @@ export default function HallPage() {
   const [loadingReplies, setLoadingReplies] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [activeTab, setActiveTab] = useState<"all" | "story" | "post">("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showCreateDrawer, setShowCreateDrawer] = useState(false);
   const [columnCount, setColumnCount] = useState(1);
   const [profileCard, setProfileCard] = useState<PublicProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
@@ -540,6 +542,24 @@ export default function HallPage() {
   }, [currentUserId]);
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const handleRefresh = () => {
+      if (document.visibilityState && document.visibilityState !== "visible") {
+        return;
+      }
+      fetchHall().catch(() => setStatus("Failed to load the Forum."));
+    };
+    window.addEventListener("focus", handleRefresh);
+    document.addEventListener("visibilitychange", handleRefresh);
+    return () => {
+      window.removeEventListener("focus", handleRefresh);
+      document.removeEventListener("visibilitychange", handleRefresh);
+    };
+  }, [currentUserId]);
+
+  useEffect(() => {
     emitHostStatus({
       page: "hall",
       cold: !(hall?.traces.length ?? 0)
@@ -695,6 +715,7 @@ export default function HallPage() {
       clearSelectedImage();
       setUploadedImageData(null);
       await fetchHall();
+      setShowCreateDrawer(false);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to post.";
       setStatus(message);
@@ -895,7 +916,7 @@ export default function HallPage() {
         key={novel.id}
         type="button"
         className={`${cardBaseClasses} flex flex-col gap-3 bg-gradient-to-br from-brand-primary/10 via-surface to-card hover:border-brand-primary/40 max-h-[50vh] overflow-hidden`}
-        onClick={() => router.push(`/novels/${novel.id}`)}
+        onClick={() => router.push(`/stories/${novel.id}`)}
       >
         <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.2em] text-text-muted">
           <span className="rounded-full bg-accent-premium/15 px-2 py-1 text-[10px] font-semibold text-accent-premium">
@@ -1123,19 +1144,39 @@ export default function HallPage() {
     [hall]
   );
 
+  const filteredPostTraces = useMemo(() => {
+    const term = searchQuery.trim().toLowerCase();
+    if (!term) {
+      return postTraces;
+    }
+    return postTraces.filter((trace) => {
+      const authorName = trace.author?.maskName ?? "";
+      return (
+        trace.content.toLowerCase().includes(term) ||
+        authorName.toLowerCase().includes(term)
+      );
+    });
+  }, [postTraces, searchQuery]);
+
   const feedItems = useMemo<HallFeedItem[]>(() => {
     const novels = hall?.novels ?? [];
     if (activeTab === "story") {
       return novels.map((novel) => ({ kind: "novel" as const, novel }));
     }
     if (activeTab === "post") {
-      return postTraces.map((trace) => ({ kind: "trace" as const, trace }));
+      return filteredPostTraces.map((trace) => ({
+        kind: "trace" as const,
+        trace
+      }));
     }
     return [
       ...novels.map((novel) => ({ kind: "novel" as const, novel })),
-      ...postTraces.map((trace) => ({ kind: "trace" as const, trace }))
+      ...filteredPostTraces.map((trace) => ({
+        kind: "trace" as const,
+        trace
+      }))
     ];
-  }, [activeTab, hall, postTraces]);
+  }, [activeTab, hall, filteredPostTraces]);
 
   const feedColumns = useMemo(() => {
     const columns = Array.from({ length: columnCount }, () => [] as HallFeedItem[]);
@@ -1203,130 +1244,34 @@ export default function HallPage() {
               <div />
             </div>
 
-            <div className="ui-card p-4 sm:p-5">
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-border-default bg-surface text-sm font-semibold text-text-secondary">
-                    {meProfile?.maskAvatarUrl ? (
-                      <img
-                        src={meProfile.maskAvatarUrl}
-                        alt={meProfile.maskName ?? "Avatar"}
-                        className="h-10 w-10 rounded-full object-cover"
-                      />
-                    ) : (
-                      <span>
-                        {(meProfile?.maskName ?? "U").slice(0, 1).toUpperCase()}
-                      </span>
-                    )}
-                  </div>
-                  <textarea
-                    className="flex-1 resize-none rounded-full border border-border-default bg-card px-4 py-3 text-sm text-text-primary placeholder:text-text-muted"
-                    rows={1}
-                    maxLength={1000}
-                    placeholder="What's on your mind tonight?"
-                    value={traceInput}
-                    onChange={(event) => setTraceInput(event.target.value)}
-                  />
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      className="flex h-10 w-10 items-center justify-center rounded-full border border-border-default bg-card text-text-secondary"
-                      onClick={() => fileInputRef.current?.click()}
-                      aria-label="Attach image"
-                    >
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        className="h-5 w-5"
-                      >
-                        <path d="M12 5v14" />
-                        <path d="M5 12h14" />
-                      </svg>
-                    </button>
-                    <button
-                      type="button"
-                      className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-primary text-card"
-                      onClick={handlePostTrace}
-                      disabled={postingTrace || uploadingImage}
-                      aria-label="Start a post"
-                    >
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                        className="h-5 w-5"
-                      >
-                        <path d="M5 12h14" />
-                        <path d="M13 6l6 6-6 6" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="relative flex-1">
+                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-text-muted">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    className="h-4 w-4"
+                  >
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="M20 20l-3.5-3.5" />
+                  </svg>
+                </span>
                 <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="hidden"
-                  onChange={handleImageSelect}
+                  className="w-full rounded-full border border-border-default bg-card py-2.5 pl-11 pr-4 text-sm text-text-primary placeholder:text-text-muted"
+                  placeholder="Search forum"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
                 />
-
-                {selectedImageFile && imagePreview && (
-                  <div className="ui-surface p-3">
-                    <div className="overflow-hidden rounded-2xl bg-card relative">
-                      <img
-                        src={resolveMediaUrl(imagePreview) ?? ""}
-                        alt={selectedImageFile.name}
-                        className="h-32 w-full object-cover"
-                      />
-                      {uploadingImage && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-text-primary/30">
-                          <p className="text-xs text-text-primary">Uploading...</p>
-                        </div>
-                      )}
-                      {uploadedImageData && !uploadingImage && (
-                        <div className="absolute top-2 right-2 rounded-full bg-brand-secondary px-2 py-1">
-                          <p className="text-[10px] text-card font-semibold">Uploaded</p>
-                        </div>
-                      )}
-                    </div>
-                    <div className="mt-3 flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-semibold text-text-primary">
-                          {selectedImageFile.name}
-                        </p>
-                        <p className="text-[10px] text-text-muted">
-                          {formatBytes(selectedImageFile.size)}
-                          {uploadedImageData &&
-                            uploadedImageData.width &&
-                            uploadedImageData.height && (
-                              <span>
-                                {" "}- {uploadedImageData.width}x{uploadedImageData.height}
-                              </span>
-                            )}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        className="rounded-full border border-border-default px-2 py-1 text-[10px] text-text-secondary"
-                        onClick={clearSelectedImage}
-                        disabled={uploadingImage}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                )}
-                {imageError && (
-                  <p className="text-xs text-text-secondary">{imageError}</p>
-                )}
-                <div className="flex items-center justify-between text-xs text-text-muted">
-                  <span>{traceInput.length}/1000</span>
-                </div>
               </div>
+              <button
+                type="button"
+                className="btn-primary px-5 py-2.5 text-sm"
+                onClick={() => setShowCreateDrawer(true)}
+              >
+                + Create Forum
+              </button>
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -1424,7 +1369,7 @@ export default function HallPage() {
                       type="button"
                       className="mt-4 rounded-full border border-border-default px-4 py-2 text-xs font-semibold text-text-secondary"
                       onClick={() =>
-                        router.push(`/novels/${traceDetail.trace.novelId}`)
+                        router.push(`/stories/${traceDetail.trace.novelId}`)
                       }
                     >
                       Read full story
@@ -1486,6 +1431,162 @@ export default function HallPage() {
                       disabled={postingReply}
                     >
                       {postingReply ? "Replying..." : "Reply"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          {showCreateDrawer && (
+            <div role="dialog" aria-modal="true">
+              <div
+                className="fixed inset-0 z-40 bg-black/40"
+                onClick={() => setShowCreateDrawer(false)}
+              />
+              <div className="fixed right-0 top-0 z-[60] flex h-screen w-[420px] max-w-full flex-col overflow-hidden border-l border-black/10 bg-[rgb(var(--color-card-bg))] text-[rgb(var(--color-text-primary))] shadow-[0_8px_30px_rgba(0,0,0,0.18)] animate-trace-drawer">
+                <header className="sticky top-0 z-10 flex min-h-[80px] items-start justify-between border-b border-black/10 bg-[rgb(var(--color-card-bg))] px-6 py-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-text-primary">
+                      Create forum post
+                    </h3>
+                    <p className="mt-2 text-xs text-text-secondary">
+                      Share a thought, ask for advice, or drop a confession.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="text-xs text-text-muted"
+                    onClick={() => setShowCreateDrawer(false)}
+                  >
+                    Close
+                  </button>
+                </header>
+
+                <div className="h-[calc(100vh-80px)] overflow-y-auto px-6 py-5">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-border-default bg-surface text-sm font-semibold text-text-secondary">
+                      {meProfile?.maskAvatarUrl ? (
+                        <img
+                          src={meProfile.maskAvatarUrl}
+                          alt={meProfile.maskName ?? "Avatar"}
+                          className="h-10 w-10 rounded-full object-cover"
+                        />
+                      ) : (
+                        <span>
+                          {(meProfile?.maskName ?? "U").slice(0, 1).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-xs text-text-secondary">
+                        {meProfile?.maskName ?? "Anonymous"}
+                      </p>
+                      <p className="text-[10px] text-text-muted">Posting to Forum</p>
+                    </div>
+                  </div>
+
+                  <textarea
+                    className="mt-4 w-full resize-none rounded-2xl border border-border-default bg-card px-4 py-3 text-sm text-text-primary placeholder:text-text-muted"
+                    rows={5}
+                    maxLength={1000}
+                    placeholder="What's on your mind tonight?"
+                    value={traceInput}
+                    onChange={(event) => setTraceInput(event.target.value)}
+                  />
+
+                  <div className="mt-4 flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="flex h-10 w-10 items-center justify-center rounded-full border border-border-default bg-card text-text-secondary"
+                      onClick={() => fileInputRef.current?.click()}
+                      aria-label="Attach image"
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        className="h-5 w-5"
+                      >
+                        <path d="M12 5v14" />
+                        <path d="M5 12h14" />
+                      </svg>
+                    </button>
+                    <p className="text-xs text-text-muted">
+                      Add an image (jpg/png/webp, 5MB)
+                    </p>
+                  </div>
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={handleImageSelect}
+                  />
+
+                  {selectedImageFile && imagePreview && (
+                    <div className="mt-4 ui-surface p-3">
+                      <div className="relative overflow-hidden rounded-2xl bg-card">
+                        <img
+                          src={resolveMediaUrl(imagePreview) ?? ""}
+                          alt={selectedImageFile.name}
+                          className="h-40 w-full object-cover"
+                        />
+                        {uploadingImage && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-text-primary/30">
+                            <p className="text-xs text-text-primary">Uploading...</p>
+                          </div>
+                        )}
+                        {uploadedImageData && !uploadingImage && (
+                          <div className="absolute top-2 right-2 rounded-full bg-brand-secondary px-2 py-1">
+                            <p className="text-[10px] text-card font-semibold">
+                              Uploaded
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      <div className="mt-3 flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-semibold text-text-primary">
+                            {selectedImageFile.name}
+                          </p>
+                          <p className="text-[10px] text-text-muted">
+                            {formatBytes(selectedImageFile.size)}
+                            {uploadedImageData &&
+                              uploadedImageData.width &&
+                              uploadedImageData.height && (
+                                <span>
+                                  {" "}- {uploadedImageData.width}x{uploadedImageData.height}
+                                </span>
+                              )}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          className="rounded-full border border-border-default px-2 py-1 text-[10px] text-text-secondary"
+                          onClick={clearSelectedImage}
+                          disabled={uploadingImage}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {imageError && (
+                    <p className="mt-3 text-xs text-text-secondary">{imageError}</p>
+                  )}
+
+                  <div className="mt-4 flex items-center justify-between text-xs text-text-muted">
+                    <span>{traceInput.length}/1000</span>
+                    <button
+                      type="button"
+                      className="rounded-full bg-brand-primary px-4 py-2 text-xs font-semibold text-card"
+                      onClick={handlePostTrace}
+                      disabled={postingTrace || uploadingImage}
+                    >
+                      {postingTrace ? "Posting..." : "Post to forum"}
                     </button>
                   </div>
                 </div>

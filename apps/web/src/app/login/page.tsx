@@ -54,7 +54,8 @@ function LoginFormContent() {
       }
 
       const redirect = searchParams?.get("redirect");
-      const nextPath = redirect && redirect.startsWith("/") ? redirect : "/hall";
+      const nextPath =
+        redirect && redirect.startsWith("/") ? redirect : "/forum";
       router.push(nextPath);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not get you in.";

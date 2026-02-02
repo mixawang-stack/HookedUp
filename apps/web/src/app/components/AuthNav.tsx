@@ -19,7 +19,7 @@ export default function AuthNav() {
       <div className="mx-auto flex w-full max-w-6xl items-center gap-4 px-6 py-3 text-sm">
         {FF_WORLD_06 && (
           <Link
-            href="/novels"
+          href="/stories"
             className="font-semibold text-text-primary"
             title="Stories meant to be lingered with."
           >
@@ -27,7 +27,7 @@ export default function AuthNav() {
           </Link>
         )}
         <Link
-          href="/hall"
+          href="/forum"
           className="text-text-secondary hover:text-text-primary"
           title="Where everyone passes through."
         >

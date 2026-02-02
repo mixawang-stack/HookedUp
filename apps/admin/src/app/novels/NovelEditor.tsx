@@ -546,13 +546,15 @@ export default function NovelEditor({ novelId }: Props) {
     setSaving(true);
     setStatus("Saving...");
     try {
-      const { data: updated, error } = await supabase
-        .from("Novel")
-        .update({ status: nextStatus, autoHallPost: autoPostHall })
-        .eq("id", selectedNovel.id)
-        .select("id")
-        .maybeSingle();
-      if (error || !updated) {
+      const res = await fetch("/api/admin/novels/publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          novelId: selectedNovel.id,
+          status: nextStatus
+        })
+      });
+      if (!res.ok) {
         setStatus("Failed to update novel.");
         return;
       }

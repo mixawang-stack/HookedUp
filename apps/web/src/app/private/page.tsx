@@ -320,7 +320,7 @@ function PrivateListPageInner() {
                   <p>Most conversations start in the Forum</p>
                   <p>or inside a room. Go stir things up.</p>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <Link href="/hall" className="btn-primary px-4 py-2 text-xs">
+                    <Link href="/forum" className="btn-primary px-4 py-2 text-xs">
                       Forum
                     </Link>
                     <Link

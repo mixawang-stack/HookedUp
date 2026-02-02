@@ -226,7 +226,7 @@ export default function NovelDetailPage() {
     if (!novelId) return;
     if (!userId) {
       router.push(
-        `/login?redirect=${encodeURIComponent(`/novels/${novelId || ""}`)}`
+        `/login?redirect=${encodeURIComponent(`/stories/${novelId || ""}`)}`
       );
       return;
     }
@@ -267,7 +267,7 @@ export default function NovelDetailPage() {
     if (!novelId || !novel) return;
     if (!userId) {
       router.push(
-        `/login?redirect=${encodeURIComponent(`/novels/${novelId || ""}`)}`
+        `/login?redirect=${encodeURIComponent(`/stories/${novelId || ""}`)}`
       );
       return;
     }
@@ -309,7 +309,7 @@ export default function NovelDetailPage() {
     <main className="ui-page">
       <div className="ui-container pb-20 pt-10 text-text-primary lg:pb-10">
         <Link
-          href="/novels"
+          href="/stories"
           className="text-sm text-text-secondary transition hover:text-text-primary"
         >
           &larr; Back
@@ -548,7 +548,7 @@ export default function NovelDetailPage() {
                       <button
                         type="button"
                         className="btn-primary px-4 py-2 text-xs"
-                        onClick={() => router.push("/novels")}
+                        onClick={() => router.push("/stories")}
                       >
                         See other stories
                       </button>
