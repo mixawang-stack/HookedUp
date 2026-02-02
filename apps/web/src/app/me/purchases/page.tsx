@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 
@@ -46,7 +46,27 @@ export default function PurchasesPage() {
         setStatus("Failed to load purchases.");
         return;
       }
-      setPurchases((data ?? []) as PurchaseItem[]);
+      const normalized = (data ?? []).map((item) => ({
+        id: item.id,
+        createdAt: item.createdAt,
+        amount: String(item.amount ?? ""),
+        currency: item.currency,
+        pricingMode: item.pricingMode,
+        novel: item.novel?.[0] ?? null,
+        chapter: item.chapter?.[0] ?? null
+      })) as Array<{
+        id: string;
+        createdAt: string;
+        amount: string;
+        currency: string;
+        pricingMode: PurchaseItem["pricingMode"];
+        novel: PurchaseItem["novel"] | null;
+        chapter: PurchaseItem["chapter"] | null;
+      }>;
+      const items = normalized.filter(
+        (item): item is PurchaseItem => Boolean(item.novel)
+      );
+      setPurchases(items);
     };
     load().catch(() => setStatus("Failed to load purchases."));
   }, [ready, user]);
@@ -82,7 +102,7 @@ export default function PurchasesPage() {
                   </p>
                 )}
                 <p className="mt-2 text-xs text-text-muted">
-                  {purchase.pricingMode} · {purchase.amount} {purchase.currency}
+                  {purchase.pricingMode} - {purchase.amount} {purchase.currency}
                 </p>
               </div>
             ))
@@ -92,3 +112,4 @@ export default function PurchasesPage() {
     </main>
   );
 }
+
