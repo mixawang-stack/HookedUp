@@ -640,9 +640,19 @@ export default function NovelEditor({ novelId }: Props) {
 
   const handleSaveChapter = async (chapter: ChapterItem) => {
     if (!supabase || !selectedNovel) return;
-    const { error } = await supabase
-      .from("NovelChapter")
-      .update({
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json"
+    };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const res = await fetch("/api/admin/novels/chapters/update", {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({
+        id: chapter.id,
         title: chapter.title,
         content: chapter.content,
         orderIndex: chapter.orderIndex,
@@ -655,8 +665,8 @@ export default function NovelEditor({ novelId }: Props) {
             ? parseMoney(chapter.price)
             : chapter.price
       })
-      .eq("id", chapter.id);
-    if (error) {
+    });
+    if (!res.ok) {
       setStatus("Failed to save chapter.");
       return;
     }
@@ -722,8 +732,28 @@ export default function NovelEditor({ novelId }: Props) {
     nextChapters[index] = { ...current, orderIndex: target.orderIndex };
     nextChapters[targetIndex] = { ...target, orderIndex: current.orderIndex };
     setChapters(nextChapters);
-    await handleSaveChapter(nextChapters[index]);
-    await handleSaveChapter(nextChapters[targetIndex]);
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json"
+    };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const res = await fetch("/api/admin/novels/chapters/reorder", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        currentId: current.id,
+        targetId: target.id,
+        currentOrder: current.orderIndex,
+        targetOrder: target.orderIndex
+      })
+    });
+    if (!res.ok) {
+      setStatus("Failed to reorder chapters.");
+      return;
+    }
   };
 
   const steps = [
