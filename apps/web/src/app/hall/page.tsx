@@ -670,6 +670,7 @@ export default function HallPage() {
         throw new Error("Supabase not ready.");
       }
       const { error } = await supabase.from("Trace").insert({
+        id: crypto.randomUUID(),
         authorId: currentUserId,
         ...tracePayload
       });
