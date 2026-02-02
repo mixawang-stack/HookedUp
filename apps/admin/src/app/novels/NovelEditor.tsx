@@ -74,8 +74,20 @@ const normalizeRawText = (text: string) => {
   let normalized = text.replace(/\r\n/g, "\n");
   const placeholderCount = (normalized.match(/口/g) ?? []).length;
   const spaceCount = (normalized.match(/ /g) ?? []).length;
-  if (placeholderCount > 0 && spaceCount < placeholderCount / 4) {
-    normalized = normalized.replace(/口/g, " ");
+  const newlineCount = (normalized.match(/\n/g) ?? []).length;
+  const replacementCount = (normalized.match(/\uFFFD/g) ?? []).length;
+  if (
+    placeholderCount > 0 &&
+    (spaceCount < placeholderCount / 4 || replacementCount > 0) &&
+    placeholderCount > 20
+  ) {
+    normalized = normalized.replace(/口{2,}/g, "\n").replace(/口/g, " ");
+  }
+  if (replacementCount > 0) {
+    normalized = normalized.replace(/\uFFFD/g, " ");
+  }
+  if (newlineCount === 0 && placeholderCount > 0) {
+    normalized = normalized.replace(/口{2,}/g, "\n");
   }
   return normalized;
 };
@@ -651,25 +663,27 @@ export default function NovelEditor({ novelId }: Props) {
       chapters.length === 0
         ? 1
         : Math.max(...chapters.map((chapter) => chapter.orderIndex)) + 1;
-    const { data, error } = await supabase
-      .from("NovelChapter")
-      .insert({
-        id: crypto.randomUUID(),
-        novelId: selectedNovel.id,
-        title: `Chapter ${orderIndex}`,
-        content: "",
-        orderIndex,
-        isFree: false,
-        isPublished: true,
-        price: null
-      })
-      .select()
-      .single();
-    if (error) {
+    try {
+      const res = await fetch("/api/admin/novels/chapters", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          novelId: selectedNovel.id,
+          orderIndex,
+          title: `Chapter ${orderIndex}`
+        })
+      });
+      if (!res.ok) {
+        throw new Error("Failed to add chapter.");
+      }
+      const payload = (await res.json()) as { data?: ChapterItem };
+      if (!payload.data) {
+        throw new Error("Failed to add chapter.");
+      }
+      setChapters((prev) => [...prev, payload.data as ChapterItem]);
+    } catch {
       setStatus("Failed to add chapter.");
-      return;
     }
-    setChapters((prev) => [...prev, data as ChapterItem]);
   };
 
   const handleDeleteChapter = async (chapterId: string) => {
