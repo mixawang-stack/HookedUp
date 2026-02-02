@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 
 import { getSupabaseClient } from "./supabaseClient";
@@ -13,6 +13,7 @@ export const useSupabaseSession = (): SupabaseSessionState => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
+  const refreshingRef = useRef(false);
 
   useEffect(() => {
     const supabase = getSupabaseClient();
@@ -21,18 +22,34 @@ export const useSupabaseSession = (): SupabaseSessionState => {
       return;
     }
 
-    supabase.auth
-      .getSession()
-      .then(({ data }) => {
+    const syncSession = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
         setSession(data.session ?? null);
         setUser(data.session?.user ?? null);
-        setReady(true);
-      })
-      .catch(() => {
+      } catch {
         setSession(null);
         setUser(null);
+      } finally {
         setReady(true);
-      });
+      }
+    };
+
+    const refreshSession = async () => {
+      if (refreshingRef.current) return;
+      refreshingRef.current = true;
+      try {
+        const { data } = await supabase.auth.refreshSession();
+        setSession(data.session ?? null);
+        setUser(data.session?.user ?? null);
+      } catch {
+        // keep existing state; AuthGate will redirect if needed
+      } finally {
+        refreshingRef.current = false;
+      }
+    };
+
+    syncSession();
 
     const { data: subscription } = supabase.auth.onAuthStateChange(
       (_event, nextSession) => {
@@ -42,8 +59,25 @@ export const useSupabaseSession = (): SupabaseSessionState => {
       }
     );
 
+    const handleFocus = () => {
+      if (document.visibilityState && document.visibilityState !== "visible") {
+        return;
+      }
+      refreshSession().catch(() => undefined);
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleFocus);
+
+    const interval = window.setInterval(() => {
+      refreshSession().catch(() => undefined);
+    }, 10 * 60 * 1000);
+
     return () => {
       subscription?.subscription.unsubscribe();
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleFocus);
+      window.clearInterval(interval);
     };
   }, []);
 
