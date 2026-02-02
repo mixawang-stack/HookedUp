@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     const supabase = getSupabaseAdmin();
     const { data: novel, error: novelError } = await supabase
       .from("Novel")
-      .select("id,title,description")
+      .select("id,title,description,authorId")
       .eq("id", novelId)
       .maybeSingle();
     if (novelError || !novel) {
@@ -47,6 +47,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "NOVEL_UPDATE_FAILED" }, { status: 500 });
       }
 
+      const createdById = novel.authorId ?? admin.id;
       if (room?.id) {
         const { error: roomUpdateError } = await supabase
           .from("Room")
@@ -69,11 +70,17 @@ export async function POST(request: Request) {
           isOfficial: true,
           allowSpectators: true,
           capacity: null,
-          createdById: admin.id,
+          createdById,
           novelId
         });
         if (roomInsertError) {
-          return NextResponse.json({ error: "ROOM_CREATE_FAILED" }, { status: 500 });
+          return NextResponse.json(
+            {
+              error: "ROOM_CREATE_FAILED",
+              details: roomInsertError.message
+            },
+            { status: 500 }
+          );
         }
       }
     } else {
