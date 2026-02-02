@@ -376,7 +376,6 @@ export default function NovelEditor({ novelId }: Props) {
           .update({
             attachmentUrl: urlData.publicUrl,
             contentSourceType: isPdf ? "PDF" : "DOCX",
-            parseStatus: "DONE",
             parsedChaptersCount: 0,
             lastParsedAt: new Date().toISOString()
           })
@@ -408,6 +407,7 @@ export default function NovelEditor({ novelId }: Props) {
         const text = payload.text ?? "";
         const chaptersParsed = splitChapters(text);
         const chaptersPayload = chaptersParsed.map((chapter, index) => ({
+          id: crypto.randomUUID(),
           novelId: id,
           title: chapter.title,
           content: chapter.content,
@@ -425,7 +425,6 @@ export default function NovelEditor({ novelId }: Props) {
           .update({
             attachmentUrl: urlData.publicUrl,
             contentSourceType: "DOCX",
-            parseStatus: "DONE",
             parsedChaptersCount: chaptersPayload.length,
             chapterCount: chaptersPayload.length,
             wordCount,
@@ -445,6 +444,7 @@ export default function NovelEditor({ novelId }: Props) {
         const text = await extractTextFromFile(file);
         const chaptersParsed = splitChapters(text);
         const chaptersPayload = chaptersParsed.map((chapter, index) => ({
+          id: crypto.randomUUID(),
           novelId: id,
           title: chapter.title,
           content: chapter.content,
@@ -461,7 +461,6 @@ export default function NovelEditor({ novelId }: Props) {
           .from("Novel")
           .update({
             contentSourceType: isMd ? "MD" : "TXT",
-            parseStatus: "DONE",
             parsedChaptersCount: chaptersPayload.length,
             chapterCount: chaptersPayload.length,
             wordCount,
@@ -606,6 +605,7 @@ export default function NovelEditor({ novelId }: Props) {
     const { data, error } = await supabase
       .from("NovelChapter")
       .insert({
+        id: crypto.randomUUID(),
         novelId: selectedNovel.id,
         title: `Chapter ${orderIndex}`,
         content: "",
