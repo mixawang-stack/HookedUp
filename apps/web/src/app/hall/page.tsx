@@ -622,6 +622,10 @@ export default function HallPage() {
       redirectToLogin();
       return;
     }
+    if (uploadingImage) {
+      setStatus("Please wait for image upload to complete.");
+      return;
+    }
     if (!traceInput.trim()) {
       setStatus("Please enter trace content.");
       return;
@@ -666,15 +670,23 @@ export default function HallPage() {
         }
       }
       const supabase = getSupabaseClient();
-      if (!supabase || !currentUserId) {
+      if (!supabase) {
         throw new Error("Supabase not ready.");
       }
-      const { error } = await supabase.from("Trace").insert({
-        id: crypto.randomUUID(),
-        authorId: currentUserId,
-        ...tracePayload
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) {
+        throw new Error("Please sign in again.");
+      }
+      const res = await fetch("/api/traces", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(tracePayload)
       });
-      if (error) {
+      if (!res.ok) {
         throw new Error("Failed to post.");
       }
       setTraceInput("");
