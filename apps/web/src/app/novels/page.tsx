@@ -69,27 +69,29 @@ export default function StoriesPage() {
       if (document.visibilityState && document.visibilityState !== "visible") {
         return;
       }
-      const supabase = getSupabaseClient();
-      if (!supabase) {
-        setStatus("Stories service is not configured.");
-        return;
-      }
-      supabase
-        .from("Novel")
-        .select("id,title,coverImageUrl,description,category,isFeatured,createdAt,status")
-        .eq("status", "PUBLISHED")
-        .eq("category", activeTab)
-        .order("isFeatured", { ascending: false })
-        .order("createdAt", { ascending: false })
-        .limit(30)
-        .then(({ data, error }) => {
-          if (error) {
-            setStatus("Failed to load stories.");
-            return;
-          }
-          setNovels((data ?? []) as NovelItem[]);
-        })
-        .catch(() => setStatus("Failed to load stories."));
+      const load = async () => {
+        const supabase = getSupabaseClient();
+        if (!supabase) {
+          setStatus("Stories service is not configured.");
+          return;
+        }
+        const { data, error } = await supabase
+          .from("Novel")
+          .select(
+            "id,title,coverImageUrl,description,category,isFeatured,createdAt,status"
+          )
+          .eq("status", "PUBLISHED")
+          .eq("category", activeTab)
+          .order("isFeatured", { ascending: false })
+          .order("createdAt", { ascending: false })
+          .limit(30);
+        if (error) {
+          setStatus("Failed to load stories.");
+          return;
+        }
+        setNovels((data ?? []) as NovelItem[]);
+      };
+      load().catch(() => setStatus("Failed to load stories."));
     };
     window.addEventListener("focus", handleRefresh);
     document.addEventListener("visibilitychange", handleRefresh);
