@@ -300,7 +300,6 @@ export default function AdminNovelsPage() {
           .update({
             attachmentUrl: fileUrl,
             contentSourceType: isPdf ? "PDF" : "DOCX",
-            parseStatus: "DONE",
             parsedChaptersCount: 0,
             lastParsedAt: new Date().toISOString()
           })
@@ -334,7 +333,6 @@ export default function AdminNovelsPage() {
           .from("Novel")
           .update({
             contentSourceType: isMd ? "MD" : "TXT",
-            parseStatus: "DONE",
             parsedChaptersCount: chaptersPayload.length,
             chapterCount: chaptersPayload.length,
             wordCount,
