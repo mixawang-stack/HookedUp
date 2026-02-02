@@ -294,11 +294,13 @@ export default function NovelEditor({ novelId }: Props) {
         updatedAt: now
       };
       if (selectedNovel) {
-        const { error } = await supabase
+        const { data: updated, error } = await supabase
           .from("Novel")
           .update(payload)
-          .eq("id", selectedNovel.id);
-        if (error) {
+          .eq("id", selectedNovel.id)
+          .select("id")
+          .maybeSingle();
+        if (error || !updated) {
           setStatus("Failed to save novel.");
           return;
         }
@@ -338,8 +340,13 @@ export default function NovelEditor({ novelId }: Props) {
       creemProductId: creemProductId.trim() || null,
       paymentLink: paymentLink.trim() || null
     };
-    const { error } = await supabase.from("Novel").update(payload).eq("id", id);
-    if (error) {
+    const { data: updated, error } = await supabase
+      .from("Novel")
+      .update(payload)
+      .eq("id", id)
+      .select("id")
+      .maybeSingle();
+    if (error || !updated) {
       setStatus("Failed to save pricing.");
       return false;
     }
@@ -539,11 +546,13 @@ export default function NovelEditor({ novelId }: Props) {
     setSaving(true);
     setStatus("Saving...");
     try {
-      const { error } = await supabase
+      const { data: updated, error } = await supabase
         .from("Novel")
         .update({ status: nextStatus, autoHallPost: autoPostHall })
-        .eq("id", selectedNovel.id);
-      if (error) {
+        .eq("id", selectedNovel.id)
+        .select("id")
+        .maybeSingle();
+      if (error || !updated) {
         setStatus("Failed to update novel.");
         return;
       }
