@@ -139,6 +139,7 @@ export default function NovelEditor({ novelId }: Props) {
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverUploading, setCoverUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [pendingNovelId, setPendingNovelId] = useState<string | null>(null);
 
   const [pricingMode, setPricingMode] = useState<"BOOK" | "CHAPTER">("BOOK");
   const [bookPrice, setBookPrice] = useState("");
@@ -152,6 +153,13 @@ export default function NovelEditor({ novelId }: Props) {
   const [contentStatus, setContentStatus] = useState<string | null>(null);
 
   const supabase = useMemo(() => getSupabaseClient(), []);
+  const ensureDraftId = () => {
+    if (selectedNovel?.id) return selectedNovel.id;
+    if (pendingNovelId) return pendingNovelId;
+    const id = crypto.randomUUID();
+    setPendingNovelId(id);
+    return id;
+  };
   const loadNovel = async (id: string) => {
     if (!supabase) return;
     const { data, error } = await supabase
@@ -237,9 +245,10 @@ export default function NovelEditor({ novelId }: Props) {
     }
     setCoverUploading(true);
     setStatus(null);
-    const path = `novels/${selectedNovel?.id ?? "new"}/covers/${Date.now()}-${
-      toSafeFileName(coverFile.name)
-    }`;
+    const draftId = ensureDraftId();
+    const path = `novels/${draftId}/covers/${Date.now()}-${toSafeFileName(
+      coverFile.name
+    )}`;
     const { error } = await supabase.storage
       .from(STORAGE_BUCKET)
       .upload(path, coverFile, { upsert: true });
@@ -293,9 +302,10 @@ export default function NovelEditor({ novelId }: Props) {
         }
         await loadNovel(selectedNovel.id);
       } else {
+        const draftId = ensureDraftId();
         const { data, error } = await supabase
           .from("Novel")
-          .insert(payload)
+          .insert({ id: draftId, ...payload })
           .select()
           .single();
         if (error || !data) {
@@ -303,6 +313,7 @@ export default function NovelEditor({ novelId }: Props) {
           return;
         }
         setSelectedNovel(data as NovelItem);
+        setPendingNovelId(null);
         router.replace(`/novels/${data.id}`);
       }
       setStep(2);
