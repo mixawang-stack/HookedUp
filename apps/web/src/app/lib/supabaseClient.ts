@@ -12,6 +12,12 @@ export const getSupabaseClient = () => {
   if (!supabaseUrl || !supabaseAnonKey) {
     return null;
   }
-  client = createClient(supabaseUrl, supabaseAnonKey);
+  client = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true
+    }
+  });
   return client;
 };
