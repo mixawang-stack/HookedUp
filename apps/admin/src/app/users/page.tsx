@@ -66,39 +66,35 @@ export default function AdminUsersPage() {
     if (!supabase || !isAdmin) return;
     setStatus(null);
     const currentPage = targetPage ?? page;
-    const rangeFrom = (currentPage - 1) * pageSize;
-    const rangeTo = rangeFrom + pageSize - 1;
-
-    let query = supabase
-      .from("User")
-      .select(
-        "id,email,maskName,maskAvatarUrl,country,gender,dob,createdAt,updatedAt,status",
-        { count: "exact" }
-      )
-      .order("createdAt", { ascending: false })
-      .range(rangeFrom, rangeTo);
-
-    if (search.trim()) {
-      const term = search.trim();
-      query = query.or(`email.ilike.%${term}%,maskName.ilike.%${term}%`);
-    }
-    if (country.trim()) {
-      query = query.eq("country", country.trim());
-    }
-    if (gender.trim()) {
-      query = query.eq("gender", gender.trim());
-    }
-    if (statusFilter.trim()) {
-      query = query.eq("status", statusFilter.trim());
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) {
+      setStatus("Please sign in again.");
+      return;
     }
 
-    const { data, error, count } = await query;
-    if (error) {
+    const params = new URLSearchParams({
+      page: String(currentPage),
+      pageSize: String(pageSize)
+    });
+    if (search.trim()) params.set("search", search.trim());
+    if (country.trim()) params.set("country", country.trim());
+    if (gender.trim()) params.set("gender", gender.trim());
+    if (statusFilter.trim()) params.set("status", statusFilter.trim());
+
+    const res = await fetch(`/api/admin/users?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) {
       setStatus("Failed to load users.");
       return;
     }
-    setUsers((data ?? []) as UserRow[]);
-    setTotal(count ?? 0);
+    const payload = (await res.json()) as {
+      data?: UserRow[];
+      count?: number;
+    };
+    setUsers((payload.data ?? []) as UserRow[]);
+    setTotal(payload.count ?? 0);
     setPage(currentPage);
   };
 

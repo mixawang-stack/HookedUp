@@ -581,19 +581,27 @@ export default function HallPage() {
     if (!supabase) {
       throw new Error("Supabase is not configured.");
     }
-    const path = `traces/${Date.now()}-${toSafeFileName(file.name)}`;
-    const { error } = await supabase.storage
-      .from(STORAGE_BUCKET)
-      .upload(path, file, { upsert: true });
-    if (error) {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) {
+      throw new Error("Please sign in again.");
+    }
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch("/api/traces/upload", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData
+    });
+    if (!res.ok) {
       throw new Error("Image upload failed.");
     }
-    const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
-    return {
-      imageUrl: data.publicUrl,
-      width: null,
-      height: null
+    const payload = (await res.json()) as {
+      imageUrl: string;
+      width: number | null;
+      height: number | null;
     };
+    return payload;
   };
 
   const clearSelectedImage = () => {
