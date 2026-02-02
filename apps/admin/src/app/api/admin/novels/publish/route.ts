@@ -54,13 +54,23 @@ export async function POST(request: Request) {
       }
 
       const createdById = admin.id;
+      const payloadBase = {
+        title: `${novel.title} Discussion Room`,
+        description: novel.description ?? null,
+        status: "LIVE" as const,
+        isOfficial: true,
+        allowSpectators: true,
+        capacity: null,
+        createdById: admin.id
+      };
+
       if (room?.id) {
         const { error: roomUpdateError } = await supabase
           .from("Room")
           .update({
-            title: `${novel.title} Discussion Room`,
-            description: novel.description ?? null,
-            status: "LIVE",
+            title: payloadBase.title,
+            description: payloadBase.description,
+            status: payloadBase.status,
             endsAt: null
           })
           .eq("id", room.id);
@@ -68,17 +78,26 @@ export async function POST(request: Request) {
           return NextResponse.json({ error: "ROOM_UPDATE_FAILED" }, { status: 500 });
         }
       } else {
-        const { error: roomInsertError } = await supabase.from("Room").insert({
-          id: randomUUID(),
-          title: `${novel.title} Discussion Room`,
-          description: novel.description ?? null,
-          status: "LIVE",
-          isOfficial: true,
-          allowSpectators: true,
-          capacity: null,
-          createdById,
-          novelId
-        });
+        let roomInsertError = (
+          await supabase.from("Room").insert({
+            id: randomUUID(),
+            ...payloadBase,
+            novelId
+          })
+        ).error;
+
+        if (
+          roomInsertError &&
+          roomInsertError.message?.includes("novelId") &&
+          roomInsertError.message?.includes("schema cache")
+        ) {
+          roomInsertError = (
+            await supabase.from("Room").insert({
+              id: randomUUID(),
+              ...payloadBase
+            })
+          ).error;
+        }
         if (roomInsertError) {
           return NextResponse.json(
             {
