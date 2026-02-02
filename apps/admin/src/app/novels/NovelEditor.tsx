@@ -337,7 +337,7 @@ export default function NovelEditor({ novelId }: Props) {
         paymentLink: paymentLink.trim() || null,
         isFeatured,
         autoHallPost: autoPostHall,
-        status: "DRAFT",
+        status: selectedNovel?.status ?? "DRAFT",
         updatedAt: now
       };
       if (selectedNovel) {
