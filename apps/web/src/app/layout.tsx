@@ -9,8 +9,8 @@ import Footer from "./components/Footer";
 import HostFloating from "./components/HostFloating";
 
 export const metadata: Metadata = {
-  title: "HookedUp? MVP",
-  description: "HookedUp MVP running"
+  title: "Hookedup Me",
+  description: "Hookedup Me"
 };
 
 export default function RootLayout({
