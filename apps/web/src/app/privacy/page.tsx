@@ -52,13 +52,13 @@ export default function PrivacyPage() {
         <p className="mt-2 text-sm text-text-secondary">
           You may request access to, correction of, or deletion of your personal data by
           contacting us at{" "}
-          <span className="font-semibold">mixa.wang@gmail.com</span>.
+          <span className="font-semibold">support@hookedup.me</span>.
         </p>
 
         <p className="mt-6 text-sm font-semibold text-text-primary">Contact</p>
         <p className="mt-2 text-sm text-text-secondary">
           If you have any questions about this Privacy Policy, please contact:{" "}
-          <span className="font-semibold">mixa.wang@gmail.com</span>
+          <span className="font-semibold">support@hookedup.me</span>
         </p>
       </div>
     </main>

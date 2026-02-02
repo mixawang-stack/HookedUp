@@ -35,7 +35,7 @@ export default function TermsPage() {
         </p>
         <p className="mt-2 text-sm text-text-secondary">
           For refund requests, please contact:{" "}
-          <span className="font-semibold">mixa.wang@gmail.com</span>.
+          <span className="font-semibold">support@hookedup.me</span>.
         </p>
 
         <p className="mt-6 text-sm font-semibold text-text-primary">Prohibited use</p>
@@ -74,7 +74,7 @@ export default function TermsPage() {
         <p className="mt-6 text-sm font-semibold text-text-primary">Contact</p>
         <p className="mt-2 text-sm text-text-secondary">
           If you have any questions about these Terms, please contact:{" "}
-          <span className="font-semibold">mixa.wang@gmail.com</span>
+          <span className="font-semibold">support@hookedup.me</span>
         </p>
       </div>
     </main>

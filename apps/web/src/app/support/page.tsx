@@ -19,7 +19,7 @@ export default function SupportPage() {
 
         <p className="mt-6 text-sm text-text-secondary">Please contact us at:</p>
         <p className="mt-2 text-sm text-text-secondary">
-          Email: <span className="font-semibold">mixa.wang@gmail.com</span>
+          Email: <span className="font-semibold">support@hookedup.me</span>
         </p>
         <p className="mt-4 text-sm text-text-secondary">
           Typical response time: 24–48 hours.

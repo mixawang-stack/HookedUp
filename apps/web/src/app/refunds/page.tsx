@@ -22,7 +22,7 @@ export default function RefundsPage() {
         </ul>
         <p className="mt-4 text-sm text-text-secondary">
           To request a refund, please contact:{" "}
-          <span className="font-semibold">mixa.wang@gmail.com</span>
+          <span className="font-semibold">support@hookedup.me</span>
         </p>
         <p className="mt-2 text-sm text-text-secondary">
           Please include your order email, date of purchase, and a brief description
