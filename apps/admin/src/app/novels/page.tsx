@@ -20,6 +20,7 @@ type NovelItem = {
   _count?: { chapters: number };
   chapterCount?: number | null;
   createdAt?: string;
+  chapters?: Array<{ count: number }> | null;
 };
 
 export default function AdminNovelsPage() {
