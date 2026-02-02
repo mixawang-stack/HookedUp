@@ -4,7 +4,10 @@ const readBearerToken = (request: Request) => {
   const header = request.headers.get("authorization") ?? "";
   const [type, token] = header.split(" ");
   if (type?.toLowerCase() !== "bearer" || !token) {
-    return null;
+    const cookie = request.headers.get("cookie") ?? "";
+    const match = cookie.match(/(?:^|;\\s*)admin_token=([^;]+)/);
+    if (!match) return null;
+    return decodeURIComponent(match[1]);
   }
   return token;
 };

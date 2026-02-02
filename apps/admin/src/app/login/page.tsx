@@ -49,6 +49,11 @@ export default function AdminLoginPage() {
         await supabase.auth.signOut();
         throw new Error("Admin access only.");
       }
+      if (data.session?.access_token) {
+        document.cookie = `admin_token=${encodeURIComponent(
+          data.session.access_token
+        )}; path=/; secure; samesite=lax`;
+      }
       router.replace("/novels");
     } catch (error) {
       const message =
