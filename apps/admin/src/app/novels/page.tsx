@@ -29,17 +29,6 @@ export default function AdminNovelsPage() {
   const [status, setStatus] = useState<string | null>(null);
   const isAdmin = userEmail === ADMIN_EMAIL;
 
-  const getAccessToken = async () => {
-    const supabase = getSupabaseClient();
-    if (!supabase) return null;
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (sessionData.session?.access_token) {
-      return sessionData.session.access_token;
-    }
-    const { data: refreshed } = await supabase.auth.refreshSession();
-    return refreshed.session?.access_token ?? null;
-  };
-
   useEffect(() => {
     const loadUser = async () => {
       const supabase = getSupabaseClient();
@@ -51,26 +40,11 @@ export default function AdminNovelsPage() {
   }, []);
 
   const loadNovels = async () => {
-    if (!isAdmin) return;
     setStatus(null);
-    const supabase = getSupabaseClient();
-    if (!supabase) {
-      setStatus("Supabase is not configured.");
-      return;
-    }
-    const token = await getAccessToken();
-    if (!token) {
-      setStatus("Please sign in again.");
-      return;
-    }
-
-    const res = await fetch("/api/admin/novels", {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    const res = await fetch("/api/admin/novels");
     if (!res.ok) {
       if (res.status === 401) {
         setStatus("Unauthorized. Please sign in again.");
-        await supabase.auth.signOut();
         return;
       }
       setStatus("Failed to load novels.");
@@ -86,13 +60,8 @@ export default function AdminNovelsPage() {
   };
 
   useEffect(() => {
-    if (!userEmail) return;
-    if (!isAdmin) {
-      setStatus("Admin access only.");
-      return;
-    }
     loadNovels().catch(() => undefined);
-  }, [userEmail, isAdmin]);
+  }, [userEmail]);
 
   const updateStatus = async (id: string, nextStatus: "PUBLISHED" | "ARCHIVED") => {
     const supabase = getSupabaseClient();
