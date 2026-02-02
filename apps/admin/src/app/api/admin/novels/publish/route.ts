@@ -60,7 +60,7 @@ export async function POST(request: Request) {
         status: "LIVE" as const,
         isOfficial: true,
         allowSpectators: true,
-        capacity: null,
+        capacity: 50,
         createdById: admin.id
       };
 
