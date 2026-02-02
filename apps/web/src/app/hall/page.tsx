@@ -619,8 +619,18 @@ export default function HallPage() {
       return;
     }
     if (selectedImageFile && !uploadedImageData) {
-      setImageError("Please wait for image upload to complete.");
-      return;
+      try {
+        setUploadingImage(true);
+        const imageData = await uploadTraceImage(selectedImageFile);
+        setUploadedImageData(imageData);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Image upload failed.";
+        setImageError(message);
+        return;
+      } finally {
+        setUploadingImage(false);
+      }
     }
     setPostingTrace(true);
     setStatus(null);
@@ -691,24 +701,7 @@ export default function HallPage() {
     setImageError(null);
     setUploadedImageData(null);
     
-    // Auto-upload image when selected
-    if (isSignedIn) {
-      try {
-        setUploadingImage(true);
-        const imageData = await uploadTraceImage(file);
-        setUploadedImageData(imageData);
-        // Use server URL for preview after upload - revoke blob URL first
-        URL.revokeObjectURL(previewUrl);
-        setImagePreview(imageData.imageUrl);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Upload failed.";
-        setImageError(message);
-        // On upload failure, keep the blob preview but clear uploaded data
-        setUploadedImageData(null);
-      } finally {
-        setUploadingImage(false);
-      }
-    }
+    setUploadingImage(false);
   };
 
   const formatBytes = (size: number) => {

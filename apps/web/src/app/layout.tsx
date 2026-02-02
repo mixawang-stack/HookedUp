@@ -6,6 +6,7 @@ import ActiveRoomPanel from "./components/ActiveRoomPanel";
 import PageShell from "./components/PageShell";
 import TopNav from "./components/TopNav";
 import Footer from "./components/Footer";
+import HostFloating from "./components/HostFloating";
 
 export const metadata: Metadata = {
   title: "HookedUp? MVP",
@@ -27,6 +28,7 @@ export default function RootLayout({
         {children}
         <Footer />
         <ActiveRoomPanel />
+        <HostFloating />
       </body>
     </html>
   );

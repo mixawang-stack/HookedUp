@@ -185,12 +185,16 @@ export default function TopNav() {
     return null;
   }
 
+  const navItems = session
+    ? [...NAV_ITEMS, { href: "/private", label: "Private" }]
+    : NAV_ITEMS;
+
   return (
     <nav className="sticky top-0 z-50 border-b border-border-default bg-card/90 backdrop-blur-lg">
       <div className="ui-container relative flex items-center justify-end py-3">
         <div className="absolute left-1/2 -translate-x-1/2">
           <div className="ui-tab-list">
-            {NAV_ITEMS.map((item) => {
+            {navItems.map((item) => {
               const isActive =
                 pathname === item.href || pathname.startsWith(`${item.href}/`);
               return (
