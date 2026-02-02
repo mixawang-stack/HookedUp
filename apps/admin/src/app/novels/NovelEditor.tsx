@@ -669,9 +669,17 @@ export default function NovelEditor({ novelId }: Props) {
         ? 1
         : Math.max(...chapters.map((chapter) => chapter.orderIndex)) + 1;
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json"
+      };
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
       const res = await fetch("/api/admin/novels/chapters", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           novelId: selectedNovel.id,
           orderIndex,
