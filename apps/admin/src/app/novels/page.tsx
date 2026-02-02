@@ -39,33 +39,30 @@ export default function AdminNovelsPage() {
   }, []);
 
   const loadNovels = async () => {
-    const supabase = getSupabaseClient();
-    if (!supabase || !isAdmin) return;
+    if (!isAdmin) return;
     setStatus(null);
-    const { data, error } = await supabase
-      .from("Novel")
-      .select(
-        `
-        id,
-        title,
-        coverImageUrl,
-        description,
-        tagsJson,
-        status,
-        category,
-        isFeatured,
-        chapterCount,
-        createdAt,
-        chapters:NovelChapter(count)
-      `
-      )
-      .order("createdAt", { ascending: false });
-    if (error) {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setStatus("Supabase is not configured.");
+      return;
+    }
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) {
+      setStatus("Please sign in again.");
+      return;
+    }
+
+    const res = await fetch("/api/admin/novels", {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) {
       setStatus("Failed to load novels.");
       return;
     }
+    const payload = (await res.json()) as { data?: NovelItem[] };
     const normalized =
-      data?.map((item) => ({
+      payload.data?.map((item) => ({
         ...item,
         _count: { chapters: item.chapters?.[0]?.count ?? 0 }
       })) ?? [];
