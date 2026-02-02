@@ -63,10 +63,8 @@ export default function PurchasesPage() {
         novel: PurchaseItem["novel"] | null;
         chapter?: PurchaseItem["chapter"] | null;
       }>;
-      const items = normalized.filter(
-        (item): item is PurchaseItem => Boolean(item.novel)
-      );
-      setPurchases(items);
+      const items = normalized.filter((item) => Boolean(item.novel));
+      setPurchases(items as PurchaseItem[]);
     };
     load().catch(() => setStatus("Failed to load purchases."));
   }, [ready, user]);
