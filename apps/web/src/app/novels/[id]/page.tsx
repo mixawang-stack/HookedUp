@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { getSupabaseClient } from "../../lib/supabaseClient";
+import { cleanNovelText } from "../../../utils/textClean";
 
 type NovelPreview = {
   id: string;
@@ -453,7 +454,7 @@ export default function NovelDetailPage() {
                           <h2 className="text-xl font-semibold text-text-primary">
                             {chapter.title || `Chapter ${chapter.orderIndex}`}
                           </h2>
-                          {chapter.content
+                          {cleanNovelText(chapter.content)
                             .split("\n\n")
                             .map((paragraph, index) => (
                               <p

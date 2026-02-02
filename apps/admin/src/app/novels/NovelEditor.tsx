@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { getSupabaseClient } from "../lib/supabaseClient";
+import { cleanNovelText, dumpWeirdChars } from "../../utils/textClean";
 
 const STORAGE_BUCKET =
   process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET ?? "uploads";
@@ -71,20 +72,16 @@ const extractTextFromFile = async (file: File) => {
 
 const normalizeRawText = (text: string) => {
   if (!text) return text;
-  let normalized = text.replace(/\r\n/g, "\n");
+  let normalized = cleanNovelText(text).replace(/\r\n/g, "\n");
   const placeholderCount = (normalized.match(/口/g) ?? []).length;
   const spaceCount = (normalized.match(/ /g) ?? []).length;
   const newlineCount = (normalized.match(/\n/g) ?? []).length;
-  const replacementCount = (normalized.match(/\uFFFD/g) ?? []).length;
   if (
     placeholderCount > 0 &&
-    (spaceCount < placeholderCount / 4 || replacementCount > 0) &&
+    spaceCount < placeholderCount / 4 &&
     placeholderCount > 20
   ) {
     normalized = normalized.replace(/口{2,}/g, "\n").replace(/口/g, " ");
-  }
-  if (replacementCount > 0) {
-    normalized = normalized.replace(/\uFFFD/g, " ");
   }
   if (newlineCount === 0 && placeholderCount > 0) {
     normalized = normalized.replace(/口{2,}/g, "\n");
@@ -461,7 +458,11 @@ export default function NovelEditor({ novelId }: Props) {
           return false;
         }
         const payload = (await res.json()) as { text?: string };
-        const text = normalizeRawText(payload.text ?? "");
+        const rawText = payload.text ?? "";
+        if (process.env.NODE_ENV !== "production") {
+          console.log("weird chars:", dumpWeirdChars(rawText));
+        }
+        const text = normalizeRawText(rawText);
         const chaptersParsed = splitChapters(text);
         const chaptersPayload = chaptersParsed.map((chapter, index) => ({
           id: crypto.randomUUID(),
@@ -498,7 +499,11 @@ export default function NovelEditor({ novelId }: Props) {
       }
 
       if (isTxt || isMd) {
-        const text = normalizeRawText(await extractTextFromFile(file));
+        const rawText = await extractTextFromFile(file);
+        if (process.env.NODE_ENV !== "production") {
+          console.log("weird chars:", dumpWeirdChars(rawText));
+        }
+        const text = normalizeRawText(rawText);
         const chaptersParsed = splitChapters(text);
         const chaptersPayload = chaptersParsed.map((chapter, index) => ({
           id: crypto.randomUUID(),
