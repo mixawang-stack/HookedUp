@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { getSupabaseClient } from "../lib/supabaseClient";
 import { useSupabaseSession } from "../lib/useSupabaseSession";
 
 export const dynamic = "force-dynamic";
@@ -54,7 +55,21 @@ export default function ConsentPage() {
         setStatus("Failed to load threads.");
         return;
       }
-      setMatches((data ?? []) as MatchItem[]);
+      const normalized = (data ?? []).map((item) => ({
+        id: item.id,
+        matchedAt: item.matchedAt,
+        user1: item.user1?.[0] ?? null,
+        user2: item.user2?.[0] ?? null
+      })) as Array<{
+        id: string;
+        matchedAt: string;
+        user1: MatchItem["user1"] | null;
+        user2: MatchItem["user2"] | null;
+      }>;
+      const readyMatches = normalized.filter(
+        (item): item is MatchItem => Boolean(item.user1 && item.user2)
+      );
+      setMatches(readyMatches);
     };
     loadMatches().catch(() => setStatus("Failed to load threads."));
   }, [ready, user]);
