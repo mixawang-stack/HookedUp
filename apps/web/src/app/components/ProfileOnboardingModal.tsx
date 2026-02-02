@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+import { getSupabaseClient } from "../lib/supabaseClient";
+import { toSafeFileName } from "../lib/fileName";
+
+const STORAGE_BUCKET =
+  process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET ?? "uploads";
 
 type MeProfile = {
   id: string;
@@ -19,7 +22,7 @@ type MeProfile = {
 };
 
 type ProfileOnboardingModalProps = {
-  token: string;
+  userId: string;
   me: MeProfile;
   onClose: () => void;
   onSaved: (nextMe: MeProfile) => void;
@@ -32,7 +35,7 @@ const parseTags = (value: string) =>
     .filter((item) => item.length > 0);
 
 export default function ProfileOnboardingModal({
-  token,
+  userId,
   me,
   onClose,
   onSaved
@@ -59,11 +62,6 @@ export default function ProfileOnboardingModal({
   const [status, setStatus] = useState<string | null>(null);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
 
-  const authHeader = useMemo(
-    () => ({ Authorization: `Bearer ${token}` }),
-    [token]
-  );
-
   useEffect(() => {
     if (!avatarFile) {
       return;
@@ -87,64 +85,82 @@ export default function ProfileOnboardingModal({
     setSaving(true);
     setStatus(null);
     try {
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        throw new Error("Supabase is not configured.");
+      }
       let avatarUrl = me.maskAvatarUrl ?? null;
       if (avatarFile) {
-        const formData = new FormData();
-        formData.append("file", avatarFile);
-        const uploadRes = await fetch(`${API_BASE}/uploads/avatar`, {
-          method: "POST",
-          headers: { ...authHeader },
-          body: formData
-        });
-        if (!uploadRes.ok) {
-          const body = await uploadRes.json().catch(() => ({}));
-          throw new Error(body?.message ?? "Avatar upload failed.");
+        const path = `avatars/${userId}-${Date.now()}-${toSafeFileName(
+          avatarFile.name
+        )}`;
+        const { error } = await supabase.storage
+          .from(STORAGE_BUCKET)
+          .upload(path, avatarFile, { upsert: true });
+        if (error) {
+          throw new Error("Avatar upload failed.");
         }
-        const data = (await uploadRes.json()) as { avatarUrl?: string };
-        avatarUrl = data.avatarUrl ?? null;
+        const { data } = supabase.storage
+          .from(STORAGE_BUCKET)
+          .getPublicUrl(path);
+        avatarUrl = data.publicUrl ?? null;
       }
 
-      const profileRes = await fetch(`${API_BASE}/me`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader
-        },
-        body: JSON.stringify({
-          maskName: maskName.trim(),
-          bio: bio.trim(),
+      const { error: profileError } = await supabase
+        .from("User")
+        .update({
+          maskName: maskName.trim() || null,
+          bio: bio.trim() || null,
           ...(avatarUrl ? { maskAvatarUrl: avatarUrl } : {})
         })
-      });
-      if (!profileRes.ok) {
-        const body = await profileRes.json().catch(() => ({}));
-        throw new Error(body?.message ?? "Profile update failed.");
+        .eq("id", userId);
+      if (profileError) {
+        throw new Error("Profile update failed.");
       }
 
-      const prefRes = await fetch(`${API_BASE}/me/preferences`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader
-        },
-        body: JSON.stringify({
-          vibeTagsJson: parseTags(vibeTags),
-          interestsJson: parseTags(interests),
-          allowStrangerPrivate,
-          smPreference: personality.trim()
-        })
-      });
-      if (!prefRes.ok) {
-        const body = await prefRes.json().catch(() => ({}));
-        throw new Error(body?.message ?? "Preference update failed.");
+      const { error: prefError } = await supabase
+        .from("Preference")
+        .upsert(
+          {
+            userId,
+            vibeTagsJson: parseTags(vibeTags),
+            interestsJson: parseTags(interests),
+            allowStrangerPrivate,
+            smPreference: personality.trim() || null
+          },
+          { onConflict: "userId" }
+        );
+      if (prefError) {
+        throw new Error("Preference update failed.");
       }
 
-      const meRes = await fetch(`${API_BASE}/me`, { headers: { ...authHeader } });
-      if (!meRes.ok) {
+      const { data: updated } = await supabase
+        .from("User")
+        .select(
+          "id,maskName,maskAvatarUrl,bio,preference:Preference(vibeTagsJson,interestsJson,allowStrangerPrivate,smPreference)"
+        )
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (!updated) {
         throw new Error("Failed to refresh profile.");
       }
-      const updated = (await meRes.json()) as MeProfile;
-      onSaved(updated);
+
+      onSaved({
+        id: updated.id,
+        maskName: updated.maskName ?? null,
+        maskAvatarUrl: updated.maskAvatarUrl ?? null,
+        bio: updated.bio ?? null,
+        preference: updated.preference?.[0]
+          ? {
+              vibeTags: updated.preference[0].vibeTagsJson ?? null,
+              interests: updated.preference[0].interestsJson ?? null,
+              allowStrangerPrivate:
+                updated.preference[0].allowStrangerPrivate ?? null,
+              smPreference: updated.preference[0].smPreference ?? null
+            }
+          : null
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Save failed.";
       setStatus(message);

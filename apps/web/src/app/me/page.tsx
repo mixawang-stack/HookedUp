@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "../lib/supabaseClient";
+import { toSafeFileName } from "../lib/fileName";
 
 export const dynamic = "force-dynamic";
 
@@ -155,7 +156,9 @@ export default function MePage() {
       }
       let avatarUrl = me?.maskAvatarUrl ?? null;
       if (avatarFile) {
-        const path = `avatars/${userId}/${Date.now()}-${avatarFile.name}`;
+        const path = `avatars/${userId}/${Date.now()}-${toSafeFileName(
+          avatarFile.name
+        )}`;
         const { error } = await supabase.storage
           .from(STORAGE_BUCKET)
           .upload(path, avatarFile, { upsert: true });

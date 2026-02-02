@@ -1,15 +1,19 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMemo, useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { getSupabaseClient } from "../lib/supabaseClient";
+import { useSupabaseSession } from "../lib/useSupabaseSession";
+import { toSafeFileName } from "../lib/fileName";
+
 export const dynamic = "force-dynamic";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+const STORAGE_BUCKET =
+  process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET ?? "uploads";
 
 const profileSchema = z.object({
   maskName: z.string().max(64).optional(),
@@ -26,21 +30,6 @@ const preferenceSchema = z.object({
 
 type PreferenceForm = z.infer<typeof preferenceSchema>;
 
-type MeResponse = {
-  id: string;
-  email: string;
-  maskName: string | null;
-  maskAvatarUrl: string | null;
-  gender: string | null;
-};
-
-type PreferenceResponse = {
-  gender: string | null;
-  lookingForGender: string | null;
-  smPreference: string | null;
-  tagsJson: string[] | null;
-} | null;
-
 function parseTags(input?: string) {
   if (!input) {
     return [];
@@ -54,7 +43,7 @@ function parseTags(input?: string) {
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const [token, setToken] = useState<string | null>(null);
+  const { user, ready } = useSupabaseSession();
   const [step, setStep] = useState(1);
   const [submitStatus, setSubmitStatus] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -80,36 +69,31 @@ export default function OnboardingPage() {
     }
   });
 
-  const authHeader = useMemo(() => {
-    if (!token) {
-      return null;
-    }
-    return { Authorization: `Bearer ${token}` };
-  }, [token]);
-
   useEffect(() => {
-    const stored = localStorage.getItem("accessToken");
-    if (!stored) {
-      router.push("/login");
+    if (!ready) {
       return;
     }
-    setToken(stored);
-  }, [router]);
+    if (!user) {
+      router.push("/login");
+    }
+  }, [ready, router, user]);
 
   useEffect(() => {
-    if (!authHeader) {
+    if (!user) {
       return;
     }
 
     const fetchProfile = async () => {
-      const meRes = await fetch(`${API_BASE}/me`, {
-        headers: {
-          ...authHeader
-        }
-      });
-
-      if (meRes.ok) {
-        const me = (await meRes.json()) as MeResponse;
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        throw new Error("Supabase is not configured.");
+      }
+      const { data: me } = await supabase
+        .from("User")
+        .select("id,email,maskName,maskAvatarUrl,gender")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (me) {
         profileForm.reset({
           maskName: me.maskName ?? "",
           gender: me.gender ?? ""
@@ -117,26 +101,23 @@ export default function OnboardingPage() {
         setAvatarPreview(me.maskAvatarUrl ?? null);
       }
 
-      const prefRes = await fetch(`${API_BASE}/me/preferences`, {
-        headers: {
-          ...authHeader
-        }
-      });
+      const { data: prefs } = await supabase
+        .from("Preference")
+        .select("gender,lookingForGender,smPreference,tagsJson")
+        .eq("userId", user.id)
+        .maybeSingle();
 
-      if (prefRes.ok) {
-        const prefs = (await prefRes.json()) as PreferenceResponse;
-        preferenceForm.reset({
-          lookingForGender: prefs?.lookingForGender ?? "",
-          smPreference: prefs?.smPreference ?? "",
-          tags: prefs?.tagsJson?.join(", ") ?? ""
-        });
-      }
+      preferenceForm.reset({
+        lookingForGender: prefs?.lookingForGender ?? "",
+        smPreference: prefs?.smPreference ?? "",
+        tags: prefs?.tagsJson?.join(", ") ?? ""
+      });
     };
 
     fetchProfile().catch(() => {
       setSubmitStatus("Failed to load profile.");
     });
-  }, [authHeader, profileForm, preferenceForm]);
+  }, [user, profileForm, preferenceForm]);
 
   useEffect(() => {
     if (!avatarFile) {
@@ -152,7 +133,7 @@ export default function OnboardingPage() {
   };
 
   const handleSubmitAll = async () => {
-    if (!authHeader) {
+    if (!user) {
       setSubmitStatus("Please log in again.");
       return;
     }
@@ -160,90 +141,61 @@ export default function OnboardingPage() {
     setSubmitStatus(null);
     setSubmitting(true);
     try {
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        throw new Error("Supabase is not configured.");
+      }
       let avatarUrl: string | null = null;
       if (avatarFile) {
-        const formData = new FormData();
-        formData.append("file", avatarFile);
-        const res = await fetch(`${API_BASE}/uploads/avatar`, {
-          method: "POST",
-          headers: {
-            ...authHeader
-          },
-          body: formData
-        });
-        if (res.status === 401) {
-          throw new Error("INVALID_ACCESS_TOKEN");
+        const path = `avatars/${user.id}-${Date.now()}-${toSafeFileName(
+          avatarFile.name
+        )}`;
+        const { error } = await supabase.storage
+          .from(STORAGE_BUCKET)
+          .upload(path, avatarFile, { upsert: true });
+        if (error) {
+          throw new Error("Avatar upload failed.");
         }
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          const rawMessage = Array.isArray(body?.message)
-            ? body.message.join("; ")
-            : body?.message;
-          throw new Error(rawMessage ?? `HTTP ${res.status}`);
-        }
-        const data = (await res.json()) as { avatarUrl?: string };
-        avatarUrl = data.avatarUrl ?? null;
+        const { data } = supabase.storage
+          .from(STORAGE_BUCKET)
+          .getPublicUrl(path);
+        avatarUrl = data.publicUrl ?? null;
       }
 
       const profileValues = profileForm.getValues();
       const preferenceValues = preferenceForm.getValues();
-      const profileRes = await fetch(`${API_BASE}/me`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader
-        },
-        body: JSON.stringify({
-          maskName: profileValues.maskName ?? "",
-          gender: profileValues.gender ?? "",
+      const { error: profileError } = await supabase
+        .from("User")
+        .update({
+          maskName: profileValues.maskName ?? null,
+          gender: profileValues.gender ?? null,
           ...(avatarUrl ? { maskAvatarUrl: avatarUrl } : {})
         })
-      });
-      if (profileRes.status === 401) {
-        throw new Error("INVALID_ACCESS_TOKEN");
-      }
-      if (!profileRes.ok) {
-        const body = await profileRes.json().catch(() => ({}));
-        const rawMessage = Array.isArray(body?.message)
-          ? body.message.join("; ")
-          : body?.message;
-        throw new Error(rawMessage ?? `HTTP ${profileRes.status}`);
+        .eq("id", user.id);
+      if (profileError) {
+        throw new Error("Failed to update profile.");
       }
 
-      const preferenceRes = await fetch(`${API_BASE}/me/preferences`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader
-        },
-        body: JSON.stringify({
-          gender: profileValues.gender || null,
-          lookingForGender: preferenceValues.lookingForGender || null,
-          smPreference: preferenceValues.smPreference || null,
-          tagsJson: parseTags(preferenceValues.tags)
-        })
-      });
-      if (preferenceRes.status === 401) {
-        throw new Error("INVALID_ACCESS_TOKEN");
-      }
-      if (!preferenceRes.ok) {
-        const body = await preferenceRes.json().catch(() => ({}));
-        const rawMessage = Array.isArray(body?.message)
-          ? body.message.join("; ")
-          : body?.message;
-        throw new Error(rawMessage ?? `HTTP ${preferenceRes.status}`);
+      const { error: preferenceError } = await supabase
+        .from("Preference")
+        .upsert(
+          {
+            userId: user.id,
+            gender: profileValues.gender || null,
+            lookingForGender: preferenceValues.lookingForGender || null,
+            smPreference: preferenceValues.smPreference || null,
+            tagsJson: parseTags(preferenceValues.tags)
+          },
+          { onConflict: "userId" }
+        );
+      if (preferenceError) {
+        throw new Error("Failed to update preferences.");
       }
 
       setSubmitStatus("That's enough for now. The rest happens naturally.");
       setTimeout(() => router.push("/hall"), 800);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Submission failed.";
-      if (message === "INVALID_ACCESS_TOKEN") {
-        localStorage.removeItem("accessToken");
-        setSubmitStatus("Session expired. Please sign in again.");
-        router.push("/login");
-        return;
-      }
       setSubmitStatus(message);
     } finally {
       setSubmitting(false);

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getSupabaseClient } from "../../lib/supabaseClient";
+import { toSafeFileName } from "../../lib/fileName";
 
 export const dynamic = "force-dynamic";
 
@@ -208,6 +209,7 @@ export default function AdminNovelsPage() {
     const supabase = getSupabaseClient();
     if (!supabase) return;
     setStatus(null);
+    const now = new Date().toISOString();
     const payload = {
       title,
       coverImageUrl,
@@ -219,7 +221,8 @@ export default function AdminNovelsPage() {
       pricingMode: contentMode,
       bookPrice: bookPrice ? Number(bookPrice) : null,
       bookPromoPrice: bookPromoPrice ? Number(bookPromoPrice) : null,
-      currency
+      currency,
+      updatedAt: now
     };
     if (selectedNovel) {
       const { error } = await supabase
@@ -231,7 +234,10 @@ export default function AdminNovelsPage() {
         return;
       }
     } else {
-      const { error } = await supabase.from("Novel").insert(payload);
+      const draftId = crypto.randomUUID();
+      const { error } = await supabase
+        .from("Novel")
+        .insert({ id: draftId, createdAt: now, ...payload });
       if (error) {
         setStatus("Failed to save novel.");
         return;
@@ -245,7 +251,9 @@ export default function AdminNovelsPage() {
   const uploadFileToStorage = async (file: File, novelId: string) => {
     const supabase = getSupabaseClient();
     if (!supabase) return null;
-    const path = `novels/${novelId}/${Date.now()}-${file.name}`;
+    const path = `novels/${novelId}/${Date.now()}-${toSafeFileName(
+      file.name
+    )}`;
     const { error } = await supabase.storage
       .from(STORAGE_BUCKET)
       .upload(path, file, { upsert: true });

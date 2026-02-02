@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import ProfileCard from "../components/ProfileCard";
 import { emitHostStatus } from "../lib/hostStatus";
 import { getSupabaseClient } from "../lib/supabaseClient";
+import { toSafeFileName } from "../lib/fileName";
 
 export const dynamic = "force-dynamic";
 
@@ -580,7 +581,7 @@ export default function HallPage() {
     if (!supabase) {
       throw new Error("Supabase is not configured.");
     }
-    const path = `traces/${Date.now()}-${file.name}`;
+    const path = `traces/${Date.now()}-${toSafeFileName(file.name)}`;
     const { error } = await supabase.storage
       .from(STORAGE_BUCKET)
       .upload(path, file, { upsert: true });
