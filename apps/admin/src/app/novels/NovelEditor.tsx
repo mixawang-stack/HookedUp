@@ -353,6 +353,7 @@ export default function NovelEditor({ novelId }: Props) {
     setContentStatus(null);
     const isPdf = file.name.toLowerCase().endsWith(".pdf");
     const isDocx = file.name.toLowerCase().endsWith(".docx");
+    const isDoc = file.name.toLowerCase().endsWith(".doc");
     const isTxt = file.name.toLowerCase().endsWith(".txt");
     const isMd = file.name.toLowerCase().endsWith(".md");
 
@@ -381,6 +382,62 @@ export default function NovelEditor({ novelId }: Props) {
           })
           .eq("id", id);
         setContentStatus("Uploaded attachment. Parsing not available.");
+        return true;
+      }
+
+      if (isDoc) {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (!token) {
+          setStatus("Please sign in again.");
+          return false;
+        }
+        const res = await fetch("/api/novels/parse-doc", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ bucket: STORAGE_BUCKET, path })
+        });
+        if (!res.ok) {
+          setStatus("Failed to parse DOC file.");
+          return false;
+        }
+        const payload = (await res.json()) as { text?: string };
+        const text = payload.text ?? "";
+        const chaptersParsed = splitChapters(text);
+        const chaptersPayload = chaptersParsed.map((chapter, index) => ({
+          novelId: id,
+          title: chapter.title,
+          content: chapter.content,
+          orderIndex: index + 1,
+          isFree: index === 0,
+          isPublished: true
+        }));
+        await supabase.from("NovelChapter").delete().eq("novelId", id);
+        if (chaptersPayload.length > 0) {
+          await supabase.from("NovelChapter").insert(chaptersPayload);
+        }
+        const wordCount = text.split(/\s+/).filter(Boolean).length;
+        await supabase
+          .from("Novel")
+          .update({
+            attachmentUrl: urlData.publicUrl,
+            contentSourceType: "DOCX",
+            parseStatus: "DONE",
+            parsedChaptersCount: chaptersPayload.length,
+            chapterCount: chaptersPayload.length,
+            wordCount,
+            lastParsedAt: new Date().toISOString(),
+            contentRawText: text
+          })
+          .eq("id", id);
+        setContentStatus(
+          `Parsed ${chaptersPayload.length} chapters - ${wordCount} words`
+        );
+        await loadChapters(id);
+        setFullText(text);
         return true;
       }
 
