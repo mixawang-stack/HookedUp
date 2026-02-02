@@ -803,12 +803,21 @@ export default function HallPage() {
 
   const renderTraceAuthor = (author: TraceAuthor) => {
     if (!author) {
-      return "Anonymous";
+      return "User";
+    }
+    const name = author.maskName?.trim();
+    if (name) {
+      return name;
     }
     if (author.role === "OFFICIAL") {
-      return author.maskName ?? "House";
+      return "Official";
     }
-    return author.maskName ?? "Anonymous";
+    return author.id ? `User ${author.id.slice(0, 4)}` : "User";
+  };
+
+  const renderAuthorInitial = (author: TraceAuthor) => {
+    const name = renderTraceAuthor(author);
+    return name.slice(0, 1).toUpperCase();
   };
 
   const normalizeTraceContent = (value: string) => {
@@ -1010,7 +1019,9 @@ export default function HallPage() {
                   className="h-8 w-8 rounded-full object-cover"
                 />
               ) : (
-                <span className="h-8 w-8 rounded-full bg-surface" />
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-surface text-[10px] font-semibold text-text-secondary">
+                  {renderAuthorInitial(trace.author)}
+                </span>
               )}
             </button>
             <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-text-primary">
@@ -1327,7 +1338,9 @@ export default function HallPage() {
                             className="h-6 w-6 rounded-full object-cover"
                           />
                         ) : (
-                          <span className="h-6 w-6 rounded-full bg-surface" />
+                          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-surface text-[9px] font-semibold text-text-secondary">
+                            {renderAuthorInitial(traceDetail.trace.author)}
+                          </span>
                         )}
                       </button>
                       <span>
