@@ -61,7 +61,7 @@ export default function PurchasesPage() {
         currency: string;
         pricingMode: PurchaseItem["pricingMode"];
         novel: PurchaseItem["novel"] | null;
-        chapter: PurchaseItem["chapter"] | null;
+        chapter?: PurchaseItem["chapter"] | null;
       }>;
       const items = normalized.filter(
         (item): item is PurchaseItem => Boolean(item.novel)
