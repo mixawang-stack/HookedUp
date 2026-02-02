@@ -274,6 +274,7 @@ export default function NovelEditor({ novelId }: Props) {
     setStatus("Saving...");
     try {
       const uploadedCoverUrl = await uploadCoverIfNeeded();
+      const now = new Date().toISOString();
       const payload = {
         title,
         coverImageUrl: uploadedCoverUrl ?? coverImageUrl,
@@ -289,7 +290,8 @@ export default function NovelEditor({ novelId }: Props) {
         paymentLink: paymentLink.trim() || null,
         isFeatured,
         autoHallPost: autoPostHall,
-        status: "DRAFT"
+        status: "DRAFT",
+        updatedAt: now
       };
       if (selectedNovel) {
         const { error } = await supabase
@@ -305,7 +307,7 @@ export default function NovelEditor({ novelId }: Props) {
         const draftId = ensureDraftId();
         const { data, error } = await supabase
           .from("Novel")
-          .insert({ id: draftId, ...payload })
+          .insert({ id: draftId, ...payload, createdAt: now })
           .select()
           .single();
         if (error || !data) {
