@@ -51,6 +51,17 @@ export default function AdminUsersPage() {
   const offset = useMemo(() => (page - 1) * pageSize, [page, pageSize]);
   const isAdmin = adminEmail === ADMIN_EMAIL;
 
+  const getAccessToken = async () => {
+    const supabase = getSupabaseClient();
+    if (!supabase) return null;
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (sessionData.session?.access_token) {
+      return sessionData.session.access_token;
+    }
+    const { data: refreshed } = await supabase.auth.refreshSession();
+    return refreshed.session?.access_token ?? null;
+  };
+
   useEffect(() => {
     const loadAdmin = async () => {
       const supabase = getSupabaseClient();
@@ -66,8 +77,7 @@ export default function AdminUsersPage() {
     if (!supabase || !isAdmin) return;
     setStatus(null);
     const currentPage = targetPage ?? page;
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData.session?.access_token;
+    const token = await getAccessToken();
     if (!token) {
       setStatus("Please sign in again.");
       return;
@@ -86,6 +96,11 @@ export default function AdminUsersPage() {
       headers: { Authorization: `Bearer ${token}` }
     });
     if (!res.ok) {
+      if (res.status === 401) {
+        setStatus("Unauthorized. Please sign in again.");
+        await supabase.auth.signOut();
+        return;
+      }
       setStatus("Failed to load users.");
       return;
     }
