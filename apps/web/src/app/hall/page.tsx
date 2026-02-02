@@ -432,23 +432,24 @@ export default function HallPage() {
 
     try {
       const supabase = getSupabaseClient();
-      if (!supabase || !currentUserId) {
+      if (!supabase) {
         throw new Error("Supabase not ready.");
       }
-      if (nextLiked) {
-        await supabase.from("TraceLike").upsert(
-          {
-            traceId,
-            userId: currentUserId
-          },
-          { onConflict: "traceId,userId" }
-        );
-      } else {
-        await supabase
-          .from("TraceLike")
-          .delete()
-          .eq("traceId", traceId)
-          .eq("userId", currentUserId);
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) {
+        throw new Error("Please sign in again.");
+      }
+      const res = await fetch("/api/traces/like", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ traceId, like: nextLiked })
+      });
+      if (!res.ok) {
+        throw new Error("Failed to update like.");
       }
     } catch (error) {
       const message =
