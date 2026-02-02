@@ -3,12 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "../lib/supabaseClient";
-import { toSafeFileName } from "../lib/fileName";
 
 export const dynamic = "force-dynamic";
-
-const STORAGE_BUCKET =
-  process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET ?? "uploads";
 
 type MeResponse = {
   id: string;
@@ -156,17 +152,23 @@ export default function MePage() {
       }
       let avatarUrl = me?.maskAvatarUrl ?? null;
       if (avatarFile) {
-        const path = `avatars/${userId}/${Date.now()}-${toSafeFileName(
-          avatarFile.name
-        )}`;
-        const { error } = await supabase.storage
-          .from(STORAGE_BUCKET)
-          .upload(path, avatarFile, { upsert: true });
-        if (error) {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (!token) {
+          throw new Error("Please sign in again.");
+        }
+        const formData = new FormData();
+        formData.append("file", avatarFile);
+        const res = await fetch("/api/me/avatar", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData
+        });
+        if (!res.ok) {
           throw new Error("Avatar upload failed.");
         }
-        const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
-        avatarUrl = data.publicUrl ?? null;
+        const payload = (await res.json()) as { imageUrl?: string };
+        avatarUrl = payload.imageUrl ?? null;
       }
 
       const { error: profileError } = await supabase
