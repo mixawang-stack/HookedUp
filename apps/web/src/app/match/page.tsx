@@ -309,7 +309,20 @@ export default function MatchPage() {
       if (error) {
         throw new Error("Failed to load matches.");
       }
-      const items = (data ?? []) as MatchItem[];
+      const normalized = (data ?? []).map((item) => ({
+        id: item.id,
+        matchedAt: item.matchedAt,
+        user1: item.user1?.[0] ?? null,
+        user2: item.user2?.[0] ?? null
+      })) as Array<{
+        id: string;
+        matchedAt: string;
+        user1: MatchItem["user1"] | null;
+        user2: MatchItem["user2"] | null;
+      }>;
+      const items = normalized.filter(
+        (item): item is MatchItem => Boolean(item.user1 && item.user2)
+      );
       setMatches((prev) => (cursor ? [...prev, ...items] : items));
       setMatchCursor(
         items.length === DEFAULT_LIMIT ? items[items.length - 1].matchedAt : null
