@@ -69,16 +69,42 @@ const extractTextFromFile = async (file: File) => {
   return await file.text();
 };
 
+const normalizeRawText = (text: string) => {
+  if (!text) return text;
+  let normalized = text.replace(/\r\n/g, "\n");
+  const placeholderCount = (normalized.match(/口/g) ?? []).length;
+  const spaceCount = (normalized.match(/ /g) ?? []).length;
+  if (placeholderCount > 0 && spaceCount < placeholderCount / 4) {
+    normalized = normalized.replace(/口/g, " ");
+  }
+  return normalized;
+};
+
 const splitChapters = (text: string) => {
-  const lines = text.replace(/\r\n/g, "\n").split("\n");
+  const lines = normalizeRawText(text).split("\n");
   const markers: Array<{ title: string }> = [];
+  const headingPattern =
+    /^\s*(?:chapter|ch\.?)\s*(\d+|[ivxlcdm]+)\s*(?:[|:\-–—]\s*)?(.*)$/i;
+  const cnHeadingPattern =
+    /^\s*(第\s*\d+\s*章|序章|序|楔子|前言|终章|尾声|后记|番外)\s*(?:[|:\-–—]\s*)?(.*)$/i;
 
   lines.forEach((line) => {
-    const match = line.match(
-      /^\s*(INTRO|EPILOGUE|CHAPTER\s*\d+)\s*\|\s*(.+)$/i
-    );
-    if (match) {
-      markers.push({ title: match[2].trim() });
+    const introMatch = line.match(/^\s*(INTRO|EPILOGUE)\s*(?:[|:\-–—]\s*)?(.*)$/i);
+    if (introMatch) {
+      const title = (introMatch[2] ?? introMatch[1]).trim();
+      markers.push({ title: title || introMatch[1] });
+      return;
+    }
+    const cnMatch = line.match(cnHeadingPattern);
+    if (cnMatch) {
+      const title = `${cnMatch[1]}${cnMatch[2] ? ` ${cnMatch[2].trim()}` : ""}`.trim();
+      markers.push({ title });
+      return;
+    }
+    const enMatch = line.match(headingPattern);
+    if (enMatch) {
+      const title = `Chapter ${enMatch[1]}${enMatch[2] ? ` ${enMatch[2].trim()}` : ""}`.trim();
+      markers.push({ title });
     }
   });
 
@@ -104,12 +130,24 @@ const splitChapters = (text: string) => {
   };
 
   lines.forEach((line) => {
-    const match = line.match(
-      /^\s*(INTRO|EPILOGUE|CHAPTER\s*\d+)\s*\|\s*(.+)$/i
-    );
-    if (match) {
+    const introMatch = line.match(/^\s*(INTRO|EPILOGUE)\s*(?:[|:\-–—]\s*)?(.*)$/i);
+    if (introMatch) {
       pushChapter();
-      currentTitle = match[2].trim();
+      currentTitle = (introMatch[2] ?? introMatch[1]).trim() || introMatch[1];
+      currentLines = [];
+      return;
+    }
+    const cnMatch = line.match(cnHeadingPattern);
+    if (cnMatch) {
+      pushChapter();
+      currentTitle = `${cnMatch[1]}${cnMatch[2] ? ` ${cnMatch[2].trim()}` : ""}`.trim();
+      currentLines = [];
+      return;
+    }
+    const enMatch = line.match(headingPattern);
+    if (enMatch) {
+      pushChapter();
+      currentTitle = `Chapter ${enMatch[1]}${enMatch[2] ? ` ${enMatch[2].trim()}` : ""}`.trim();
       currentLines = [];
       return;
     }
@@ -411,7 +449,7 @@ export default function NovelEditor({ novelId }: Props) {
           return false;
         }
         const payload = (await res.json()) as { text?: string };
-        const text = payload.text ?? "";
+        const text = normalizeRawText(payload.text ?? "");
         const chaptersParsed = splitChapters(text);
         const chaptersPayload = chaptersParsed.map((chapter, index) => ({
           id: crypto.randomUUID(),
@@ -448,7 +486,7 @@ export default function NovelEditor({ novelId }: Props) {
       }
 
       if (isTxt || isMd) {
-        const text = await extractTextFromFile(file);
+        const text = normalizeRawText(await extractTextFromFile(file));
         const chaptersParsed = splitChapters(text);
         const chaptersPayload = chaptersParsed.map((chapter, index) => ({
           id: crypto.randomUUID(),
