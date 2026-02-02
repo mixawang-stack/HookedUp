@@ -28,7 +28,10 @@ export async function POST(request: Request) {
       .eq("id", novelId)
       .maybeSingle();
     if (novelError || !novel) {
-      return NextResponse.json({ error: "NOVEL_NOT_FOUND" }, { status: 404 });
+      return NextResponse.json(
+        { error: "NOVEL_NOT_FOUND", details: { novelId } },
+        { status: 404 }
+      );
     }
 
     const { data: room } = await supabase
