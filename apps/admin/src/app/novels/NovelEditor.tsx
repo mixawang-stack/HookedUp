@@ -216,6 +216,19 @@ export default function NovelEditor({ novelId }: Props) {
     }
   }, [novelId, supabase]);
 
+  const toSafeFileName = (name: string) => {
+    const extMatch = name.match(/\.([^.]+)$/);
+    const ext = extMatch ? `.${extMatch[1]}` : "";
+    const base = name.replace(/\.[^.]+$/, "");
+    const safeBase = base
+      .normalize("NFKD")
+      .replace(/[^\w.-]+/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_+|_+$/g, "");
+    const safeExt = ext.replace(/[^\w.]+/g, "");
+    return `${safeBase || "file"}${safeExt}`;
+  };
+
   const uploadCoverIfNeeded = async () => {
     if (!supabase || !coverFile) return coverImageUrl;
     if (coverFile.size > 10 * 1024 * 1024) {
@@ -225,14 +238,14 @@ export default function NovelEditor({ novelId }: Props) {
     setCoverUploading(true);
     setStatus(null);
     const path = `novels/${selectedNovel?.id ?? "new"}/covers/${Date.now()}-${
-      coverFile.name
+      toSafeFileName(coverFile.name)
     }`;
     const { error } = await supabase.storage
       .from(STORAGE_BUCKET)
       .upload(path, coverFile, { upsert: true });
     setCoverUploading(false);
     if (error) {
-      setStatus("Failed to upload cover.");
+      setStatus(`Failed to upload cover: ${error.message}`);
       throw new Error("UPLOAD_FAILED");
     }
     const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
@@ -331,12 +344,12 @@ export default function NovelEditor({ novelId }: Props) {
     const isMd = file.name.toLowerCase().endsWith(".md");
 
     try {
-      const path = `novels/${id}/${Date.now()}-${file.name}`;
+      const path = `novels/${id}/${Date.now()}-${toSafeFileName(file.name)}`;
       const { error: uploadError } = await supabase.storage
         .from(STORAGE_BUCKET)
         .upload(path, file, { upsert: true });
       if (uploadError) {
-        setStatus("Failed to upload content.");
+        setStatus(`Failed to upload content: ${uploadError.message}`);
         return false;
       }
       const { data: urlData } = supabase.storage
