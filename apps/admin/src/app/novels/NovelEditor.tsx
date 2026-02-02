@@ -243,24 +243,30 @@ export default function NovelEditor({ novelId }: Props) {
 
   const loadChapters = async (id: string) => {
     if (!supabase) return;
-    const { data, error } = await supabase
-      .from("NovelChapter")
-      .select("id,title,content,orderIndex,isFree,isPublished,price")
-      .eq("novelId", id)
-      .order("orderIndex", { ascending: true });
-    if (error) {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const res = await fetch(`/api/admin/novels/chapters/list?novelId=${id}`, {
+      headers
+    });
+    if (!res.ok) {
       setStatus("Failed to load chapters.");
       return;
     }
-    setChapters((data ?? []) as ChapterItem[]);
-    if (fullText.trim().length === 0 && (data ?? []).length > 0) {
+    const payload = (await res.json()) as { data?: ChapterItem[] };
+    const chapterData = payload.data ?? [];
+    setChapters(chapterData as ChapterItem[]);
+    if (fullText.trim().length === 0 && chapterData.length > 0) {
       setFullText(
-        (data ?? [])
+        chapterData
           .map((chapter) => `${chapter.title}\n\n${chapter.content}`.trim())
           .join("\n\n")
       );
     }
-    return data as ChapterItem[];
+    return chapterData as ChapterItem[];
   };
 
   useEffect(() => {
@@ -711,11 +717,20 @@ export default function NovelEditor({ novelId }: Props) {
 
   const handleDeleteChapter = async (chapterId: string) => {
     if (!supabase || !selectedNovel) return;
-    const { error } = await supabase
-      .from("NovelChapter")
-      .delete()
-      .eq("id", chapterId);
-    if (error) {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json"
+    };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const res = await fetch("/api/admin/novels/chapters/delete", {
+      method: "DELETE",
+      headers,
+      body: JSON.stringify({ id: chapterId })
+    });
+    if (!res.ok) {
       setStatus("Failed to delete chapter.");
       return;
     }
