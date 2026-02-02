@@ -1,1 +1,0 @@
-ALTER TYPE "NovelContentSourceType" ADD VALUE IF NOT EXISTS 'DOC';

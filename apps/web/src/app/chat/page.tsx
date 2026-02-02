@@ -1,16 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { io, Socket } from "socket.io-client";
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+
+import { getSupabaseClient } from "../lib/supabaseClient";
+import { useSupabaseSession } from "../lib/useSupabaseSession";
 
 export const dynamic = "force-dynamic";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
-
 const DEFAULT_REASON = "safety";
+const PAGE_SIZE = 30;
 
 type MatchItem = {
   id: string;
@@ -27,77 +27,46 @@ type MessageItem = {
   createdAt: string;
 };
 
-type PagedResponse<T> = {
-  items: T[];
-  nextCursor: string | null;
-};
-
-async function readPagedResponse<T>(res: Response): Promise<PagedResponse<T>> {
-  const data = await res.json();
-  if (Array.isArray(data)) {
-    return { items: data as T[], nextCursor: null };
-  }
-  return data as PagedResponse<T>;
-}
-
 function ChatPageContent() {
   const searchParams = useSearchParams();
   const matchIdParam = searchParams.get("matchId");
-  const [token, setToken] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
+  const { user, ready, session } = useSupabaseSession();
   const [matches, setMatches] = useState<MatchItem[]>([]);
   const [activeMatch, setActiveMatch] = useState<MatchItem | null>(null);
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [status, setStatus] = useState<string | null>(null);
-  const socketRef = useRef<Socket | null>(null);
-
-  const authHeader = useMemo(() => {
-    if (!token) {
-      return null;
-    }
-    return { Authorization: `Bearer ${token}` };
-  }, [token]);
+  const channelRef = useRef<ReturnType<
+    NonNullable<ReturnType<typeof getSupabaseClient>>["channel"]
+  > | null>(null);
 
   useEffect(() => {
-    const stored = localStorage.getItem("accessToken");
-    if (stored) {
-      setToken(stored);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!authHeader) {
+    if (!ready || !user) {
       return;
     }
-
-    fetch(`${API_BASE}/me`, { headers: { ...authHeader } })
-      .then(async (res) => {
-        if (!res.ok) {
-          throw new Error("Failed to load profile");
-        }
-        return res.json();
-      })
-      .then((data: { id: string }) => setUserId(data.id))
-      .catch(() => setStatus("Failed to load profile."));
-  }, [authHeader]);
-
-  useEffect(() => {
-    if (!authHeader) {
-      return;
-    }
-
-    fetch(`${API_BASE}/match/list`, { headers: { ...authHeader } })
-      .then(async (res) => {
-        if (!res.ok) {
-          throw new Error("Failed to load links");
-        }
-        return readPagedResponse<MatchItem>(res);
-      })
-      .then((data) => setMatches(data.items))
-      .catch(() => setStatus("Failed to load links."));
-  }, [authHeader]);
+    const loadMatches = async () => {
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        setStatus("Supabase is not configured.");
+        return;
+      }
+      const { data, error } = await supabase
+        .from("Match")
+        .select(
+          "id,matchedAt,user1:User!Match_user1Id_fkey(id,maskName),user2:User!Match_user2Id_fkey(id,maskName)"
+        )
+        .or(`user1Id.eq.${user.id},user2Id.eq.${user.id}`)
+        .order("matchedAt", { ascending: false })
+        .limit(50);
+      if (error) {
+        setStatus("Failed to load links.");
+        return;
+      }
+      setMatches((data ?? []) as MatchItem[]);
+    };
+    loadMatches().catch(() => setStatus("Failed to load links."));
+  }, [ready, user]);
 
   useEffect(() => {
     if (!matchIdParam || matches.length === 0) {
@@ -110,99 +79,130 @@ function ChatPageContent() {
   }, [matchIdParam, matches]);
 
   useEffect(() => {
-    if (!token) {
+    if (!activeMatch) {
       return;
     }
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setStatus("Supabase is not configured.");
+      return;
+    }
+    const channel = supabase
+      .channel(`match-${activeMatch.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "Message",
+          filter: `matchId=eq.${activeMatch.id}`
+        },
+        (payload) => {
+          const message = payload.new as MessageItem;
+          setMessages((prev) => {
+            if (prev.find((item) => item.id === message.id)) {
+              return prev;
+            }
+            return [...prev, message];
+          });
+        }
+      )
+      .subscribe();
 
-    const socket = io(API_BASE, {
-      auth: { token }
-    });
-
-    socket.on("connect_error", () => {
-      setStatus("WebSocket connection failed.");
-    });
-
-    socket.on("message:new", (message: MessageItem) => {
-      if (activeMatch && message.matchId === activeMatch.id) {
-        setMessages((prev) => [...prev, message]);
-      }
-    });
-
-    socketRef.current = socket;
-
+    channelRef.current = channel;
     return () => {
-      socket.disconnect();
-      socketRef.current = null;
+      channelRef.current?.unsubscribe();
+      channelRef.current = null;
     };
-  }, [token, activeMatch]);
+  }, [activeMatch?.id]);
 
   const joinMatch = async (match: MatchItem) => {
     setActiveMatch(match);
     setMessages([]);
     setCursor(null);
 
-    if (!authHeader) {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setStatus("Supabase is not configured.");
       return;
     }
 
-    const res = await fetch(`${API_BASE}/chat/${match.id}/messages`, {
-      headers: { ...authHeader }
-    });
+    const { data, error } = await supabase
+      .from("Message")
+      .select("id,matchId,senderId,ciphertext,createdAt")
+      .eq("matchId", match.id)
+      .order("createdAt", { ascending: false })
+      .limit(PAGE_SIZE);
 
-    if (res.ok) {
-      const data = await readPagedResponse<MessageItem>(res);
-      setMessages(data.items.reverse());
-      setCursor(data.nextCursor ?? null);
+    if (error) {
+      setStatus("Failed to load messages.");
+      return;
     }
 
-    socketRef.current?.emit("match:join", { matchId: match.id });
+    const items = (data ?? []).reverse();
+    setMessages(items);
+    setCursor(items.length === PAGE_SIZE ? items[0].createdAt : null);
   };
 
   const loadMore = async () => {
-    if (!authHeader || !activeMatch || !cursor) {
+    if (!activeMatch || !cursor) {
       return;
     }
 
-    const params = new URLSearchParams();
-    params.set("cursor", cursor);
-    const res = await fetch(
-      `${API_BASE}/chat/${activeMatch.id}/messages?${params}`,
-      { headers: { ...authHeader } }
-    );
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setStatus("Supabase is not configured.");
+      return;
+    }
+    const { data, error } = await supabase
+      .from("Message")
+      .select("id,matchId,senderId,ciphertext,createdAt")
+      .eq("matchId", activeMatch.id)
+      .lt("createdAt", cursor)
+      .order("createdAt", { ascending: false })
+      .limit(PAGE_SIZE);
 
-    if (!res.ok) {
+    if (error) {
       setStatus("Failed to load history.");
       return;
     }
 
-    const data = await readPagedResponse<MessageItem>(res);
-    setMessages((prev) => [...data.items.reverse(), ...prev]);
-    setCursor(data.nextCursor ?? null);
+    const items = (data ?? []).reverse();
+    setMessages((prev) => [...items, ...prev]);
+    setCursor(items.length === PAGE_SIZE ? items[0].createdAt : null);
   };
 
-  const sendMessage = () => {
-    if (!socketRef.current || !activeMatch || !input.trim()) {
+  const sendMessage = async () => {
+    if (!activeMatch || !input.trim() || !user) {
       return;
     }
-
-    socketRef.current.emit("message:send", {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setStatus("Supabase is not configured.");
+      return;
+    }
+    const { error } = await supabase.from("Message").insert({
       matchId: activeMatch.id,
+      senderId: user.id,
       ciphertext: input.trim()
     });
+    if (error) {
+      setStatus("Failed to send message.");
+      return;
+    }
     setInput("");
   };
 
   const report = async (targetType: "user" | "message", targetId: string) => {
-    if (!authHeader) {
+    if (!session?.access_token) {
       return;
     }
-
     const detail = window.prompt("Report details?") ?? "";
-    const res = await fetch(`${API_BASE}/reports`, {
+    const res = await fetch("/api/reports", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...authHeader
+        Authorization: `Bearer ${session.access_token}`
       },
       body: JSON.stringify({
         targetType,
@@ -220,7 +220,7 @@ function ChatPageContent() {
   };
 
   const activeOther = activeMatch
-    ? activeMatch.user1.id === userId
+    ? activeMatch.user1.id === user?.id
       ? activeMatch.user2
       : activeMatch.user1
     : null;
@@ -234,7 +234,8 @@ function ChatPageContent() {
         </p>
         <div className="mt-4 space-y-2">
           {matches.map((match) => {
-            const other = match.user1.id === userId ? match.user2 : match.user1;
+            const other =
+              match.user1.id === user?.id ? match.user2 : match.user1;
             return (
               <button
                 key={match.id}
@@ -295,19 +296,19 @@ function ChatPageContent() {
             <div
               key={msg.id}
               className={`flex flex-col gap-1 ${
-                msg.senderId === userId ? "items-end" : "items-start"
+                msg.senderId === user?.id ? "items-end" : "items-start"
               }`}
             >
               <div
                 className={`max-w-xs rounded-2xl px-3 py-2 text-sm ${
-                  msg.senderId === userId
+                  msg.senderId === user?.id
                     ? "bg-brand-primary text-card"
                     : "bg-surface text-text-primary"
                 }`}
               >
                 {msg.ciphertext}
               </div>
-              {msg.senderId !== userId && (
+              {msg.senderId !== user?.id && (
                 <button
                   type="button"
                   className="text-xs text-brand-secondary"

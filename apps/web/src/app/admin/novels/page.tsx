@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { getSupabaseClient } from "../../lib/supabaseClient";
@@ -122,11 +122,12 @@ export default function AdminNovelsPage() {
   const [chapterContent, setChapterContent] = useState("");
   const [chapterOrder, setChapterOrder] = useState(1);
   const [chapterFree, setChapterFree] = useState(false);
+  const isAdmin = userEmail === ADMIN_EMAIL;
 
   useEffect(() => {
     const loadUser = async () => {
       const supabase = getSupabaseClient();
-      if (!supabase) return;
+      if (!supabase || !isAdmin) return;
       const { data } = await supabase.auth.getUser();
       setUserEmail(data.user?.email ?? null);
     };
@@ -135,7 +136,7 @@ export default function AdminNovelsPage() {
 
   const loadNovels = async () => {
     const supabase = getSupabaseClient();
-    if (!supabase) return;
+    if (!supabase || !isAdmin) return;
     setStatus(null);
     const { data, error } = await supabase
       .from("Novel")
@@ -171,7 +172,7 @@ export default function AdminNovelsPage() {
 
   const loadChapters = async (novelId: string) => {
     const supabase = getSupabaseClient();
-    if (!supabase) return;
+    if (!supabase || !isAdmin) return;
     const { data, error } = await supabase
       .from("NovelChapter")
       .select("id,title,content,orderIndex,isFree,isPublished")
@@ -186,8 +187,12 @@ export default function AdminNovelsPage() {
 
   useEffect(() => {
     if (!userEmail) return;
+    if (!isAdmin) {
+      setStatus("Admin access only.");
+      return;
+    }
     loadNovels().catch(() => undefined);
-  }, [userEmail]);
+  }, [userEmail, isAdmin]);
 
   const resetForm = () => {
     setTitle("");
@@ -207,7 +212,7 @@ export default function AdminNovelsPage() {
 
   const handleSaveNovel = async () => {
     const supabase = getSupabaseClient();
-    if (!supabase) return;
+    if (!supabase || !isAdmin) return;
     setStatus(null);
     const now = new Date().toISOString();
     const payload = {
@@ -250,7 +255,7 @@ export default function AdminNovelsPage() {
 
   const uploadFileToStorage = async (file: File, novelId: string) => {
     const supabase = getSupabaseClient();
-    if (!supabase) return null;
+    if (!supabase || !isAdmin) return null;
     const path = `novels/${novelId}/${Date.now()}-${toSafeFileName(
       file.name
     )}`;
@@ -274,7 +279,7 @@ export default function AdminNovelsPage() {
     setStatus(null);
     setContentStatus(null);
     const supabase = getSupabaseClient();
-    if (!supabase) {
+    if (!supabase || !isAdmin) {
       setStatus("Supabase is not configured.");
       setContentUploading(false);
       return;
@@ -368,7 +373,7 @@ export default function AdminNovelsPage() {
 
   const handleDeleteNovel = async (novelId: string) => {
     const supabase = getSupabaseClient();
-    if (!supabase) return;
+    if (!supabase || !isAdmin) return;
     if (!confirm("Delete this novel?")) return;
     const { error } = await supabase.from("Novel").delete().eq("id", novelId);
     if (error) {
@@ -383,7 +388,7 @@ export default function AdminNovelsPage() {
   const handleAddChapter = async () => {
     if (!selectedNovel) return;
     const supabase = getSupabaseClient();
-    if (!supabase) return;
+    if (!supabase || !isAdmin) return;
     const { error } = await supabase.from("NovelChapter").insert({
       novelId: selectedNovel.id,
       title: chapterTitle,
@@ -409,7 +414,7 @@ export default function AdminNovelsPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-10 text-slate-100">
-      {userEmail && userEmail !== ADMIN_EMAIL && (
+      {userEmail && !isAdmin && (
         <p className="mb-4 rounded-xl border border-rose-400/60 bg-rose-500/10 p-3 text-xs text-rose-200">
           You are signed in as {userEmail}. This page is restricted to admins.
         </p>
@@ -446,7 +451,7 @@ export default function AdminNovelsPage() {
                 <div>
                   <p className="text-sm font-semibold">{novel.title}</p>
                   <p className="text-xs text-slate-400">
-                    {novel.status} · Chapters {novel._count?.chapters ?? 0}
+                    {novel.status} - Chapters {novel._count?.chapters ?? 0}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -651,7 +656,7 @@ export default function AdminNovelsPage() {
                 >
                   <div className="flex items-center justify-between">
                     <span>
-                      #{chapter.orderIndex} · {chapter.title}
+                      #{chapter.orderIndex} - {chapter.title}
                     </span>
                     <span>{chapter.isFree ? "Free" : "Paid"}</span>
                   </div>
@@ -705,3 +710,5 @@ export default function AdminNovelsPage() {
     </div>
   );
 }
+
+

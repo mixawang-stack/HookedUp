@@ -1,10 +1,10 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+import { getSupabaseClient } from "../../lib/supabaseClient";
+import { useSupabaseSession } from "../../lib/useSupabaseSession";
 
 type PublicProfile = {
   id: string;
@@ -23,37 +23,49 @@ export default function PublicProfilePage() {
   const params = useParams();
   const router = useRouter();
   const userId = typeof params?.id === "string" ? params.id : "";
-  const [token, setToken] = useState<string | null>(null);
+  const { user, ready } = useSupabaseSession();
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [status, setStatus] = useState<string | null>(null);
 
-  const authHeader = useMemo(
-    () => (token ? { Authorization: `Bearer ${token}` } : null),
-    [token]
-  );
-
   useEffect(() => {
-    setToken(localStorage.getItem("accessToken"));
-  }, []);
-
-  useEffect(() => {
-    if (!userId || !authHeader) {
+    if (!ready || !userId || !user) {
       return;
     }
     const load = async () => {
       setStatus(null);
-      const res = await fetch(`${API_BASE}/users/${userId}`, {
-        headers: { ...authHeader }
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setStatus(body?.message ?? "Failed to load profile.");
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        setStatus("Supabase is not configured.");
         return;
       }
-      setProfile(body as PublicProfile);
+      const { data, error } = await supabase
+        .from("User")
+        .select(
+          "id,maskName,maskAvatarUrl,bio,city,country,preference:Preference(vibeTagsJson,interestsJson)"
+        )
+        .eq("id", userId)
+        .maybeSingle();
+      if (error || !data) {
+        setStatus("Failed to load profile.");
+        return;
+      }
+      setProfile({
+        id: data.id,
+        maskName: data.maskName ?? null,
+        maskAvatarUrl: data.maskAvatarUrl ?? null,
+        bio: data.bio ?? null,
+        city: data.city ?? null,
+        country: data.country ?? null,
+        preference: data.preference?.[0]
+          ? {
+              vibeTags: data.preference[0].vibeTagsJson ?? null,
+              interests: data.preference[0].interestsJson ?? null
+            }
+          : null
+      });
     };
     load().catch(() => setStatus("Failed to load profile."));
-  }, [userId, authHeader]);
+  }, [ready, userId, user]);
 
   const tags = [
     ...(profile?.preference?.vibeTags ?? []),
@@ -118,7 +130,7 @@ export default function PublicProfilePage() {
           )}
         </div>
       )}
-      {!token && (
+      {!user && (
         <div className="mt-6 ui-surface p-6 text-sm text-text-secondary">
           Sign in to view full profiles.
         </div>

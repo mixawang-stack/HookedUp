@@ -3,6 +3,8 @@
 import { useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
+import { useSupabaseSession } from "../lib/useSupabaseSession";
+
 const PUBLIC_PATHS = new Set([
   "/",
   "/hall",
@@ -28,19 +30,22 @@ export default function AuthGate() {
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
+  const { session, ready } = useSupabaseSession();
 
   useEffect(() => {
     if (isPublicPath(pathname)) {
       return;
     }
-    const token = localStorage.getItem("accessToken");
-    if (!token) {
+    if (!ready) {
+      return;
+    }
+    if (!session) {
       const search = searchParams?.toString();
       const fullPath = search ? `${pathname}?${search}` : pathname;
       const redirect = encodeURIComponent(fullPath || "/hall");
       router.replace(`/login?redirect=${redirect}`);
     }
-  }, [pathname, router, searchParams]);
+  }, [pathname, router, searchParams, ready, session]);
 
   return null;
 }

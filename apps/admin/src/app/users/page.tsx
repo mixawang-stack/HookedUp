@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { getSupabaseClient } from "../lib/supabaseClient";
@@ -21,16 +21,16 @@ type UserRow = {
 };
 
 const formatDate = (value?: string | null) => {
-  if (!value) return "—";
+  if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString();
 };
 
 const calcAge = (dob?: string | null) => {
-  if (!dob) return "—";
+  if (!dob) return "-";
   const date = new Date(dob);
-  if (Number.isNaN(date.getTime())) return "—";
+  if (Number.isNaN(date.getTime())) return "-";
   const diff = Date.now() - date.getTime();
   return Math.max(0, Math.floor(diff / (365.25 * 24 * 60 * 60 * 1000)));
 };
@@ -49,6 +49,7 @@ export default function AdminUsersPage() {
   const [statusFilter, setStatusFilter] = useState("");
 
   const offset = useMemo(() => (page - 1) * pageSize, [page, pageSize]);
+  const isAdmin = adminEmail === ADMIN_EMAIL;
 
   useEffect(() => {
     const loadAdmin = async () => {
@@ -62,7 +63,7 @@ export default function AdminUsersPage() {
 
   const loadUsers = async (targetPage?: number) => {
     const supabase = getSupabaseClient();
-    if (!supabase) return;
+    if (!supabase || !isAdmin) return;
     setStatus(null);
     const currentPage = targetPage ?? page;
     const rangeFrom = (currentPage - 1) * pageSize;
@@ -103,12 +104,16 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     if (!adminEmail) return;
+    if (!isAdmin) {
+      setStatus("Admin access only.");
+      return;
+    }
     loadUsers(1).catch(() => undefined);
-  }, [adminEmail]);
+  }, [adminEmail, isAdmin]);
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-10 text-slate-100">
-      {adminEmail && adminEmail !== ADMIN_EMAIL && (
+      {adminEmail && !isAdmin && (
         <p className="mb-4 rounded-xl border border-rose-400/60 bg-rose-500/10 p-3 text-xs text-rose-200">
           You are signed in as {adminEmail}. This page is restricted to admins.
         </p>
@@ -215,10 +220,10 @@ export default function AdminUsersPage() {
                 <p className="mt-1">{user.email}</p>
               </div>
               <span className="text-xs text-slate-400">
-                {user.country ?? "—"}
+                {user.country ?? "-"}
               </span>
               <span className="text-xs text-slate-400">
-                {user.gender ?? "—"} · {calcAge(user.dob)}
+                {user.gender ?? "-"} - {calcAge(user.dob)}
               </span>
               <span className="text-xs text-slate-400">{user.status}</span>
               <span className="text-xs text-slate-400">
@@ -272,3 +277,4 @@ export default function AdminUsersPage() {
     </div>
   );
 }
+

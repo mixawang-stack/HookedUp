@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -26,11 +26,12 @@ export default function AdminNovelsPage() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [novels, setNovels] = useState<NovelItem[]>([]);
   const [status, setStatus] = useState<string | null>(null);
+  const isAdmin = userEmail === ADMIN_EMAIL;
 
   useEffect(() => {
     const loadUser = async () => {
       const supabase = getSupabaseClient();
-      if (!supabase) return;
+      if (!supabase || !isAdmin) return;
       const { data } = await supabase.auth.getUser();
       setUserEmail(data.user?.email ?? null);
     };
@@ -39,7 +40,7 @@ export default function AdminNovelsPage() {
 
   const loadNovels = async () => {
     const supabase = getSupabaseClient();
-    if (!supabase) return;
+    if (!supabase || !isAdmin) return;
     setStatus(null);
     const { data, error } = await supabase
       .from("Novel")
@@ -73,12 +74,16 @@ export default function AdminNovelsPage() {
 
   useEffect(() => {
     if (!userEmail) return;
+    if (!isAdmin) {
+      setStatus("Admin access only.");
+      return;
+    }
     loadNovels().catch(() => undefined);
-  }, [userEmail]);
+  }, [userEmail, isAdmin]);
 
   const updateStatus = async (id: string, nextStatus: "PUBLISHED" | "ARCHIVED") => {
     const supabase = getSupabaseClient();
-    if (!supabase) return;
+    if (!supabase || !isAdmin) return;
     const { error } = await supabase
       .from("Novel")
       .update({ status: nextStatus })
@@ -92,7 +97,7 @@ export default function AdminNovelsPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-10 text-slate-100">
-      {userEmail && userEmail !== ADMIN_EMAIL && (
+      {userEmail && !isAdmin && (
         <p className="mb-4 rounded-xl border border-rose-400/60 bg-rose-500/10 p-3 text-xs text-rose-200">
           You are signed in as {userEmail}. This page is restricted to admins.
         </p>
@@ -218,3 +223,4 @@ export default function AdminNovelsPage() {
     </div>
   );
 }
+

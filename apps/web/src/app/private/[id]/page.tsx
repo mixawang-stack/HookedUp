@@ -1,16 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { emitHostStatus } from "../../lib/hostStatus";
 import ChatBubble from "../../components/ChatBubble";
 import PageShell from "../../components/PageShell";
+import { getSupabaseClient } from "../../lib/supabaseClient";
+import { useSupabaseSession } from "../../lib/useSupabaseSession";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
 const FF_INTENT_12 =
   (process.env.NEXT_PUBLIC_FF_INTENT_12 ?? "false") === "true";
+const PAGE_SIZE = 30;
 
 type SenderProfile = {
   id: string;
@@ -27,20 +28,6 @@ type MessageItem = {
   sender: SenderProfile;
 };
 
-type MessagesResponse = {
-  items: MessageItem[];
-  nextCursor: string | null;
-  isMuted?: boolean;
-};
-
-type SafetyPack = {
-  termsVersion: string;
-  country: string;
-  legalReminder: string[];
-  safetyTips: string[];
-  notice: string;
-};
-
 type IntentData = {
   intent: {
     id: string;
@@ -55,7 +42,7 @@ type IntentData = {
     confirmedAt: string | null;
     viewerId: string;
   };
-  safetyPack: SafetyPack | null;
+  safetyPack: null;
 };
 
 export default function PrivateConversationPage() {
@@ -63,7 +50,7 @@ export default function PrivateConversationPage() {
   const params = useParams();
   const conversationId = typeof params?.id === "string" ? params.id : "";
 
-  const [token, setToken] = useState<string | null>(null);
+  const { user, ready, session } = useSupabaseSession();
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [input, setInput] = useState("");
@@ -76,85 +63,107 @@ export default function PrivateConversationPage() {
   const [intentLoading, setIntentLoading] = useState(false);
   const [showIntentPanel, setShowIntentPanel] = useState(false);
   const [me, setMe] = useState<SenderProfile | null>(null);
+  const [matchId, setMatchId] = useState<string | null>(null);
+  const channelRef = useRef<ReturnType<
+    NonNullable<ReturnType<typeof getSupabaseClient>>["channel"]
+  > | null>(null);
 
-  const authHeader = useMemo(() => {
-    if (!token) {
-      return null;
+  useEffect(() => {
+    if (!ready) {
+      return;
     }
-    return { Authorization: `Bearer ${token}` };
-  }, [token]);
-
-  const redirectToLogin = (message?: string) => {
-    localStorage.removeItem("accessToken");
-    setStatus(message ?? "Please sign in to continue.");
-    router.push(`/login?redirect=/private/${conversationId}`);
-  };
+    if (!user) {
+      router.push(`/login?redirect=/private/${conversationId}`);
+    }
+  }, [ready, router, user, conversationId]);
 
   useEffect(() => {
-    setToken(localStorage.getItem("accessToken"));
-  }, []);
-
-  useEffect(() => {
-    if (!authHeader) {
+    if (!user) {
       setMe(null);
       return;
     }
-    let isActive = true;
-    (async () => {
-      try {
-        const res = await fetch(`${API_BASE}/me`, {
-          headers: { ...authHeader }
-        });
-        if (!res.ok) {
-          throw new Error("Failed to load profile");
-        }
-        const data = await res.json();
-        if (isActive) {
-          setMe(data);
-        }
-      } catch {
-        if (isActive) {
-          setMe(null);
-        }
+    const loadMe = async () => {
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        return;
       }
-    })();
-    return () => {
-      isActive = false;
+      const { data } = await supabase
+        .from("User")
+        .select("id,maskName,maskAvatarUrl")
+        .eq("id", user.id)
+        .maybeSingle();
+      setMe(data ? (data as SenderProfile) : null);
     };
-  }, [authHeader]);
+    loadMe().catch(() => setMe(null));
+  }, [user]);
+
+  const loadConversation = async () => {
+    if (!user || !conversationId) {
+      return null;
+    }
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setStatus("Supabase is not configured.");
+      return null;
+    }
+    const { data, error } = await supabase
+      .from("Conversation")
+      .select(
+        "id,matchId,participants:ConversationParticipant(userId,isMuted)"
+      )
+      .eq("id", conversationId)
+      .maybeSingle();
+    if (error || !data) {
+      setStatus("Failed to load conversation.");
+      return null;
+    }
+    const participant = data.participants?.find(
+      (item: { userId: string }) => item.userId === user.id
+    );
+    setIsMuted(Boolean(participant?.isMuted));
+    setMatchId(data.matchId ?? null);
+    return data.matchId ?? null;
+  };
 
   const loadMessages = async (nextCursor?: string | null) => {
-    if (!authHeader || !conversationId) {
+    if (!user) {
       return;
     }
     setLoading(true);
     try {
-      const params = new URLSearchParams();
+      const conversationMatchId = matchId ?? (await loadConversation());
+      if (!conversationMatchId) {
+        return;
+      }
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        throw new Error("Supabase is not configured.");
+      }
+      let query = supabase
+        .from("Message")
+        .select(
+          "id,matchId,senderId,ciphertext,createdAt,sender:User(id,maskName,maskAvatarUrl)"
+        )
+        .eq("matchId", conversationMatchId)
+        .order("createdAt", { ascending: false })
+        .limit(PAGE_SIZE);
       if (nextCursor) {
-        params.set("cursor", nextCursor);
+        query = query.lt("createdAt", nextCursor);
       }
-      const res = await fetch(
-        `${API_BASE}/private/conversations/${conversationId}/messages?${params}`,
-        { headers: { ...authHeader } }
-      );
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        const errorMessage = body?.message ?? `HTTP ${res.status}`;
-        if (
-          res.status === 401 ||
-          String(errorMessage).includes("INVALID_ACCESS_TOKEN")
-        ) {
-          redirectToLogin("Session expired. Please sign in again.");
-          return;
-        }
-        throw new Error(errorMessage);
+      const { data, error } = await query;
+      if (error) {
+        throw new Error("Failed to load.");
       }
-      const data = (await res.json()) as MessagesResponse;
+      const items =
+        (data ?? []).map((item) => ({
+          ...item,
+          sender: item.sender?.[0] ?? null
+        })) ?? [];
+      const ordered = items.reverse();
       setMessages((prev) =>
-        nextCursor ? [...data.items.reverse(), ...prev] : data.items.reverse()
+        nextCursor ? [...ordered, ...prev] : ordered
       );
-      setCursor(data.nextCursor);
-      setIsMuted(Boolean(data.isMuted));
+      setCursor(ordered.length === PAGE_SIZE ? ordered[0].createdAt : null);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to load.";
       setStatus(message);
@@ -164,8 +173,7 @@ export default function PrivateConversationPage() {
   };
 
   const sortedMessages = useMemo(
-    () =>
-      [...messages].sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+    () => [...messages].sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
     [messages]
   );
 
@@ -173,33 +181,108 @@ export default function PrivateConversationPage() {
     emitHostStatus({ page: "private", cold: sortedMessages.length === 0 });
   }, [sortedMessages]);
 
+  useEffect(() => {
+    if (!user || !conversationId) {
+      return;
+    }
+    loadMessages(null).catch(() => setStatus("Failed to load."));
+  }, [user, conversationId]);
 
   useEffect(() => {
-    loadMessages(null).catch(() => setStatus("Failed to load."));
-  }, [authHeader, conversationId]);
+    if (!matchId) {
+      return;
+    }
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      return;
+    }
+    const channel = supabase
+      .channel(`conversation-${conversationId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "Message",
+          filter: `matchId=eq.${matchId}`
+        },
+        (payload) => {
+          const message = payload.new as MessageItem;
+          if (!user) {
+            return;
+          }
+          const attachSender = async () => {
+            const supabase = getSupabaseClient();
+            if (!supabase) {
+              return { ...message, sender: null };
+            }
+            if (message.senderId === user.id) {
+              return { ...message, sender: me };
+            }
+            const { data } = await supabase
+              .from("User")
+              .select("id,maskName,maskAvatarUrl")
+              .eq("id", message.senderId)
+              .maybeSingle();
+            return { ...message, sender: (data as SenderProfile) ?? null };
+          };
+
+          attachSender()
+            .then((withSender) => {
+              setMessages((prev) => {
+                if (prev.find((item) => item.id === withSender.id)) {
+                  return prev;
+                }
+                return [...prev, withSender];
+              });
+            })
+            .catch(() => {
+              setMessages((prev) => {
+                if (prev.find((item) => item.id === message.id)) {
+                  return prev;
+                }
+                return [...prev, message];
+              });
+            });
+        }
+      )
+      .subscribe();
+
+    channelRef.current = channel;
+    return () => {
+      channelRef.current?.unsubscribe();
+      channelRef.current = null;
+    };
+  }, [conversationId, matchId, me, user]);
 
   const requestIntent = async () => {
-    if (!authHeader || !conversationId) {
+    if (!conversationId) {
+      setIntentError("Please sign in to continue.");
+      return;
+    }
+    if (!session?.access_token) {
       setIntentError("Please sign in to continue.");
       return;
     }
     setIntentLoading(true);
     setIntentError(null);
     try {
-      const res = await fetch(`${API_BASE}/intent/offline/request`, {
+      const res = await fetch("/api/intent/request", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...authHeader
+          Authorization: `Bearer ${session.access_token}`
         },
         body: JSON.stringify({ conversationId })
       });
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message ?? `HTTP ${res.status}`);
+        throw new Error("Action failed.");
       }
-      const data = (await res.json()) as IntentData;
-      setIntentData(data);
+      const data = (await res.json()) as IntentData["intent"];
+      setIntentData({
+        intent: { ...data, viewerId: user?.id ?? "" },
+        safetyPack: null
+      });
       setShowIntentPanel(false);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Action failed.";
@@ -210,28 +293,35 @@ export default function PrivateConversationPage() {
   };
 
   const confirmIntent = async () => {
-    if (!authHeader || !intentData) {
+    if (!intentData) {
+      return;
+    }
+    if (!session?.access_token) {
+      setIntentError("Please sign in to continue.");
       return;
     }
     setIntentLoading(true);
     setIntentError(null);
     try {
-      const res = await fetch(`${API_BASE}/intent/offline/confirm`, {
+      const res = await fetch("/api/intent/confirm", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...authHeader
+          Authorization: `Bearer ${session.access_token}`
         },
         body: JSON.stringify({ intentId: intentData.intent.id })
       });
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message ?? `HTTP ${res.status}`);
+        throw new Error("Confirmation failed.");
       }
-      const data = (await res.json()) as IntentData;
-      setIntentData(data);
+      const data = (await res.json()) as IntentData["intent"];
+      setIntentData({
+        intent: { ...data, viewerId: user?.id ?? "" },
+        safetyPack: null
+      });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Confirmation failed.";
+      const message =
+        error instanceof Error ? error.message : "Confirmation failed.";
       setIntentError(message);
     } finally {
       setIntentLoading(false);
@@ -239,7 +329,7 @@ export default function PrivateConversationPage() {
   };
 
   const sendMessage = async () => {
-    if (!authHeader || !conversationId) {
+    if (!user || !matchId) {
       setStatus("Please sign in to send messages.");
       return;
     }
@@ -249,31 +339,31 @@ export default function PrivateConversationPage() {
     setSending(true);
     setStatus(null);
     try {
-      const res = await fetch(
-        `${API_BASE}/private/conversations/${conversationId}/messages`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...authHeader
-          },
-          body: JSON.stringify({ content: input })
-        }
-      );
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        const errorMessage = body?.message ?? `HTTP ${res.status}`;
-        if (
-          res.status === 401 ||
-          String(errorMessage).includes("INVALID_ACCESS_TOKEN")
-        ) {
-          redirectToLogin("Session expired. Please sign in again.");
-          return;
-        }
-        throw new Error(errorMessage);
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        throw new Error("Supabase is not configured.");
       }
-      const message = (await res.json()) as MessageItem;
-      setMessages((prev) => [...prev, message]);
+      const { data, error } = await supabase
+        .from("Message")
+        .insert({
+          matchId,
+          senderId: user.id,
+          ciphertext: input.trim()
+        })
+        .select(
+          "id,matchId,senderId,ciphertext,createdAt,sender:User(id,maskName,maskAvatarUrl)"
+        )
+        .maybeSingle();
+      if (error || !data) {
+        throw new Error("Failed to send.");
+      }
+      setMessages((prev) => [
+        ...prev,
+        {
+          ...(data as MessageItem),
+          sender: data.sender?.[0] ?? null
+        }
+      ]);
       setInput("");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to send.";
@@ -305,7 +395,7 @@ export default function PrivateConversationPage() {
         </div>
         {isMuted && (
           <p className="ui-surface px-3 py-2 text-xs text-brand-secondary">
-            This conversation is muted. New messages won’t notify.
+            This conversation is muted. New messages will not notify.
           </p>
         )}
         {FF_INTENT_12 && (
@@ -378,32 +468,6 @@ export default function PrivateConversationPage() {
                       {intentLoading ? "Confirming..." : "Confirm offline intent"}
                     </button>
                   )}
-                {intentData.intent.status === "CONFIRMED" &&
-                  intentData.safetyPack && (
-                    <div className="mt-3 ui-surface p-3 text-xs text-text-secondary">
-                      <p className="font-semibold">Safety Pack</p>
-                      <p className="mt-1 text-xs text-text-muted">
-                        Country: {intentData.safetyPack.country}
-                      </p>
-                      <div className="mt-2">
-                        <p className="font-semibold">Legal reminder</p>
-                        <ul className="mt-1 list-disc pl-4">
-                          {intentData.safetyPack.legalReminder.map((item) => (
-                            <li key={item}>{item}</li>
-                          ))}
-                        </ul>
-                      </div>
-                      <div className="mt-2">
-                        <p className="font-semibold">Safety tips</p>
-                        <ul className="mt-1 list-disc pl-4">
-                          {intentData.safetyPack.safetyTips.map((item) => (
-                            <li key={item}>{item}</li>
-                          ))}
-                        </ul>
-                      </div>
-                      <p className="mt-2">{intentData.safetyPack.notice}</p>
-                    </div>
-                  )}
               </div>
             )}
             {intentError && (
@@ -431,14 +495,18 @@ export default function PrivateConversationPage() {
         ) : (
           <div className="flex flex-col gap-3">
             {sortedMessages.map((msg, index) => {
-              const isOwnMessage = Boolean(me && msg.sender?.id === me.id);
+              const isOwnMessage = Boolean(me && msg.senderId === me.id);
               const prev = sortedMessages[index - 1];
-              const showMeta =
-                index === 0 || prev?.sender?.id !== msg.sender?.id;
+              const showMeta = index === 0 || prev?.senderId !== msg.senderId;
               return (
                 <ChatBubble
                   key={msg.id}
-                  message={msg}
+                  message={{
+                    ...msg,
+                    sender:
+                      msg.sender ??
+                      (me && msg.senderId === me.id ? me : null)
+                  }}
                   isMine={isOwnMessage}
                   showMeta={showMeta}
                 />
@@ -459,7 +527,7 @@ export default function PrivateConversationPage() {
         <textarea
           className="mt-2 w-full rounded-2xl border border-border-default bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/30"
           rows={3}
-          placeholder="Say something when it feels right…"
+          placeholder="Say something when it feels right."
           value={input}
           onChange={(event) => setInput(event.target.value)}
           onKeyDown={(event) => {
@@ -505,5 +573,3 @@ export default function PrivateConversationPage() {
 
   return <PageShell stage={stageContent} panel={panelContent} />;
 }
-
-

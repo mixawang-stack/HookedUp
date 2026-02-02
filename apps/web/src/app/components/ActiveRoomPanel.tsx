@@ -1,11 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { io, Socket } from "socket.io-client";
-
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+import { getSupabaseClient } from "../lib/supabaseClient";
+import { useSupabaseSession } from "../lib/useSupabaseSession";
 
 type ActiveRoom = {
   id: string;
@@ -16,39 +14,40 @@ type ActiveRoom = {
 export default function ActiveRoomPanel() {
   const router = useRouter();
   const pathname = usePathname() ?? "";
-  const [token, setToken] = useState<string | null>(null);
+  const { user } = useSupabaseSession();
   const [room, setRoom] = useState<ActiveRoom | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const socketRef = useRef<Socket | null>(null);
-
-  const authHeader = useMemo(() => {
-    if (!token) {
-      return null;
-    }
-    return { Authorization: `Bearer ${token}` };
-  }, [token]);
 
   const fetchActiveRoom = async () => {
-    if (!authHeader) {
+    if (!user) {
       setRoom(null);
       return;
     }
     setLoading(true);
     setStatus(null);
     try {
-      const res = await fetch(`${API_BASE}/rooms/my-active`, {
-        headers: { ...authHeader }
-      });
-      if (!res.ok) {
-        if (res.status === 401) {
-          setRoom(null);
-          return;
-        }
-        throw new Error(`HTTP ${res.status}`);
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        throw new Error("Supabase is not configured.");
       }
-      const data = (await res.json()) as { room: ActiveRoom | null };
-      setRoom(data.room ?? null);
+      const { data, error } = await supabase
+        .from("RoomMembership")
+        .select("room:Room(id,title,status,memberships:RoomMembership(count))")
+        .eq("userId", user.id)
+        .is("leftAt", null)
+        .order("joinedAt", { ascending: false })
+        .limit(1);
+      if (error) {
+        throw new Error("Failed to load room.");
+      }
+      const active = data?.[0]?.room?.[0];
+      if (!active || active.status !== "LIVE") {
+        setRoom(null);
+        return;
+      }
+      const memberCount = active.memberships?.[0]?.count ?? 0;
+      setRoom({ id: active.id, title: active.title, memberCount });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to load room.";
@@ -59,28 +58,24 @@ export default function ActiveRoomPanel() {
   };
 
   useEffect(() => {
-    setToken(localStorage.getItem("accessToken"));
-  }, []);
-
-  useEffect(() => {
-    if (!authHeader) {
+    if (!user) {
       return;
     }
     fetchActiveRoom().catch(() => undefined);
-  }, [authHeader]);
+  }, [user]);
 
   useEffect(() => {
-    if (!authHeader) {
+    if (!user) {
       return;
     }
     const interval = setInterval(() => {
       fetchActiveRoom().catch(() => undefined);
     }, 15000);
     return () => clearInterval(interval);
-  }, [authHeader]);
+  }, [user]);
 
   useEffect(() => {
-    if (!authHeader) {
+    if (!user) {
       return;
     }
     const handler = () => {
@@ -88,45 +83,26 @@ export default function ActiveRoomPanel() {
     };
     window.addEventListener("active-room-changed", handler);
     return () => window.removeEventListener("active-room-changed", handler);
-  }, [authHeader]);
-
-  useEffect(() => {
-    if (!token || !room?.id) {
-      return;
-    }
-
-    const socket = io(API_BASE, { auth: { token } });
-    socketRef.current = socket;
-    socket.on("connect", () => {
-      socket.emit("room:join", { roomId: room.id });
-    });
-
-    return () => {
-      socket.emit("room:leave", { roomId: room.id });
-      socket.disconnect();
-      socketRef.current = null;
-    };
-  }, [room?.id, token]);
+  }, [user]);
 
   const handleLeave = async () => {
-    if (!authHeader || !room || loading) {
+    if (!user || !room || loading) {
       return;
     }
     setLoading(true);
     setStatus(null);
     try {
-      const res = await fetch(`${API_BASE}/rooms/${room.id}/leave`, {
-        method: "POST",
-        headers: { ...authHeader }
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message ?? `HTTP ${res.status}`);
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        throw new Error("Supabase is not configured.");
       }
-      if (socketRef.current) {
-        socketRef.current.emit("room:leave", { roomId: room.id });
-        socketRef.current.disconnect();
-        socketRef.current = null;
+      const { error } = await supabase
+        .from("RoomMembership")
+        .update({ leftAt: new Date().toISOString() })
+        .eq("roomId", room.id)
+        .eq("userId", user.id);
+      if (error) {
+        throw new Error("Failed to leave room.");
       }
       setRoom(null);
       window.dispatchEvent(new Event("active-room-changed"));

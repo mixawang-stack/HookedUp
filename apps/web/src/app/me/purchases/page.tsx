@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+import { getSupabaseClient } from "../../lib/supabaseClient";
+import { useSupabaseSession } from "../../lib/useSupabaseSession";
 
 type PurchaseItem = {
   id: string;
@@ -16,41 +16,40 @@ type PurchaseItem = {
 };
 
 const formatDate = (value?: string | null) => {
-  if (!value) return "—";
+  if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString();
 };
 
 export default function PurchasesPage() {
-  const [token, setToken] = useState<string | null>(null);
+  const { user, ready } = useSupabaseSession();
   const [status, setStatus] = useState<string | null>(null);
   const [purchases, setPurchases] = useState<PurchaseItem[]>([]);
 
-  const authHeader = useMemo(() => {
-    if (!token) return null;
-    return { Authorization: `Bearer ${token}` };
-  }, [token]);
-
   useEffect(() => {
-    setToken(localStorage.getItem("accessToken"));
-  }, []);
-
-  useEffect(() => {
-    if (!authHeader) return;
+    if (!ready || !user) return;
     const load = async () => {
-      const res = await fetch(`${API_BASE}/me/purchases`, {
-        headers: { ...authHeader }
-      });
-      if (!res.ok) {
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        setStatus("Supabase is not configured.");
+        return;
+      }
+      const { data, error } = await supabase
+        .from("NovelPurchase")
+        .select(
+          "id,createdAt,amount,currency,pricingMode,novel:Novel(id,title),chapter:NovelChapter(id,title,orderIndex)"
+        )
+        .eq("userId", user.id)
+        .order("createdAt", { ascending: false });
+      if (error) {
         setStatus("Failed to load purchases.");
         return;
       }
-      const data = (await res.json()) as PurchaseItem[];
-      setPurchases(data ?? []);
+      setPurchases((data ?? []) as PurchaseItem[]);
     };
     load().catch(() => setStatus("Failed to load purchases."));
-  }, [authHeader]);
+  }, [ready, user]);
 
   return (
     <main className="ui-page">
@@ -74,7 +73,7 @@ export default function PurchasesPage() {
                 <p className="mt-1 text-sm font-semibold">
                   {purchase.novel.title}
                   {purchase.chapter
-                    ? ` · Chapter ${purchase.chapter.orderIndex}`
+                    ? ` Chapter ${purchase.chapter.orderIndex}`
                     : ""}
                 </p>
                 {purchase.chapter?.title && (

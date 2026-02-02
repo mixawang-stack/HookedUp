@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ProfileOnboardingModal from "./ProfileOnboardingModal";
+import { getSupabaseClient } from "../lib/supabaseClient";
+import { useSupabaseSession } from "../lib/useSupabaseSession";
 
 const NAV_ITEMS = [
   { href: "/novels", label: "Stories" },
@@ -11,14 +13,13 @@ const NAV_ITEMS = [
   { href: "/rooms", label: "Rooms" }
 ];
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
 export default function TopNav() {
   const pathname = usePathname() ?? "";
   const router = useRouter();
-  const [token, setToken] = useState<string | null>(null);
+  const { session, user, ready } = useSupabaseSession();
   const [me, setMe] = useState<{
     id: string;
+    email?: string | null;
     maskName: string | null;
     maskAvatarUrl: string | null;
     bio: string | null;
@@ -49,79 +50,84 @@ export default function TopNav() {
   const hideNav =
     pathname.startsWith("/login") || pathname.startsWith("/register");
 
-  useEffect(() => {
-    setToken(localStorage.getItem("accessToken"));
-  }, []);
-
-  useEffect(() => {
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === "accessToken") {
-        setToken(event.newValue);
-      }
-    };
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, []);
-
-  useEffect(() => {
-    setToken(localStorage.getItem("accessToken"));
-  }, [pathname]);
-
   const fetchMe = useCallback(
-    async (accessToken: string) => {
-      const res = await fetch(`${API_BASE}/me`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
-      if (!res.ok) {
+    async (userId: string, email?: string | null) => {
+      const supabase = getSupabaseClient();
+      if (!supabase) {
         return null;
       }
-      return res.json();
+      const { data } = await supabase
+        .from("User")
+        .select(
+          "id,email,maskName,maskAvatarUrl,bio,preference:Preference(vibeTagsJson,interestsJson,allowStrangerPrivate,smPreference)"
+        )
+        .eq("id", userId)
+        .maybeSingle();
+      if (!data) {
+        return {
+          id: userId,
+          email: email ?? null,
+          maskName: null,
+          maskAvatarUrl: null,
+          bio: null,
+          preference: null
+        };
+      }
+      return {
+        id: data.id,
+        email: data.email ?? email ?? null,
+        maskName: data.maskName ?? null,
+        maskAvatarUrl: data.maskAvatarUrl ?? null,
+        bio: data.bio ?? null,
+        preference: data.preference?.[0]
+          ? {
+              vibeTags: data.preference[0].vibeTagsJson ?? null,
+              interests: data.preference[0].interestsJson ?? null,
+              allowStrangerPrivate:
+                data.preference[0].allowStrangerPrivate ?? null,
+              smPreference: data.preference[0].smPreference ?? null
+            }
+          : null
+      };
     },
     []
   );
 
-  const fetchUnreadTotal = useCallback(async (accessToken: string) => {
-    const res = await fetch(`${API_BASE}/private/unread-total`, {
-      headers: { Authorization: `Bearer ${accessToken}` }
-    });
-    if (!res.ok) {
-      return;
-    }
-    const data = (await res.json()) as { total?: number };
-    setUnreadTotal(Number.isFinite(data.total) ? data.total! : 0);
+  const fetchUnreadTotal = useCallback(async () => {
+    setUnreadTotal(0);
   }, []);
 
   useEffect(() => {
-    if (!token) {
+    if (!ready || !user) {
       setMe(null);
       setUnreadTotal(0);
       return;
     }
-    fetchMe(token)
+    fetchMe(user.id, user.email)
       .then((data) => setMe(data))
       .catch(() => setMe(null));
-  }, [token, fetchMe]);
+  }, [ready, user, fetchMe]);
 
   useEffect(() => {
-    if (!token) {
+    if (!user) {
       return;
     }
-    fetchUnreadTotal(token).catch(() => undefined);
-  }, [token, fetchUnreadTotal, pathname]);
+    fetchUnreadTotal().catch(() => undefined);
+  }, [user, fetchUnreadTotal, pathname]);
 
   useEffect(() => {
     setAvatarError(false);
   }, [me?.maskAvatarUrl]);
 
   useEffect(() => {
-    if (!token) {
+    if (!user) {
       return;
     }
     const interval = window.setInterval(() => {
-      fetchUnreadTotal(token).catch(() => undefined);
+      fetchUnreadTotal().catch(() => undefined);
     }, 20000);
     return () => window.clearInterval(interval);
-  }, [token, fetchUnreadTotal]);
+  }, [user, fetchUnreadTotal]);
 
   useEffect(() => {
     if (!me || isProfileComplete || typeof window === "undefined") {
@@ -201,7 +207,7 @@ export default function TopNav() {
             })}
           </div>
         </div>
-        {token ? (
+        {session ? (
           <div className="flex items-center justify-end gap-3 pr-1">
             <div className="relative" ref={menuRef}>
               <button
@@ -287,16 +293,16 @@ export default function TopNav() {
                   )}
                   <button
                     type="button"
-                    className="block w-full rounded-lg px-3 py-2 text-left transition hover:bg-surface"
-                    onClick={() => {
-                      localStorage.removeItem("accessToken");
-                      setToken(null);
-                      setMenuOpen(false);
-                      router.push("/login");
-                    }}
-                  >
-                    Log out
-                  </button>
+                      className="block w-full rounded-lg px-3 py-2 text-left transition hover:bg-surface"
+                      onClick={() => {
+                        const supabase = getSupabaseClient();
+                        supabase?.auth.signOut().catch(() => undefined);
+                        setMenuOpen(false);
+                        router.push("/login");
+                      }}
+                    >
+                      Log out
+                    </button>
                 </div>
               )}
             </div>
@@ -321,9 +327,9 @@ export default function TopNav() {
       {unreadTotal > 0 ? (
         <span className="sr-only">You have unread messages.</span>
       ) : null}
-      {showOnboarding && me && token && (
+      {showOnboarding && me && user && (
         <ProfileOnboardingModal
-          token={token}
+          userId={user.id}
           me={me}
           onClose={handleDismissOnboarding}
           onSaved={(nextMe) => {

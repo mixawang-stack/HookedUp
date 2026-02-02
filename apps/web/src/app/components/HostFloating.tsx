@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { useSupabaseSession } from "../lib/useSupabaseSession";
+
 const STORAGE_KEY = "host_pos";
 const HOST_MARGIN = 16;
 // Keep the floating host below the top nav/header.
@@ -12,12 +14,9 @@ type Position = { x: number; y: number };
 
 const DEFAULT_POS: Position = { x: 32, y: 32 };
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
-
 export default function HostFloating() {
   const router = useRouter();
-  const [token, setToken] = useState<string | null>(null);
+  const { session } = useSupabaseSession();
   const [unreadTotal, setUnreadTotal] = useState(0);
   const [position, setPosition] = useState<Position>(DEFAULT_POS);
   const [isDragging, setIsDragging] = useState(false);
@@ -38,28 +37,19 @@ export default function HostFloating() {
   }, []);
 
   useEffect(() => {
-    setToken(localStorage.getItem("accessToken"));
-  }, []);
-
-  useEffect(() => {
-    if (!token) {
+    if (!session) {
       setUnreadTotal(0);
       return;
     }
     const fetchUnread = async () => {
-      const res = await fetch(`${API_BASE}/private/unread-total`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (!res.ok) return;
-      const data = (await res.json()) as { total?: number };
-      setUnreadTotal(Number.isFinite(data.total) ? data.total! : 0);
+      setUnreadTotal(0);
     };
     fetchUnread().catch(() => undefined);
     const interval = window.setInterval(() => {
       fetchUnread().catch(() => undefined);
     }, 20000);
     return () => window.clearInterval(interval);
-  }, [token]);
+  }, [session]);
 
   const clampPosition = useCallback((pos: Position) => {
     if (typeof window === "undefined") {

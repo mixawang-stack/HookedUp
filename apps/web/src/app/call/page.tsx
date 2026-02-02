@@ -1,17 +1,15 @@
 "use client";
 
-import { io, Socket } from "socket.io-client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+import { getSupabaseClient } from "../lib/supabaseClient";
+import { useSupabaseSession } from "../lib/useSupabaseSession";
 
 export const dynamic = "force-dynamic";
-
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
 
 const TURN_URL = process.env.NEXT_PUBLIC_TURN_URL;
 const TURN_USERNAME = process.env.NEXT_PUBLIC_TURN_USERNAME;
 const TURN_PASSWORD = process.env.NEXT_PUBLIC_TURN_PASSWORD;
-
 const RTC_CONFIG: RTCConfiguration = {
   iceServers: [
     ...(TURN_URL && TURN_USERNAME && TURN_PASSWORD
@@ -35,27 +33,18 @@ type MatchItem = {
 };
 
 type ConsentRecord = {
-  status: "pending" | "completed";
+  id: string;
+  matchId: string;
+  userAId: string;
+  userBId: string;
+  termsVersion: string;
+  hash: string;
   confirmedAtA: string | null;
   confirmedAtB: string | null;
 };
 
-type PagedResponse<T> = {
-  items: T[];
-  nextCursor: string | null;
-};
-
-async function readPagedResponse<T>(res: Response): Promise<PagedResponse<T>> {
-  const data = await res.json();
-  if (Array.isArray(data)) {
-    return { items: data as T[], nextCursor: null };
-  }
-  return data as PagedResponse<T>;
-}
-
 export default function CallPage() {
-  const [token, setToken] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
+  const { user, ready, session } = useSupabaseSession();
   const [matches, setMatches] = useState<MatchItem[]>([]);
   const [activeMatch, setActiveMatch] = useState<MatchItem | null>(null);
   const [consent, setConsent] = useState<ConsentRecord | null>(null);
@@ -64,126 +53,120 @@ export default function CallPage() {
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const peerRef = useRef<RTCPeerConnection | null>(null);
-  const socketRef = useRef<Socket | null>(null);
+  const channelRef = useRef<ReturnType<
+    NonNullable<ReturnType<typeof getSupabaseClient>>["channel"]
+  > | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
 
-  const authHeader = useMemo(() => {
-    if (!token) {
-      return null;
-    }
-    return { Authorization: `Bearer ${token}` };
-  }, [token]);
-
   useEffect(() => {
-    const stored = localStorage.getItem("accessToken");
-    if (stored) {
-      setToken(stored);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!authHeader) {
+    if (!ready || !user) {
       return;
     }
-
-    fetch(`${API_BASE}/me`, { headers: { ...authHeader } })
-      .then(async (res) => {
-        if (!res.ok) {
-          throw new Error("Failed to load profile");
-        }
-        return res.json();
-      })
-      .then((data: { id: string }) => setUserId(data.id))
-      .catch(() => setStatus("Failed to load profile."));
-  }, [authHeader]);
-
-  useEffect(() => {
-    if (!authHeader) {
-      return;
-    }
-
-    fetch(`${API_BASE}/match/list`, { headers: { ...authHeader } })
-      .then(async (res) => {
-        if (!res.ok) {
-          throw new Error("Failed to load threads");
-        }
-        return readPagedResponse<MatchItem>(res);
-      })
-      .then((data) => setMatches(data.items))
-      .catch(() => setStatus("Failed to load threads."));
-  }, [authHeader]);
+    const loadMatches = async () => {
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        setStatus("Supabase is not configured.");
+        return;
+      }
+      const { data, error } = await supabase
+        .from("Match")
+        .select(
+          "id,matchedAt,user1:User!Match_user1Id_fkey(id,maskName),user2:User!Match_user2Id_fkey(id,maskName)"
+        )
+        .or(`user1Id.eq.${user.id},user2Id.eq.${user.id}`)
+        .order("matchedAt", { ascending: false })
+        .limit(50);
+      if (error) {
+        setStatus("Failed to load threads.");
+        return;
+      }
+      setMatches((data ?? []) as MatchItem[]);
+    };
+    loadMatches().catch(() => setStatus("Failed to load threads."));
+  }, [ready, user]);
 
   useEffect(() => {
-    if (!token) {
+    if (!activeMatch) {
       return;
     }
-
-    const socket = io(API_BASE, {
-      auth: { token }
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      return;
+    }
+    const channel = supabase.channel(`call-${activeMatch.id}`, {
+      config: { broadcast: { self: false } }
     });
 
-    socket.on("connect_error", () => {
-      setStatus("WebSocket connection failed.");
-    });
-
-    socket.on("call:offer", async ({ matchId, sdp }) => {
-      if (!activeMatch || matchId !== activeMatch.id) {
+    channel.on("broadcast", { event: "call:offer" }, async ({ payload }) => {
+      if (!activeMatch || payload.matchId !== activeMatch.id) {
         return;
       }
       await ensurePeer();
-      await peerRef.current?.setRemoteDescription(new RTCSessionDescription(sdp));
+      await peerRef.current?.setRemoteDescription(
+        new RTCSessionDescription(payload.sdp)
+      );
       const answer = await peerRef.current?.createAnswer();
       if (answer) {
         await peerRef.current?.setLocalDescription(answer);
-        socket.emit("call:answer", { matchId, sdp: answer });
+        channel.send({
+          type: "broadcast",
+          event: "call:answer",
+          payload: { matchId: activeMatch.id, sdp: answer }
+        });
       }
     });
 
-    socket.on("call:answer", async ({ matchId, sdp }) => {
-      if (!activeMatch || matchId !== activeMatch.id) {
+    channel.on("broadcast", { event: "call:answer" }, async ({ payload }) => {
+      if (!activeMatch || payload.matchId !== activeMatch.id) {
         return;
       }
-      await peerRef.current?.setRemoteDescription(new RTCSessionDescription(sdp));
+      await peerRef.current?.setRemoteDescription(
+        new RTCSessionDescription(payload.sdp)
+      );
     });
 
-    socket.on("call:ice", async ({ matchId, candidate }) => {
-      if (!activeMatch || matchId !== activeMatch.id) {
+    channel.on("broadcast", { event: "call:ice" }, async ({ payload }) => {
+      if (!activeMatch || payload.matchId !== activeMatch.id) {
         return;
       }
-      if (candidate) {
+      if (payload.candidate) {
         try {
-          await peerRef.current?.addIceCandidate(new RTCIceCandidate(candidate));
+          await peerRef.current?.addIceCandidate(
+            new RTCIceCandidate(payload.candidate)
+          );
         } catch {
           setStatus("Failed to add ICE candidate.");
         }
       }
     });
 
-    socketRef.current = socket;
+    channel.subscribe();
+    channelRef.current = channel;
 
     return () => {
-      socket.disconnect();
-      socketRef.current = null;
+      channelRef.current?.unsubscribe();
+      channelRef.current = null;
     };
-  }, [token, activeMatch]);
+  }, [activeMatch?.id]);
 
   const loadConsent = async (matchId: string) => {
-    if (!authHeader) {
+    if (!session?.access_token) {
+      setStatus("Please sign in again.");
       return;
     }
-
-    const res = await fetch(`${API_BASE}/consent/${matchId}`, {
-      headers: { ...authHeader }
+    const res = await fetch(`/api/consent/${matchId}`, {
+      headers: { Authorization: `Bearer ${session.access_token}` }
     });
-
-    if (res.ok) {
-      const data = (await res.json()) as ConsentRecord | null;
-      setConsent(data);
+    if (!res.ok) {
+      setStatus("Failed to load agreement.");
+      return;
     }
+    const data = (await res.json()) as ConsentRecord | null;
+    setConsent(data);
   };
 
   const confirmConsent = async () => {
-    if (!authHeader || !activeMatch) {
+    if (!user || !activeMatch) {
       return;
     }
 
@@ -192,31 +175,34 @@ export default function CallPage() {
       return;
     }
 
-    const res = await fetch(`${API_BASE}/consent/${activeMatch.id}/confirm`, {
-      method: "POST",
-      headers: { ...authHeader }
-    });
-
-    if (res.ok) {
-      const data = (await res.json()) as ConsentRecord;
-      setConsent(data);
-      setStatus("Agreement confirmed.");
-    } else {
-      setStatus("Failed to confirm agreement.");
+    if (!session?.access_token) {
+      setStatus("Please sign in again.");
+      return;
     }
+    const res = await fetch(`/api/consent/${activeMatch.id}/confirm`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${session.access_token}` }
+    });
+    if (!res.ok) {
+      setStatus("Failed to confirm agreement.");
+      return;
+    }
+    const data = (await res.json()) as ConsentRecord;
+    setConsent(data);
+    setStatus("Agreement confirmed.");
   };
 
   const ensurePeer = async () => {
     if (peerRef.current) {
       return;
     }
-
     const peer = new RTCPeerConnection(RTC_CONFIG);
     peer.onicecandidate = (event) => {
       if (event.candidate && activeMatch) {
-        socketRef.current?.emit("call:ice", {
-          matchId: activeMatch.id,
-          candidate: event.candidate
+        channelRef.current?.send({
+          type: "broadcast",
+          event: "call:ice",
+          payload: { matchId: activeMatch.id, candidate: event.candidate }
         });
       }
     };
@@ -240,18 +226,21 @@ export default function CallPage() {
   };
 
   const startCall = async () => {
-    if (!activeMatch || !socketRef.current) {
+    if (!activeMatch || !channelRef.current) {
       return;
     }
 
     await ensurePeer();
-    socketRef.current.emit("match:join", { matchId: activeMatch.id });
     const offer = await peerRef.current?.createOffer();
     if (!offer) {
       return;
     }
     await peerRef.current?.setLocalDescription(offer);
-    socketRef.current.emit("call:offer", { matchId: activeMatch.id, sdp: offer });
+    channelRef.current.send({
+      type: "broadcast",
+      event: "call:offer",
+      payload: { matchId: activeMatch.id, sdp: offer }
+    });
   };
 
   const endCall = () => {
@@ -279,10 +268,16 @@ export default function CallPage() {
   };
 
   const activeOther = activeMatch
-    ? activeMatch.user1.id === userId
+    ? activeMatch.user1.id === user?.id
       ? activeMatch.user2
       : activeMatch.user1
     : null;
+
+  const consentStatus = consent
+    ? consent.confirmedAtA && consent.confirmedAtB
+      ? "completed"
+      : "pending"
+    : "pending";
 
   return (
     <main className="ui-page mx-auto grid min-h-screen w-full max-w-6xl gap-6 px-4 py-8 lg:grid-cols-[260px_1fr]">
@@ -293,7 +288,8 @@ export default function CallPage() {
         </p>
         <div className="mt-4 space-y-2">
           {matches.map((match) => {
-            const other = match.user1.id === userId ? match.user2 : match.user1;
+            const other =
+              match.user1.id === user?.id ? match.user2 : match.user1;
             return (
               <button
                 key={match.id}
@@ -388,7 +384,7 @@ export default function CallPage() {
             </button>
             {consent && (
               <p className="mt-2 text-xs text-text-secondary">
-                Agreement status: {consent.status}
+                Agreement status: {consentStatus}
               </p>
             )}
           </div>

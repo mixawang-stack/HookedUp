@@ -1,16 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+import { getSupabaseClient } from "../../lib/supabaseClient";
+import { useSupabaseSession } from "../../lib/useSupabaseSession";
 
 export default function AccountSettingsPage() {
   const router = useRouter();
-  const [token, setToken] = useState<string | null>(null);
+  const { user, ready } = useSupabaseSession();
   const [email, setEmail] = useState<string | null>(null);
   const [dob, setDob] = useState<string | null>(null);
   const [showEdit, setShowEdit] = useState(false);
@@ -20,38 +20,37 @@ export default function AccountSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
 
-  const authHeader = useMemo(() => {
-    if (!token) return null;
-    return { Authorization: `Bearer ${token}` };
-  }, [token]);
-
   useEffect(() => {
-    const stored = localStorage.getItem("accessToken");
-    if (!stored) {
-      router.push("/login?redirect=/me/account");
+    if (!ready) {
       return;
     }
-    setToken(stored);
-  }, [router]);
+    if (!user) {
+      router.push("/login?redirect=/me/account");
+    }
+  }, [ready, router, user]);
 
   useEffect(() => {
-    if (!authHeader) {
+    if (!user) {
       return;
     }
     const loadMe = async () => {
-      const res = await fetch(`${API_BASE}/me`, { headers: { ...authHeader } });
-      if (!res.ok) {
+      const supabase = getSupabaseClient();
+      if (!supabase) {
         return;
       }
-      const data = (await res.json()) as { email?: string; dob?: string | null };
-      setEmail(data.email ?? null);
-      setDob(data.dob ?? null);
+      setEmail(user.email ?? null);
+      const { data } = await supabase
+        .from("User")
+        .select("dob")
+        .eq("id", user.id)
+        .maybeSingle();
+      setDob(data?.dob ?? null);
     };
     loadMe().catch(() => undefined);
-  }, [authHeader]);
+  }, [user]);
 
   const handleChangePassword = async () => {
-    if (!authHeader) {
+    if (!user) {
       setStatus("Please sign in again.");
       return;
     }
@@ -66,20 +65,28 @@ export default function AccountSettingsPage() {
     setSaving(true);
     setStatus(null);
     try {
-      const res = await fetch(`${API_BASE}/auth/change-password`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader
-        },
-        body: JSON.stringify({
-          currentPassword,
-          newPassword
-        })
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        throw new Error("Supabase is not configured.");
+      }
+      if (!currentPassword.trim()) {
+        throw new Error("Please enter your current password.");
+      }
+      if (!user.email) {
+        throw new Error("Email is missing.");
+      }
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message ?? `HTTP ${res.status}`);
+      if (verifyError) {
+        throw new Error("Current password is incorrect.");
+      }
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+      if (error) {
+        throw new Error(error.message);
       }
       setCurrentPassword("");
       setNewPassword("");
@@ -95,7 +102,8 @@ export default function AccountSettingsPage() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("accessToken");
+    const supabase = getSupabaseClient();
+    supabase?.auth.signOut().catch(() => undefined);
     router.push("/login");
   };
 

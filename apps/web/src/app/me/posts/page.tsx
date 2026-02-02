@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-export const dynamic = "force-dynamic";
+import { getSupabaseClient } from "../../lib/supabaseClient";
+import { useSupabaseSession } from "../../lib/useSupabaseSession";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+export const dynamic = "force-dynamic";
 
 type MyTraceItem = {
   id: string;
@@ -16,9 +16,11 @@ type MyTraceItem = {
   replyCount: number;
 };
 
+const PAGE_SIZE = 20;
+
 export default function MyPostsPage() {
   const router = useRouter();
-  const [token, setToken] = useState<string | null>(null);
+  const { user, ready } = useSupabaseSession();
   const [traces, setTraces] = useState<MyTraceItem[]>([]);
   const [traceCursor, setTraceCursor] = useState<string | null>(null);
   const [loadingTraces, setLoadingTraces] = useState(false);
@@ -28,43 +30,64 @@ export default function MyPostsPage() {
   const [editingContent, setEditingContent] = useState("");
   const [savingTraceId, setSavingTraceId] = useState<string | null>(null);
 
-  const authHeader = useMemo(() => {
-    if (!token) return null;
-    return { Authorization: `Bearer ${token}` };
-  }, [token]);
-
   useEffect(() => {
-    const stored = localStorage.getItem("accessToken");
-    if (!stored) {
-      router.push("/login?redirect=/me/posts");
+    if (!ready) {
       return;
     }
-    setToken(stored);
-  }, [router]);
+    if (!user) {
+      router.push("/login?redirect=/me/posts");
+    }
+  }, [ready, router, user]);
 
   const loadMyTraces = async (nextCursor?: string | null) => {
-    if (!authHeader) {
+    if (!user) {
       return;
     }
     setLoadingTraces(true);
     setTraceStatus(null);
     try {
-      const params = new URLSearchParams();
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        throw new Error("Supabase is not configured.");
+      }
+      let query = supabase
+        .from("Trace")
+        .select("id,content,createdAt,imageUrl")
+        .eq("authorId", user.id)
+        .order("createdAt", { ascending: false })
+        .limit(PAGE_SIZE);
+
       if (nextCursor) {
-        params.set("cursor", nextCursor);
+        query = query.lt("createdAt", nextCursor);
       }
-      const res = await fetch(`${API_BASE}/traces/me?${params.toString()}`, {
-        headers: { ...authHeader }
+
+      const { data, error } = await query;
+      if (error) {
+        throw new Error("Failed to load posts.");
+      }
+
+      const traceIds = (data ?? []).map((trace) => trace.id);
+      const { data: replies } = await supabase
+        .from("TraceReply")
+        .select("traceId")
+        .in("traceId", traceIds.length > 0 ? traceIds : ["__none__"]);
+
+      const replyCounts = new Map<string, number>();
+      (replies ?? []).forEach((reply) => {
+        replyCounts.set(reply.traceId, (replyCounts.get(reply.traceId) ?? 0) + 1);
       });
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-      const data = (await res.json()) as {
-        items: MyTraceItem[];
-        nextCursor: string | null;
-      };
-      setTraces((prev) => (nextCursor ? [...prev, ...data.items] : data.items));
-      setTraceCursor(data.nextCursor);
+
+      const items: MyTraceItem[] =
+        data?.map((trace) => ({
+          id: trace.id,
+          content: trace.content,
+          createdAt: trace.createdAt,
+          imageUrl: trace.imageUrl ?? null,
+          replyCount: replyCounts.get(trace.id) ?? 0
+        })) ?? [];
+
+      setTraces((prev) => (nextCursor ? [...prev, ...items] : items));
+      setTraceCursor(items.length === PAGE_SIZE ? items[items.length - 1].createdAt : null);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to load posts.";
@@ -75,15 +98,14 @@ export default function MyPostsPage() {
   };
 
   useEffect(() => {
-    if (!authHeader) {
+    if (!user) {
       return;
     }
     loadMyTraces(null).catch(() => undefined);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authHeader]);
+  }, [user]);
 
   const handleDeleteTrace = async (traceId: string) => {
-    if (!authHeader) {
+    if (!user) {
       setTraceStatus("Please sign in again.");
       return;
     }
@@ -94,13 +116,17 @@ export default function MyPostsPage() {
     setDeletingTraceId(traceId);
     setTraceStatus(null);
     try {
-      const res = await fetch(`${API_BASE}/traces/${traceId}`, {
-        method: "DELETE",
-        headers: { ...authHeader }
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message ?? `HTTP ${res.status}`);
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        throw new Error("Supabase is not configured.");
+      }
+      const { error } = await supabase
+        .from("Trace")
+        .delete()
+        .eq("id", traceId)
+        .eq("authorId", user.id);
+      if (error) {
+        throw new Error("Failed to delete post.");
       }
       setTraces((prev) => prev.filter((item) => item.id !== traceId));
     } catch (error) {
@@ -118,7 +144,7 @@ export default function MyPostsPage() {
   };
 
   const handleUpdateTrace = async (traceId: string) => {
-    if (!authHeader) {
+    if (!user) {
       setTraceStatus("Please sign in again.");
       return;
     }
@@ -130,22 +156,23 @@ export default function MyPostsPage() {
     setTraceStatus(null);
     setSavingTraceId(traceId);
     try {
-      const res = await fetch(`${API_BASE}/traces/${traceId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader
-        },
-        body: JSON.stringify({ content: nextContent })
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message ?? `HTTP ${res.status}`);
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        throw new Error("Supabase is not configured.");
       }
-      const updated = (await res.json()) as { id: string; content: string };
+      const { data, error } = await supabase
+        .from("Trace")
+        .update({ content: nextContent })
+        .eq("id", traceId)
+        .eq("authorId", user.id)
+        .select("id,content")
+        .maybeSingle();
+      if (error || !data) {
+        throw new Error("Failed to update post.");
+      }
       setTraces((prev) =>
         prev.map((item) =>
-          item.id === updated.id ? { ...item, content: updated.content } : item
+          item.id === data.id ? { ...item, content: data.content } : item
         )
       );
       setEditingTraceId(null);
@@ -193,7 +220,9 @@ export default function MyPostsPage() {
           </button>
         </div>
 
-        {traceStatus && <p className="text-xs text-brand-secondary">{traceStatus}</p>}
+        {traceStatus && (
+          <p className="text-xs text-brand-secondary">{traceStatus}</p>
+        )}
 
         {traces.length === 0 && !loadingTraces ? (
           <p className="text-sm text-text-secondary">
@@ -202,10 +231,7 @@ export default function MyPostsPage() {
         ) : (
           <div className="space-y-3">
             {traces.map((trace) => (
-              <div
-                key={trace.id}
-                className="ui-card p-4"
-              >
+              <div key={trace.id} className="ui-card p-4">
                 <div className="flex items-center justify-between text-xs text-text-muted">
                   <span>{new Date(trace.createdAt).toLocaleString()}</span>
                   <span>{trace.replyCount} replies</span>
@@ -213,11 +239,7 @@ export default function MyPostsPage() {
                 {trace.imageUrl && (
                   <div className="mt-3 overflow-hidden rounded-xl bg-surface">
                     <img
-                      src={
-                        trace.imageUrl.startsWith("http")
-                          ? trace.imageUrl
-                          : `${API_BASE}${trace.imageUrl}`
-                      }
+                      src={trace.imageUrl}
                       alt={trace.content.slice(0, 40)}
                       className="h-40 w-full object-cover"
                     />
@@ -254,7 +276,9 @@ export default function MyPostsPage() {
                     </div>
                   </div>
                 ) : (
-                  <p className="mt-3 text-sm text-text-primary">{trace.content}</p>
+                  <p className="mt-3 text-sm text-text-primary">
+                    {trace.content}
+                  </p>
                 )}
 
                 {editingTraceId !== trace.id && (
@@ -295,4 +319,3 @@ export default function MyPostsPage() {
     </div>
   );
 }
-

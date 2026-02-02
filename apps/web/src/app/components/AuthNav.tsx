@@ -1,20 +1,16 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useSupabaseSession } from "../lib/useSupabaseSession";
 
 const FF_WORLD_06 = (process.env.NEXT_PUBLIC_FF_WORLD_06 ?? "true") !== "false";
 const FF_ROOMS_08 = (process.env.NEXT_PUBLIC_FF_ROOMS_08 ?? "false") === "true";
 const FF_INTENT_12 = (process.env.NEXT_PUBLIC_FF_INTENT_12 ?? "false") === "true";
 
 export default function AuthNav() {
-  const [token, setToken] = useState<string | null>(null);
+  const { session, ready } = useSupabaseSession();
 
-  useEffect(() => {
-    setToken(localStorage.getItem("accessToken"));
-  }, []);
-
-  if (!token) {
+  if (!ready || !session) {
     return null;
   }
 

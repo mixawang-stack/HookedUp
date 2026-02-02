@@ -1,10 +1,10 @@
 "use client";
+
+import { useEffect, useState } from "react";
+
+import { useSupabaseSession } from "../lib/useSupabaseSession";
+
 export const dynamic = "force-dynamic";
-
-import { useEffect, useMemo, useState } from "react";
-
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
 
 type MatchItem = {
   id: string;
@@ -24,125 +24,93 @@ type ConsentRecord = {
   confirmedAtB: string | null;
 };
 
-type PagedResponse<T> = {
-  items: T[];
-  nextCursor: string | null;
-};
-
-async function readPagedResponse<T>(res: Response): Promise<PagedResponse<T>> {
-  const data = await res.json();
-  if (Array.isArray(data)) {
-    return { items: data as T[], nextCursor: null };
-  }
-  return data as PagedResponse<T>;
-}
-
 export default function ConsentPage() {
-  const [token, setToken] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
+  const { user, ready, session } = useSupabaseSession();
   const [matches, setMatches] = useState<MatchItem[]>([]);
   const [activeMatch, setActiveMatch] = useState<MatchItem | null>(null);
   const [consent, setConsent] = useState<ConsentRecord | null>(null);
   const [status, setStatus] = useState<string | null>(null);
 
-  const authHeader = useMemo(() => {
-    if (!token) {
-      return null;
-    }
-    return { Authorization: `Bearer ${token}` };
-  }, [token]);
-
   useEffect(() => {
-    const stored = localStorage.getItem("accessToken");
-    if (stored) {
-      setToken(stored);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!authHeader) {
+    if (!ready || !user) {
       return;
     }
+    const loadMatches = async () => {
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        setStatus("Supabase is not configured.");
+        return;
+      }
+      const { data, error } = await supabase
+        .from("Match")
+        .select(
+          "id,matchedAt,user1:User!Match_user1Id_fkey(id,maskName),user2:User!Match_user2Id_fkey(id,maskName)"
+        )
+        .or(`user1Id.eq.${user.id},user2Id.eq.${user.id}`)
+        .order("matchedAt", { ascending: false })
+        .limit(50);
 
-    fetch(`${API_BASE}/me`, { headers: { ...authHeader } })
-      .then(async (res) => {
-        if (!res.ok) {
-          throw new Error("Failed to load profile");
-        }
-        return res.json();
-      })
-      .then((data: { id: string }) => setUserId(data.id))
-      .catch(() => setStatus("Failed to load profile."));
-  }, [authHeader]);
-
-  useEffect(() => {
-    if (!authHeader) {
-      return;
-    }
-
-    fetch(`${API_BASE}/match/list`, { headers: { ...authHeader } })
-      .then(async (res) => {
-        if (!res.ok) {
-          throw new Error("Failed to load threads");
-        }
-        return readPagedResponse<MatchItem>(res);
-      })
-      .then((data) => setMatches(data.items))
-      .catch(() => setStatus("Failed to load threads."));
-  }, [authHeader]);
+      if (error) {
+        setStatus("Failed to load threads.");
+        return;
+      }
+      setMatches((data ?? []) as MatchItem[]);
+    };
+    loadMatches().catch(() => setStatus("Failed to load threads."));
+  }, [ready, user]);
 
   const loadConsent = async (matchId: string) => {
-    if (!authHeader) {
+    if (!session?.access_token) {
+      setStatus("Please sign in again.");
       return;
     }
-
-    const res = await fetch(`${API_BASE}/consent/${matchId}`, {
-      headers: { ...authHeader }
+    const res = await fetch(`/api/consent/${matchId}`, {
+      headers: { Authorization: `Bearer ${session.access_token}` }
     });
-
     if (!res.ok) {
       setStatus("Failed to load agreement.");
       return;
     }
-
     const data = (await res.json()) as ConsentRecord | null;
     setConsent(data);
   };
 
   const initConsent = async () => {
-    if (!authHeader || !activeMatch) {
+    if (!activeMatch) {
       return;
     }
-
-    const res = await fetch(`${API_BASE}/consent/${activeMatch.id}/init`, {
+    if (!session?.access_token) {
+      setStatus("Please sign in again.");
+      return;
+    }
+    const res = await fetch(`/api/consent/${activeMatch.id}/init`, {
       method: "POST",
-      headers: { ...authHeader }
+      headers: { Authorization: `Bearer ${session.access_token}` }
     });
-
     if (!res.ok) {
       setStatus("Failed to initialize agreement.");
       return;
     }
-
     const data = (await res.json()) as ConsentRecord;
     setConsent(data);
   };
 
   const confirmConsent = async () => {
-    if (!authHeader || !activeMatch) {
+    if (!activeMatch || !consent) {
       return;
     }
-
-    const res = await fetch(`${API_BASE}/consent/${activeMatch.id}/confirm`, {
+    if (!session?.access_token) {
+      setStatus("Please sign in again.");
+      return;
+    }
+    const res = await fetch(`/api/consent/${activeMatch.id}/confirm`, {
       method: "POST",
-      headers: { ...authHeader }
+      headers: { Authorization: `Bearer ${session.access_token}` }
     });
-
     if (!res.ok) {
       setStatus("Failed to confirm agreement.");
       return;
     }
-
     const data = (await res.json()) as ConsentRecord;
     setConsent(data);
   };
@@ -162,13 +130,13 @@ export default function ConsentPage() {
   };
 
   const canConfirm = () => {
-    if (!consent || !userId) {
+    if (!consent || !user) {
       return false;
     }
-    if (userId === consent.userAId) {
+    if (user.id === consent.userAId) {
       return !consent.confirmedAtA;
     }
-    if (userId === consent.userBId) {
+    if (user.id === consent.userBId) {
       return !consent.confirmedAtB;
     }
     return false;
@@ -183,7 +151,8 @@ export default function ConsentPage() {
         </p>
         <div className="mt-4 space-y-2">
           {matches.map((match) => {
-            const other = match.user1.id === userId ? match.user2 : match.user1;
+            const other =
+              match.user1.id === user?.id ? match.user2 : match.user1;
             return (
               <button
                 key={match.id}

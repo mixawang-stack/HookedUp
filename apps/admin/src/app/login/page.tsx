@@ -18,8 +18,12 @@ export default function AdminLoginPage() {
       const supabase = getSupabaseClient();
       if (!supabase) return;
       const { data } = await supabase.auth.getUser();
-      if (data.user?.email) {
+      if (data.user?.email === ADMIN_EMAIL) {
         router.replace("/");
+        return;
+      }
+      if (data.user?.email) {
+        await supabase.auth.signOut();
       }
     };
     checkSession().catch(() => undefined);

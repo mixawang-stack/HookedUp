@@ -22,6 +22,7 @@ export default function AdminPage() {
   const [statusFilter, setStatusFilter] = useState("PENDING");
   const [typeFilter, setTypeFilter] = useState("ALL");
   const [message, setMessage] = useState<string | null>(null);
+  const isAdmin = adminId !== null;
 
   useEffect(() => {
     const loadAdmin = async () => {
@@ -39,7 +40,7 @@ export default function AdminPage() {
 
   const loadQueue = async () => {
     const supabase = getSupabaseClient();
-    if (!supabase || !adminId) {
+    if (!supabase || !adminId || !isAdmin) {
       return;
     }
 
@@ -75,7 +76,7 @@ export default function AdminPage() {
 
   const approve = async (id: string) => {
     const supabase = getSupabaseClient();
-    if (!supabase || !adminId) {
+    if (!supabase || !adminId || !isAdmin) {
       return;
     }
 
@@ -98,7 +99,7 @@ export default function AdminPage() {
 
   const reject = async (id: string) => {
     const supabase = getSupabaseClient();
-    if (!supabase || !adminId) {
+    if (!supabase || !adminId || !isAdmin) {
       return;
     }
 

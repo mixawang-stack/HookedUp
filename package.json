@@ -6,19 +6,9 @@
     "dev": "pnpm dev:web",
     "dev:web": "pnpm -C apps/web dev",
     "dev:admin": "pnpm -C apps/admin dev",
-    "dev:api": "pnpm -C apps/api dev",
-    "build:api": "pnpm -C apps/api build",
     "build:web": "pnpm -C apps/web build",
     "build:admin": "pnpm -C apps/admin build"
   },
-  "prisma": {
-    "schema": "apps/api/prisma/schema.prisma"
-  },
-  "devDependencies": {
-    "@prisma/client": "^5.22.0",
-    "prisma": "^5.22.0"
-  },
-  "dependencies": {
-    "resend": "^6.9.1"
-  }
+  "devDependencies": {},
+  "dependencies": {}
 }

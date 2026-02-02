@@ -23,6 +23,7 @@ export default function AdminReportsPage() {
   const [reports, setReports] = useState<ReportItem[]>([]);
   const [statusFilter, setStatusFilter] = useState("OPEN");
   const [message, setMessage] = useState<string | null>(null);
+  const isAdmin = adminId !== null;
 
   useEffect(() => {
     const loadAdmin = async () => {
@@ -40,7 +41,7 @@ export default function AdminReportsPage() {
 
   const loadReports = async () => {
     const supabase = getSupabaseClient();
-    if (!supabase || !adminId) {
+    if (!supabase || !adminId || !isAdmin) {
       return;
     }
 
@@ -63,7 +64,7 @@ export default function AdminReportsPage() {
 
   const resolve = async (id: string, action: "warn" | "mute" | "ban") => {
     const supabase = getSupabaseClient();
-    if (!supabase || !adminId) {
+    if (!supabase || !adminId || !isAdmin) {
       return;
     }
 

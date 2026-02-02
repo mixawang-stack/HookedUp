@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+import { getSupabaseClient } from "../../lib/supabaseClient";
+import { useSupabaseSession } from "../../lib/useSupabaseSession";
 
 export default function ShareLinkPage() {
   const params = useParams();
@@ -12,26 +12,18 @@ export default function ShareLinkPage() {
   const tokenParam =
     typeof params.token === "string" ? params.token : params.token?.[0];
 
-  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const { user, ready } = useSupabaseSession();
   const [status, setStatus] = useState("Resolving share link...");
-
-  const authHeader = useMemo(() => {
-    if (!accessToken) {
-      return null;
-    }
-    return { Authorization: `Bearer ${accessToken}` };
-  }, [accessToken]);
-
-  useEffect(() => {
-    setAccessToken(localStorage.getItem("accessToken"));
-  }, []);
 
   useEffect(() => {
     if (!tokenParam) {
       setStatus("Invalid share link.");
       return;
     }
-    if (!accessToken) {
+    if (!ready) {
+      return;
+    }
+    if (!user) {
       const redirect = encodeURIComponent(`/r/${tokenParam}`);
       router.replace(`/login?redirect=${redirect}`);
       return;
@@ -39,27 +31,38 @@ export default function ShareLinkPage() {
 
     const resolve = async () => {
       try {
-        const res = await fetch(`${API_BASE}/r/${tokenParam}`);
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body?.message ?? `HTTP ${res.status}`);
+        const supabase = getSupabaseClient();
+        if (!supabase) {
+          throw new Error("Supabase is not configured.");
         }
-        const data = (await res.json()) as { roomId?: string };
-        if (!data?.roomId) {
+        const { data, error } = await supabase
+          .from("RoomShareLink")
+          .select("roomId,expiresAt,revokedAt")
+          .eq("token", tokenParam)
+          .maybeSingle();
+        if (error || !data?.roomId) {
           throw new Error("ROOM_NOT_FOUND");
         }
+        if (data.revokedAt) {
+          throw new Error("This link has been revoked.");
+        }
+        if (data.expiresAt && new Date(data.expiresAt) < new Date()) {
+          throw new Error("This link has expired.");
+        }
 
-        const joinRes = await fetch(`${API_BASE}/rooms/${data.roomId}/join`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...authHeader
-          },
-          body: JSON.stringify({})
-        });
-        if (!joinRes.ok) {
-          const body = await joinRes.json().catch(() => ({}));
-          throw new Error(body?.message ?? `HTTP ${joinRes.status}`);
+        const { error: joinError } = await supabase
+          .from("RoomMembership")
+          .upsert(
+            {
+              roomId: data.roomId,
+              userId: user.id,
+              role: "MEMBER",
+              mode: "PARTICIPANT"
+            },
+            { onConflict: "roomId,userId" }
+          );
+        if (joinError) {
+          throw new Error("Failed to join room.");
         }
 
         window.dispatchEvent(new Event("active-room-changed"));
@@ -72,7 +75,7 @@ export default function ShareLinkPage() {
     };
 
     resolve();
-  }, [accessToken, authHeader, router, tokenParam]);
+  }, [ready, user, router, tokenParam]);
 
   return (
     <main className="ui-page flex min-h-screen items-center justify-center px-4 py-8">

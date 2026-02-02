@@ -1,7 +1,7 @@
 # FIGMA_LOCK (UI must match Figma)
 
 Non-negotiables:
-1) Work scope: only modify files under apps/web. Do not change apps/api or shared backend code.
+1) Work scope: only modify files under apps/web and apps/admin. Do not change shared packages unless required.
 2) Do not change global layout primitives unless explicitly required and stated in the task.
 3) Do not change Tailwind config except adding safe semantic tokens. No breaking theme refactors.
 4) TopNav must be pill-container style (Hall/Rooms/Private/Bookstore) with active = white background + dark stroke border.

@@ -3,10 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { getSupabaseClient } from "../lib/supabaseClient";
+import { useSupabaseSession } from "../lib/useSupabaseSession";
+
 export const dynamic = "force-dynamic";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+const DEFAULT_LIMIT = 20;
+const MAX_LIMIT = 50;
+const CANDIDATE_MULTIPLIER = 3;
+const COOLDOWN_HOURS = 24;
 
 type Recommendation = {
   id: string;
@@ -28,140 +33,326 @@ type MatchItem = {
   user2: { id: string; maskName: string | null; maskAvatarUrl: string | null };
 };
 
-type PagedResponse<T> = {
-  items: T[];
-  nextCursor: string | null;
+type MeProfile = {
+  id: string;
+  emailVerifiedAt: string | null;
+  ageVerifiedAt: string | null;
+  healthVerifiedAt: string | null;
+  status: string | null;
+  country: string | null;
+  preference?: {
+    gender: string | null;
+    lookingForGender: string | null;
+    tagsJson: string[] | null;
+  } | null;
 };
 
-async function readPagedResponse<T>(res: Response): Promise<PagedResponse<T>> {
-  const data = await res.json();
-  if (Array.isArray(data)) {
-    return { items: data as T[], nextCursor: null };
-  }
-  return data as PagedResponse<T>;
-}
+const normalizePair = (userA: string, userB: string) =>
+  userA < userB ? [userA, userB] : [userB, userA];
+
+const rankCandidates = (
+  candidates: Recommendation[],
+  userTags: string[] | null,
+  userCountry: string | null
+) => {
+  const normalizedTags = (userTags ?? []).map((tag) => tag.toLowerCase());
+  const tagSet = new Set(normalizedTags);
+
+  return candidates
+    .map((candidate) => {
+      const candidateTags = candidate.preference?.tagsJson ?? [];
+      let overlap = 0;
+      for (const tag of candidateTags ?? []) {
+        if (tagSet.has(String(tag).toLowerCase())) {
+          overlap += 1;
+        }
+      }
+      const hasAvatar = candidate.maskAvatarUrl ? 1 : 0;
+      const sameCountry =
+        userCountry && candidate.country === userCountry ? 1 : 0;
+      return {
+        candidate,
+        score: overlap * 2 + hasAvatar + sameCountry
+      };
+    })
+    .sort((a, b) => {
+      if (b.score !== a.score) {
+        return b.score - a.score;
+      }
+      return 0;
+    })
+    .map((item) => item.candidate);
+};
 
 export default function MatchPage() {
   const router = useRouter();
-  const [token, setToken] = useState<string | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const { user, ready, session } = useSupabaseSession();
+  const [me, setMe] = useState<MeProfile | null>(null);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [recCursor, setRecCursor] = useState<string | null>(null);
   const [matches, setMatches] = useState<MatchItem[]>([]);
   const [matchCursor, setMatchCursor] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [matchPrompt, setMatchPrompt] = useState<MatchItem | null>(null);
-
-  const authHeader = useMemo(() => {
-    if (!token) {
-      return null;
-    }
-    return { Authorization: `Bearer ${token}` };
-  }, [token]);
+  const [loadingRecs, setLoadingRecs] = useState(false);
+  const [loadingMatches, setLoadingMatches] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem("accessToken");
-    if (stored) {
-      setToken(stored);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!authHeader) {
+    if (!ready) {
       return;
     }
+    if (!user) {
+      router.push("/login?redirect=/match");
+    }
+  }, [ready, router, user]);
 
-    fetch(`${API_BASE}/me`, { headers: { ...authHeader } })
-      .then(async (res) => {
-        if (!res.ok) {
-          throw new Error("Failed to load profile.");
-        }
-        return res.json();
-      })
-      .then((data: { id: string }) => {
-        setCurrentUserId(data.id);
-      })
-      .catch(() => {
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+    const loadMe = async () => {
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        setMessage("Supabase is not configured.");
+        return;
+      }
+      const { data } = await supabase
+        .from("User")
+        .select(
+          "id,emailVerifiedAt,ageVerifiedAt,healthVerifiedAt,status,country,preference:Preference(gender,lookingForGender,tagsJson)"
+        )
+        .eq("id", user.id)
+        .maybeSingle();
+      if (!data) {
         setMessage("Failed to load profile.");
+        return;
+      }
+      setMe({
+        id: data.id,
+        emailVerifiedAt: data.emailVerifiedAt ?? null,
+        ageVerifiedAt: data.ageVerifiedAt ?? null,
+        healthVerifiedAt: data.healthVerifiedAt ?? null,
+        status: data.status ?? null,
+        country: data.country ?? null,
+        preference: data.preference?.[0]
+          ? {
+              gender: data.preference[0].gender ?? null,
+              lookingForGender: data.preference[0].lookingForGender ?? null,
+              tagsJson: data.preference[0].tagsJson ?? null
+            }
+          : null
       });
-  }, [authHeader]);
+    };
+    loadMe().catch(() => setMessage("Failed to load profile."));
+  }, [user]);
+
+  const canRecommend = useMemo(() => {
+    if (!me) return false;
+    if (!me.emailVerifiedAt) return false;
+    if (me.status === "BANNED") return false;
+    if (!me.ageVerifiedAt || !me.healthVerifiedAt) return false;
+    if (!me.preference?.gender || !me.preference?.lookingForGender) return false;
+    return true;
+  }, [me]);
 
   const loadRecommendations = async (cursor?: string | null) => {
-    if (!authHeader) {
+    if (!user || !me) {
       return;
     }
-
-    const params = new URLSearchParams();
-    if (cursor) {
-      params.set("cursor", cursor);
-    }
-
-    const res = await fetch(`${API_BASE}/match/recommendations?${params}`, {
-      headers: { ...authHeader }
-    });
-
-    if (!res.ok) {
-      setMessage("Failed to load the forum.");
+    if (!canRecommend) {
+      setRecommendations([]);
       return;
     }
+    setLoadingRecs(true);
+    setMessage(null);
+    try {
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        throw new Error("Supabase is not configured.");
+      }
+      const take = Math.min(DEFAULT_LIMIT, MAX_LIMIT);
+      const cutoff = new Date(Date.now() - COOLDOWN_HOURS * 60 * 60 * 1000);
 
-    const data = await readPagedResponse<Recommendation>(res);
-    setRecommendations((prev) =>
-      cursor ? [...prev, ...data.items] : data.items
-    );
-    setRecCursor(data.nextCursor ?? null);
+      const [{ data: swipes }, { data: exposures }] = await Promise.all([
+        supabase
+          .from("Swipe")
+          .select("toUserId")
+          .eq("fromUserId", user.id),
+        supabase
+          .from("RecommendationExposure")
+          .select("targetId,lastShownAt")
+          .eq("viewerId", user.id)
+          .gte("lastShownAt", cutoff.toISOString())
+      ]);
+
+      const swipedIds = new Set((swipes ?? []).map((item) => item.toUserId));
+      const exposureIds = new Set(
+        (exposures ?? []).map((item) => item.targetId)
+      );
+
+      let query = supabase
+        .from("User")
+        .select(
+          "id,maskName,maskAvatarUrl,country,updatedAt,preference:Preference(gender,lookingForGender,smPreference,tagsJson)"
+        )
+        .neq("id", user.id)
+        .neq("role", "OFFICIAL")
+        .order("updatedAt", { ascending: false })
+        .limit(Math.min(take * CANDIDATE_MULTIPLIER, MAX_LIMIT));
+
+      if (cursor) {
+        query = query.lt("updatedAt", cursor);
+      }
+
+      const { data: candidates, error } = await query;
+      if (error) {
+        throw new Error("Failed to load recommendations.");
+      }
+
+      const filtered =
+        candidates
+          ?.map((candidate) => ({
+            id: candidate.id,
+            maskName: candidate.maskName ?? null,
+            maskAvatarUrl: candidate.maskAvatarUrl ?? null,
+            country: candidate.country ?? null,
+            preference: candidate.preference?.[0]
+              ? {
+                  gender: candidate.preference[0].gender ?? null,
+                  lookingForGender:
+                    candidate.preference[0].lookingForGender ?? null,
+                  smPreference: candidate.preference[0].smPreference ?? null,
+                  tagsJson: candidate.preference[0].tagsJson ?? null
+                }
+              : null,
+            updatedAt: candidate.updatedAt as string
+          }))
+          .filter((candidate) => {
+            if (swipedIds.has(candidate.id)) return false;
+            if (exposureIds.has(candidate.id)) return false;
+            if (!candidate.preference) return false;
+            if (
+              candidate.preference.gender !== me.preference?.lookingForGender
+            ) {
+              return false;
+            }
+            if (candidate.preference.lookingForGender !== me.preference?.gender) {
+              return false;
+            }
+            return true;
+          }) ?? [];
+
+      const ranked = rankCandidates(
+        filtered,
+        me.preference?.tagsJson ?? [],
+        me.country
+      );
+      const items = ranked.slice(0, take);
+
+      const nextCursorValue =
+        items.length === take
+          ? filtered[filtered.length - 1]?.updatedAt ?? null
+          : null;
+
+      setRecommendations((prev) => (cursor ? [...prev, ...items] : items));
+      setRecCursor(nextCursorValue);
+
+      if (items.length > 0) {
+        await Promise.all(
+          items.map((item) =>
+            supabase
+              .from("RecommendationExposure")
+              .upsert(
+                {
+                  viewerId: user.id,
+                  targetId: item.id,
+                  lastShownAt: new Date().toISOString()
+                },
+                { onConflict: "viewerId,targetId" }
+              )
+          )
+        );
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to load data.";
+      setMessage(message);
+    } finally {
+      setLoadingRecs(false);
+    }
   };
 
   const loadMatches = async (cursor?: string | null) => {
-    if (!authHeader) {
+    if (!user) {
       return [] as MatchItem[];
     }
+    setLoadingMatches(true);
+    try {
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        throw new Error("Supabase is not configured.");
+      }
+      let query = supabase
+        .from("Match")
+        .select(
+          "id,matchedAt,user1:User!Match_user1Id_fkey(id,maskName,maskAvatarUrl),user2:User!Match_user2Id_fkey(id,maskName,maskAvatarUrl)"
+        )
+        .or(`user1Id.eq.${user.id},user2Id.eq.${user.id}`)
+        .order("matchedAt", { ascending: false })
+        .limit(DEFAULT_LIMIT);
 
-    const params = new URLSearchParams();
-    if (cursor) {
-      params.set("cursor", cursor);
-    }
+      if (cursor) {
+        query = query.lt("matchedAt", cursor);
+      }
 
-    const res = await fetch(`${API_BASE}/match/list?${params}`, {
-      headers: { ...authHeader }
-    });
-
-    if (!res.ok) {
-      setMessage("Failed to load traces.");
+      const { data, error } = await query;
+      if (error) {
+        throw new Error("Failed to load matches.");
+      }
+      const items = (data ?? []) as MatchItem[];
+      setMatches((prev) => (cursor ? [...prev, ...items] : items));
+      setMatchCursor(
+        items.length === DEFAULT_LIMIT ? items[items.length - 1].matchedAt : null
+      );
+      return items;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to load matches.";
+      setMessage(message);
       return [] as MatchItem[];
+    } finally {
+      setLoadingMatches(false);
     }
-
-    const data = await readPagedResponse<MatchItem>(res);
-    setMatches((prev) => (cursor ? [...prev, ...data.items] : data.items));
-    setMatchCursor(data.nextCursor ?? null);
-    return data.items;
   };
 
   useEffect(() => {
+    if (!user) return;
     loadRecommendations(null).catch(() => setMessage("Failed to load data."));
     loadMatches(null).catch(() => setMessage("Failed to load data."));
-  }, [authHeader]);
+  }, [user, me]);
 
   const swipe = async (toUserId: string, action: "LIKE" | "PASS") => {
-    if (!authHeader) {
+    if (!user) {
       return;
     }
-
-    const res = await fetch(`${API_BASE}/match/swipe`, {
+    if (!session?.access_token) {
+      setMessage("Please sign in again.");
+      return;
+    }
+    const res = await fetch("/api/match/swipe", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...authHeader
+        Authorization: `Bearer ${session.access_token}`
       },
       body: JSON.stringify({ toUserId, action })
     });
-
     if (!res.ok) {
       setMessage("Action failed.");
       return;
     }
-
     const data = (await res.json()) as { matchCreated?: boolean };
+
     await loadRecommendations(null);
     const latestMatches = await loadMatches(null);
 
@@ -183,7 +374,7 @@ export default function MatchPage() {
   };
 
   const promptOther = matchPrompt
-    ? matchPrompt.user1.id === currentUserId
+    ? matchPrompt.user1.id === user?.id
       ? matchPrompt.user2
       : matchPrompt.user1
     : null;
@@ -201,7 +392,7 @@ export default function MatchPage() {
       <section className="ui-card p-6">
         <h2 className="text-lg font-semibold text-text-primary">Forum Guests</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          {recommendations.length === 0 && (
+          {recommendations.length === 0 && !loadingRecs && (
             <p className="text-sm text-text-secondary">The forum is quiet for now.</p>
           )}
           {recommendations.map((rec) => (
@@ -247,8 +438,9 @@ export default function MatchPage() {
             type="button"
             className="btn-secondary mt-4"
             onClick={() => loadRecommendations(recCursor)}
+            disabled={loadingRecs}
           >
-            Load more
+            {loadingRecs ? "Loading..." : "Load more"}
           </button>
         )}
       </section>
@@ -256,12 +448,12 @@ export default function MatchPage() {
       <section className="ui-card p-6">
         <h2 className="text-lg font-semibold text-text-primary">Your traces</h2>
         <div className="mt-4 space-y-3">
-          {matches.length === 0 && (
+          {matches.length === 0 && !loadingMatches && (
             <p className="text-sm text-text-secondary">No traces yet.</p>
           )}
           {matches.map((match) => {
             const other =
-              match.user1.id === currentUserId ? match.user2 : match.user1;
+              match.user1.id === user?.id ? match.user2 : match.user1;
             return (
               <div
                 key={match.id}
@@ -284,8 +476,9 @@ export default function MatchPage() {
             type="button"
             className="btn-secondary mt-4"
             onClick={() => loadMatches(matchCursor)}
+            disabled={loadingMatches}
           >
-            Load more
+            {loadingMatches ? "Loading..." : "Load more"}
           </button>
         )}
       </section>
