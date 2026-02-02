@@ -24,12 +24,15 @@ export async function POST(request: Request) {
     const supabase = getSupabaseAdmin();
     const { data: novel, error: novelError } = await supabase
       .from("Novel")
-      .select("id,title,description,authorId")
+      .select("id,title,description")
       .eq("id", novelId)
       .maybeSingle();
     if (novelError || !novel) {
       return NextResponse.json(
-        { error: "NOVEL_NOT_FOUND", details: { novelId } },
+        {
+          error: "NOVEL_NOT_FOUND",
+          details: { novelId, message: novelError?.message ?? null }
+        },
         { status: 404 }
       );
     }
@@ -50,7 +53,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "NOVEL_UPDATE_FAILED" }, { status: 500 });
       }
 
-      const createdById = novel.authorId ?? admin.id;
+      const createdById = admin.id;
       if (room?.id) {
         const { error: roomUpdateError } = await supabase
           .from("Room")
