@@ -357,13 +357,15 @@ export default function PrivateConversationPage() {
       if (error || !data) {
         throw new Error("Failed to send.");
       }
-      setMessages((prev) => [
-        ...prev,
-        {
-          ...(data as MessageItem),
-          sender: data.sender?.[0] ?? null
-        }
-      ]);
+      const nextMessage: MessageItem = {
+        id: data.id,
+        matchId: data.matchId,
+        senderId: data.senderId,
+        ciphertext: data.ciphertext,
+        createdAt: data.createdAt,
+        sender: data.sender?.[0] ?? null
+      };
+      setMessages((prev) => [...prev, nextMessage]);
       setInput("");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to send.";
