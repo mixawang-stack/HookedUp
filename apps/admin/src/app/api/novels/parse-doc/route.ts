@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import WordExtractor from "word-extractor";
+import { promises as fs } from "fs";
+import { tmpdir } from "os";
+import { join, extname } from "path";
 import { getSupabaseAdmin } from "../../_lib/supabaseAdmin";
 import { requireAdminUser } from "../../_lib/auth";
 
@@ -24,8 +27,21 @@ export async function POST(request: Request) {
 
     const arrayBuffer = await data.arrayBuffer();
     const extractor = new WordExtractor();
-    const document = await extractor.extract(Buffer.from(arrayBuffer));
-    const text = document.getBody() ?? "";
+    const extension = extname(path) || ".doc";
+    const tempPath = join(
+      tmpdir(),
+      `hookedup-doc-${Date.now()}-${Math.random()
+        .toString(16)
+        .slice(2)}${extension}`
+    );
+    await fs.writeFile(tempPath, Buffer.from(arrayBuffer));
+    let text = "";
+    try {
+      const document = await extractor.extract(tempPath);
+      text = document.getBody() ?? "";
+    } finally {
+      await fs.unlink(tempPath).catch(() => undefined);
+    }
 
     return NextResponse.json({ text });
   } catch (error) {
