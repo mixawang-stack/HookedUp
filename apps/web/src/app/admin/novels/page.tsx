@@ -390,6 +390,7 @@ export default function AdminNovelsPage() {
     const supabase = getSupabaseClient();
     if (!supabase || !isAdmin) return;
     const { error } = await supabase.from("NovelChapter").insert({
+      id: crypto.randomUUID(),
       novelId: selectedNovel.id,
       title: chapterTitle,
       content: chapterContent,
