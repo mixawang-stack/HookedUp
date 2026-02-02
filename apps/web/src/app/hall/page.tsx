@@ -630,10 +630,11 @@ export default function HallPage() {
       setStatus("Please enter trace content.");
       return;
     }
-    if (selectedImageFile && !uploadedImageData) {
+    let imageData = uploadedImageData;
+    if (selectedImageFile && !imageData) {
       try {
         setUploadingImage(true);
-        const imageData = await uploadTraceImage(selectedImageFile);
+        imageData = await uploadTraceImage(selectedImageFile);
         setUploadedImageData(imageData);
       } catch (error) {
         const message =
@@ -656,17 +657,17 @@ export default function HallPage() {
       } = {
         content: traceInput.trim()
       };
-      if (uploadedImageData?.imageUrl) {
+      if (imageData?.imageUrl) {
         // Validate imageUrl is a proper URL before sending
-        if (!uploadedImageData.imageUrl.startsWith("http://") && !uploadedImageData.imageUrl.startsWith("https://")) {
-          throw new Error(`Invalid imageUrl: ${uploadedImageData.imageUrl}`);
+        if (!imageData.imageUrl.startsWith("http://") && !imageData.imageUrl.startsWith("https://")) {
+          throw new Error(`Invalid imageUrl: ${imageData.imageUrl}`);
         }
-        tracePayload.imageUrl = uploadedImageData.imageUrl;
-        if (uploadedImageData.width !== null && uploadedImageData.width > 0) {
-          tracePayload.imageWidth = uploadedImageData.width;
+        tracePayload.imageUrl = imageData.imageUrl;
+        if (imageData.width !== null && imageData.width > 0) {
+          tracePayload.imageWidth = imageData.width;
         }
-        if (uploadedImageData.height !== null && uploadedImageData.height > 0) {
-          tracePayload.imageHeight = uploadedImageData.height;
+        if (imageData.height !== null && imageData.height > 0) {
+          tracePayload.imageHeight = imageData.height;
         }
       }
       const supabase = getSupabaseClient();
