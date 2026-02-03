@@ -189,10 +189,13 @@ export default function RegisterPage() {
                   Verification required
                 </p>
                 <p className="mt-1 text-xs text-text-secondary">
-                  We sent a confirmation email to your inbox.
+                  We sent a confirmation email to{" "}
+                  <span className="font-semibold">{pendingEmail}</span>.
                   <span className="block">
-                    Need help? Contact{" "}
-                    <span className="font-semibold">support@hookedup.me</span>.
+                    Please go to your email to check and log in.
+                  </span>
+                  <span className="block">
+                    If you don’t receive the email, try Gmail or Outlook.
                   </span>
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -220,7 +223,7 @@ export default function RegisterPage() {
               className="btn-primary w-full py-3 text-sm"
               disabled={loading}
             >
-              {loading ? "Sending..." : "Continue"}
+              {loading ? "Sending..." : "Email Verification"}
             </button>
           </form>
 

@@ -161,6 +161,8 @@ export default function ProfileOnboardingModal({
             }
           : null
       });
+      setStatus("Profile saved.");
+      onClose();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Save failed.";
       setStatus(message);
