@@ -196,8 +196,11 @@ export default function RegisterPage() {
                   Verification required
                 </p>
                 <p className="mt-1 text-xs text-text-secondary">
-                  We sent a confirmation email to{" "}
-                  <span className="font-semibold">{pendingEmail}</span>.
+                  We sent a confirmation email to your inbox.
+                  <span className="block">
+                    Need help? Contact{" "}
+                    <span className="font-semibold">support@hookedup.me</span>.
+                  </span>
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
