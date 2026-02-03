@@ -4,7 +4,17 @@ import { processCreemEvents } from "../../../lib/creem/processor";
 
 export const runtime = "nodejs";
 
-export async function POST() {
+const authorizeCron = (request: Request) => {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return true;
+  const authHeader = request.headers.get("authorization") ?? "";
+  return authHeader === `Bearer ${secret}`;
+};
+
+export async function POST(request: Request) {
+  if (!authorizeCron(request)) {
+    return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
+  }
   try {
     const result = await processCreemEvents(25);
     return NextResponse.json({ ok: true, ...result });
@@ -14,6 +24,6 @@ export async function POST() {
   }
 }
 
-export async function GET() {
-  return POST();
+export async function GET(request: Request) {
+  return POST(request);
 }
