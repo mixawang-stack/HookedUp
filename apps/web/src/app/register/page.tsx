@@ -293,10 +293,15 @@ export default function RegisterPage() {
               </p>
             </div>
             <h2 className="mt-4 text-2xl font-semibold text-text-primary">
-              The next room feels better.
+              HookedUp is a living space for stories and voices.
             </h2>
-            <p className="mt-3 text-sm text-text-secondary">
-              You will need to confirm your email to complete your registration.
+            <p className="mt-3 text-sm text-text-secondary whitespace-pre-line">
+              Some people come to read. Some come to speak.
+              {"\n"}Some stay only a moment. Others stay longer.
+              {"\n\n"}Create an account to join the conversation and unlock the rest
+              of the story when you’re ready.
+              {"\n"}You will need to confirm your email to complete your registration.
+              {"\n"}If you do not receive the email, try Gmail or Outlook.
             </p>
           </div>
         </section>
