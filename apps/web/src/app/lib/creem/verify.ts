@@ -26,11 +26,11 @@ export const verifyCreemSignature = (
 };
 
 export const verifyCreemRequest = (request: Request, rawBody: string) => {
-  if (process.env.NODE_ENV === "development") {
-    const skipHeader = request.headers.get("x-skip-creem-signature");
-    if (skipHeader === "true") {
-      return true;
-    }
+  if (
+    process.env.NODE_ENV === "development" &&
+    process.env.CREEM_WEBHOOK_VERIFY_DISABLED === "true"
+  ) {
+    return true;
   }
   const secret = process.env.CREEM_WEBHOOK_SECRET ?? "";
   const signatureHeader = request.headers.get(SIGNATURE_HEADER) ?? "";

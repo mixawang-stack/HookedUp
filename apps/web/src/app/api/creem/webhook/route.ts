@@ -6,11 +6,16 @@ import { verifyCreemRequest } from "../../../lib/creem/verify";
 
 export const runtime = "nodejs";
 
-const toEventId = (payload: Record<string, unknown>, rawBody: string) => {
-  const id = (payload?.id as string | undefined) ?? "";
-  if (id) return id;
-  return crypto.createHash("sha256").update(rawBody).digest("hex");
-};
+const hashRawBody = (rawBody: string) =>
+  crypto.createHash("sha256").update(rawBody).digest("hex");
+
+const toEventId = (payload: Record<string, unknown>, rawBody: string) =>
+  (payload?.id as string | undefined) ??
+  (payload?.event_id as string | undefined) ??
+  ((payload?.data as Record<string, unknown> | undefined)?.id as
+    | string
+    | undefined) ??
+  hashRawBody(rawBody);
 
 export async function POST(request: Request) {
   const rawBody = await request.text();
@@ -20,9 +25,11 @@ export async function POST(request: Request) {
 
   let payload: Record<string, unknown> = {};
   let eventType = "unknown";
+  let createdAt: string | null = null;
   try {
     payload = JSON.parse(rawBody) as Record<string, unknown>;
     eventType = String(payload?.type ?? "unknown");
+    createdAt = (payload?.created_at as string | undefined) ?? null;
   } catch {
     payload = { raw: rawBody };
   }
@@ -30,10 +37,11 @@ export async function POST(request: Request) {
   const eventId = toEventId(payload, rawBody);
 
   const { error } = await insertWebhookEvent({
-    provider: "CREEM",
+    provider: "creem",
     eventId,
     type: eventType,
-    payload
+    payload,
+    createdAt
   });
 
   if (error) {

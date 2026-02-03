@@ -7,8 +7,8 @@ export const runtime = "nodejs";
 const authorizeCron = (request: Request) => {
   const secret = process.env.CRON_SECRET;
   if (!secret) return true;
-  const authHeader = request.headers.get("authorization") ?? "";
-  return authHeader === `Bearer ${secret}`;
+  const header = request.headers.get("x-cron-secret") ?? "";
+  return header === secret;
 };
 
 export async function POST(request: Request) {

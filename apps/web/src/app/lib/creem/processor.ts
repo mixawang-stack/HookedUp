@@ -1,5 +1,9 @@
 import { getSupabaseAdmin } from "../../api/_lib/supabaseAdmin";
-import { fetchPendingWebhookEvents, markWebhookEvent } from "./store";
+import {
+  fetchPendingWebhookEvents,
+  incrementAttempts,
+  markWebhookEvent
+} from "./store";
 
 type CreemEvent = {
   event_id: string;
@@ -13,111 +17,108 @@ const toNumber = (value: unknown) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
-const getObject = (payload: Record<string, unknown>) => {
-  const data = payload?.data as Record<string, unknown> | undefined;
-  const object = data?.object as Record<string, unknown> | undefined;
-  return object ?? data ?? payload;
-};
+const getData = (payload: Record<string, unknown>) =>
+  (payload?.data as Record<string, unknown> | undefined) ?? payload;
 
 const getMetadata = (payload: Record<string, unknown>) => {
-  const obj = getObject(payload);
-  const metadata = (obj?.metadata ?? payload?.metadata) as
-    | Record<string, unknown>
-    | undefined;
-  return metadata ?? {};
+  const data = getData(payload);
+  return (data?.metadata as Record<string, unknown> | undefined) ?? {};
 };
 
 const getUserId = (payload: Record<string, unknown>) => {
   const metadata = getMetadata(payload);
-  return (metadata.userId ??
-    metadata.user_id ??
-    metadata.userid ??
-    null) as string | null;
+  return (metadata.user_id ?? metadata.userId ?? null) as string | null;
 };
 
 const getCheckoutId = (payload: Record<string, unknown>) => {
-  const obj = getObject(payload);
-  const checkout = obj?.checkout as Record<string, unknown> | undefined;
+  const data = getData(payload);
+  const checkout = data?.checkout as Record<string, unknown> | undefined;
   return (
+    (data?.checkout_id as string | undefined) ??
+    (data?.id as string | undefined) ??
     (checkout?.id as string | undefined) ??
-    (obj?.checkout_id as string | undefined) ??
-    (obj?.id as string | undefined) ??
     null
   );
 };
 
 const getOrderAmount = (payload: Record<string, unknown>) => {
-  const obj = getObject(payload);
-  const order = (obj?.order as Record<string, unknown> | undefined) ?? obj;
-  const amount = toNumber(order?.amount);
-  return amount;
+  const data = getData(payload);
+  const order = (data?.order as Record<string, unknown> | undefined) ?? data;
+  return toNumber(order?.amount);
 };
 
 const getCurrency = (payload: Record<string, unknown>) => {
-  const obj = getObject(payload);
-  const order = (obj?.order as Record<string, unknown> | undefined) ?? obj;
+  const data = getData(payload);
+  const order = (data?.order as Record<string, unknown> | undefined) ?? data;
   const currency = (order?.currency as string | undefined) ?? "USD";
   return currency.toUpperCase();
 };
 
 const getPaidAt = (payload: Record<string, unknown>) => {
-  const obj = getObject(payload);
-  const order = (obj?.order as Record<string, unknown> | undefined) ?? obj;
-  const paidAt =
+  const data = getData(payload);
+  const order = (data?.order as Record<string, unknown> | undefined) ?? data;
+  return (
     (order?.paid_at as string | undefined) ??
     (order?.paidAt as string | undefined) ??
-    null;
-  return paidAt;
+    null
+  );
 };
 
 const getSubscriptionId = (payload: Record<string, unknown>) => {
-  const obj = getObject(payload);
-  const subscription = obj?.subscription as Record<string, unknown> | undefined;
+  const data = getData(payload);
+  const subscription = data?.subscription as Record<string, unknown> | undefined;
   return (
+    (data?.subscription_id as string | undefined) ??
+    (data?.id as string | undefined) ??
     (subscription?.id as string | undefined) ??
-    (obj?.subscription_id as string | undefined) ??
-    (obj?.id as string | undefined) ??
     null
   );
 };
 
 const getCurrentPeriodEnd = (payload: Record<string, unknown>) => {
-  const obj = getObject(payload);
-  const subscription = obj?.subscription as Record<string, unknown> | undefined;
+  const data = getData(payload);
+  const subscription = data?.subscription as Record<string, unknown> | undefined;
   return (
+    (data?.current_period_end as string | undefined) ??
+    (data?.period_end as string | undefined) ??
+    (data?.ends_at as string | undefined) ??
     (subscription?.current_period_end as string | undefined) ??
-    (obj?.current_period_end as string | undefined) ??
     null
   );
 };
 
-const getCancelAtPeriodEnd = (payload: Record<string, unknown>) => {
-  const obj = getObject(payload);
-  const subscription = obj?.subscription as Record<string, unknown> | undefined;
-  const value =
-    (subscription?.cancel_at_period_end as boolean | undefined) ??
-    (obj?.cancel_at_period_end as boolean | undefined);
-  return Boolean(value);
+const resolveMaxPeriodEnd = async (
+  subscriptionId: string,
+  nextValue: string | null
+) => {
+  if (!nextValue) return nextValue;
+  const supabase = getSupabaseAdmin();
+  const { data } = await supabase
+    .from("subscriptions")
+    .select("current_period_end")
+    .eq("provider_subscription_id", subscriptionId)
+    .maybeSingle();
+  const existing = data?.current_period_end as string | null | undefined;
+  if (!existing) return nextValue;
+  return new Date(existing) > new Date(nextValue) ? existing : nextValue;
 };
 
-const updateOrder = async (payload: Record<string, unknown>, status: string) => {
+const updateOrder = async (
+  payload: Record<string, unknown>,
+  status: string
+) => {
   const supabase = getSupabaseAdmin();
   const checkoutId = getCheckoutId(payload);
-  if (!checkoutId) {
-    return;
-  }
-  const amount = getOrderAmount(payload);
-  const currency = getCurrency(payload);
-  const paidAt = getPaidAt(payload);
-  const userId = getUserId(payload);
+  if (!checkoutId) return;
   await supabase.from("orders").upsert(
     {
+      provider: "creem",
       provider_checkout_id: checkoutId,
       status,
-      amount,
-      currency,
-      paid_at: paidAt,
-      user_id: userId
+      amount: getOrderAmount(payload),
+      currency: getCurrency(payload),
+      paid_at: getPaidAt(payload),
+      user_id: getUserId(payload)
     },
     { onConflict: "provider_checkout_id" }
   );
@@ -125,43 +126,96 @@ const updateOrder = async (payload: Record<string, unknown>, status: string) => 
 
 const updateSubscription = async (
   payload: Record<string, unknown>,
-  status: string
+  status: string,
+  options?: { updatePeriodEnd?: boolean; cancelAtPeriodEnd?: boolean }
 ) => {
   const supabase = getSupabaseAdmin();
   const subscriptionId = getSubscriptionId(payload);
-  if (!subscriptionId) {
-    return;
-  }
+  if (!subscriptionId) return;
+  const currentPeriodEnd = options?.updatePeriodEnd
+    ? await resolveMaxPeriodEnd(subscriptionId, getCurrentPeriodEnd(payload))
+    : getCurrentPeriodEnd(payload);
   await supabase.from("subscriptions").upsert(
     {
+      provider: "creem",
       provider_subscription_id: subscriptionId,
       status,
-      current_period_end: getCurrentPeriodEnd(payload),
-      cancel_at_period_end: getCancelAtPeriodEnd(payload),
+      current_period_end: currentPeriodEnd,
+      cancel_at_period_end: options?.cancelAtPeriodEnd ?? false,
       user_id: getUserId(payload)
     },
     { onConflict: "provider_subscription_id" }
   );
 };
 
-const updateEntitlements = async (payload: Record<string, unknown>) => {
-  const supabase = getSupabaseAdmin();
+const updateEntitlementsFromMetadata = async (payload: Record<string, unknown>) => {
   const metadata = getMetadata(payload);
   const userId = getUserId(payload);
-  const novelId = (metadata.novelId ?? metadata.novel_id ?? null) as
-    | string
-    | null;
-  if (!userId || !novelId) {
-    return;
+  if (!userId) return;
+  const supabase = getSupabaseAdmin();
+  const type = (metadata.type as string | undefined) ?? "";
+  if (type === "story_unlock") {
+    const refId = (metadata.story_id as string | undefined) ?? null;
+    if (!refId) return;
+    await supabase.from("entitlements").upsert(
+      {
+        user_id: userId,
+        entitlement_type: "story",
+        ref_id: refId,
+        status: "active",
+        starts_at: new Date().toISOString()
+      },
+      { onConflict: "user_id,entitlement_type,ref_id" }
+    );
   }
-  await supabase.from("Entitlement").upsert(
+  if (type === "chapter_unlock") {
+    const refId = (metadata.chapter_id as string | undefined) ?? null;
+    if (!refId) return;
+    await supabase.from("entitlements").upsert(
+      {
+        user_id: userId,
+        entitlement_type: "chapter",
+        ref_id: refId,
+        status: "active",
+        starts_at: new Date().toISOString()
+      },
+      { onConflict: "user_id,entitlement_type,ref_id" }
+    );
+  }
+};
+
+const updateMembershipEntitlement = async (
+  payload: Record<string, unknown>
+) => {
+  const userId = getUserId(payload);
+  if (!userId) return;
+  const metadata = getMetadata(payload);
+  const planId =
+    (metadata.plan_id as string | undefined) ??
+    (metadata.planId as string | undefined) ??
+    "default";
+  const endsAt = getCurrentPeriodEnd(payload);
+  const supabase = getSupabaseAdmin();
+  await supabase.from("entitlements").upsert(
     {
-      userId,
-      novelId,
-      scope: "BOOK"
+      user_id: userId,
+      entitlement_type: "membership",
+      ref_id: planId,
+      status: "active",
+      ends_at: endsAt
     },
-    { onConflict: "userId,novelId,scope" }
+    { onConflict: "user_id,entitlement_type,ref_id" }
   );
+};
+
+const revokeEntitlements = async (payload: Record<string, unknown>) => {
+  const userId = getUserId(payload);
+  if (!userId) return;
+  const supabase = getSupabaseAdmin();
+  await supabase
+    .from("entitlements")
+    .update({ status: "revoked" })
+    .eq("user_id", userId);
 };
 
 const handleCreemEvent = async (event: CreemEvent) => {
@@ -170,50 +224,54 @@ const handleCreemEvent = async (event: CreemEvent) => {
 
   switch (type) {
     case "checkout.completed":
-      await updateOrder(payload, "checkout_completed");
-      await updateEntitlements(payload);
+      await updateOrder(payload, "completed");
+      await updateEntitlementsFromMetadata(payload);
       return "success";
     case "subscription.active":
-      await updateSubscription(payload, "active");
-      return "success";
-    case "subscription.paid":
-      await updateSubscription(payload, "active");
+      await updateSubscription(payload, "active", { updatePeriodEnd: true });
+      await updateMembershipEntitlement(payload);
       return "success";
     case "subscription.trialing":
-      await updateSubscription(payload, "trialing");
+      await updateSubscription(payload, "trialing", { updatePeriodEnd: true });
+      await updateMembershipEntitlement(payload);
       return "success";
-    case "subscription.canceled":
-      await updateSubscription(payload, "canceled");
+    case "subscription.paid":
+      await updateSubscription(payload, "active", { updatePeriodEnd: true });
+      await updateMembershipEntitlement(payload);
       return "success";
-    case "subscription.scheduled_cancel":
-      await updateSubscription(payload, "active");
-      return "success";
-    case "subscription.expired":
-      await updateSubscription(payload, "expired");
-      return "success";
-    case "subscription.unpaid":
     case "subscription.past_due":
+    case "subscription.unpaid":
       await updateSubscription(payload, "past_due");
-      return "success";
-    case "subscription.update":
-      await updateSubscription(payload, "active");
       return "success";
     case "subscription.paused":
       await updateSubscription(payload, "paused");
       return "success";
+    case "subscription.canceled":
+      await updateSubscription(payload, "canceled");
+      return "success";
+    case "subscription.expired":
+      await updateSubscription(payload, "expired");
+      return "success";
+    case "subscription.scheduled_cancel":
+      await updateSubscription(payload, "active", { cancelAtPeriodEnd: true });
+      return "success";
+    case "subscription.update":
+      await updateSubscription(payload, "active", { updatePeriodEnd: true });
+      return "success";
     case "refund.created":
       await updateOrder(payload, "refunded");
-      // TODO: revoke or downgrade entitlements
+      await revokeEntitlements(payload);
       return "success";
     case "dispute.created":
       await updateOrder(payload, "disputed");
+      await revokeEntitlements(payload);
       return "success";
     default:
       return "skipped";
   }
 };
 
-export const processCreemEvents = async (limit = 25) => {
+export const processCreemEvents = async (limit = 50) => {
   const { data, error } = await fetchPendingWebhookEvents(limit);
   if (error) {
     throw new Error(error.message);
@@ -224,10 +282,11 @@ export const processCreemEvents = async (limit = 25) => {
 
   for (const item of data) {
     const event = {
-      event_id: item.event_id,
-      type: item.type,
+      event_id: item.event_id as string,
+      type: item.type as string,
       payload_json: item.payload_json as Record<string, unknown>
     };
+    await incrementAttempts(event.event_id);
     try {
       const result = await handleCreemEvent(event);
       processed += 1;
