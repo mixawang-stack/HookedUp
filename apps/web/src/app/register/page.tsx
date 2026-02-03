@@ -118,13 +118,6 @@ export default function RegisterPage() {
             <h1 className="text-2xl font-semibold text-text-primary">
               Before we start --
             </h1>
-            <p className="mt-2 text-sm text-text-secondary">
-              Pick a name.
-              <br />
-              Say a little about yourself.
-              <br />
-              You can always change it later.
-            </p>
           </header>
 
           <form className="space-y-4" onSubmit={handleRegister}>
