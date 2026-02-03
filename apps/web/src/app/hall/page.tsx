@@ -258,26 +258,13 @@ export default function HallPage() {
       setStatus("Forum is not configured.");
       return;
     }
-    const { data: tracesData, error: tracesError } = await supabase
-      .from("Trace")
-      .select(
-        `
-        id,
-        content,
-        createdAt,
-        novelId,
-        imageUrl,
-        imageWidth,
-        imageHeight,
-        author:User(id,maskName,maskAvatarUrl,role,gender,dob)
-      `
-      )
-      .order("createdAt", { ascending: false })
-      .limit(60);
-    if (tracesError) {
+    const tracesRes = await fetch("/api/forum/feed");
+    if (!tracesRes.ok) {
       setStatus("Failed to load the Forum.");
       return;
     }
+    const tracesPayload = (await tracesRes.json()) as { data?: TraceItem[] };
+    const tracesData = tracesPayload.data ?? [];
 
     const traceIds = (tracesData ?? []).map((trace) => trace.id);
     const [repliesRes, likesRes] = await Promise.all([
