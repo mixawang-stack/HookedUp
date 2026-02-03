@@ -301,7 +301,7 @@ export default function RegisterPage() {
               {"\n\n"}Create an account to join the conversation and unlock the rest
               of the story when you’re ready.
               {"\n"}You will need to confirm your email to complete your registration.
-              {"\n"}If you do not receive the email, try Gmail or Outlook.
+              {"\n"}If you don’t receive the email, try Gmail or Outlook.
             </p>
           </div>
         </section>
