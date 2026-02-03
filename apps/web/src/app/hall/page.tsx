@@ -1285,14 +1285,12 @@ export default function HallPage() {
               </button>
             </div>
 
-            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-              {feedColumns.map((column, columnIndex) => (
-                <div key={`feed-col-${columnIndex}`} className="flex flex-col gap-4">
-                  {column.map((item) =>
-                    item.kind === "novel"
-                      ? renderNovelCard(item.novel)
-                      : renderTraceCard(item.trace)
-                  )}
+            <div className="mt-4 columns-1 gap-4 md:columns-2">
+              {feedItems.map((item, index) => (
+                <div key={`${item.kind}-${index}`} className="mb-4 break-inside-avoid">
+                  {item.kind === "novel"
+                    ? renderNovelCard(item.novel)
+                    : renderTraceCard(item.trace)}
                 </div>
               ))}
             </div>
