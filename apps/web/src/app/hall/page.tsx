@@ -1029,13 +1029,7 @@ export default function HallPage() {
               <img
                 src={resolveMediaUrl(trace.imageUrl) ?? ""}
                 alt={trace.content.slice(0, 40)}
-                className="w-full object-contain"
-                style={{
-                  aspectRatio:
-                    trace.imageWidth && trace.imageHeight
-                      ? `${trace.imageWidth} / ${trace.imageHeight}`
-                      : "4 / 5"
-                }}
+                className="w-full h-auto object-cover"
               />
             </div>
             <p
