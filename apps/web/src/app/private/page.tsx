@@ -170,8 +170,9 @@ function PrivateListPageInner() {
     }
     const conversation = data.conversation?.[0];
     const match = conversation?.match?.[0];
-    const other =
-      match?.user1Id === userId ? match?.user2?.[0] : match?.user1?.[0];
+    const user1 = Array.isArray(match?.user1) ? match?.user1?.[0] : match?.user1;
+    const user2 = Array.isArray(match?.user2) ? match?.user2?.[0] : match?.user2;
+    const other = match?.user1Id === userId ? user2 : user1;
     const item: ConversationItem = {
       id: conversation?.id ?? data.conversationId,
       matchId: conversation?.matchId ?? "",
