@@ -338,9 +338,23 @@ export default function HallPage() {
     }
     setStatus(null);
     try {
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        setStatus("Supabase is not configured.");
+        return;
+      }
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token ?? null;
+      if (!accessToken) {
+        redirectToLogin();
+        return;
+      }
       const res = await fetch("/api/private/start", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`
+        },
         credentials: "include",
         body: JSON.stringify({ targetUserId: userId })
       });
