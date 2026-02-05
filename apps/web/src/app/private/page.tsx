@@ -888,7 +888,7 @@ function PrivateConversationDrawer({
               const isOwnMessage = Boolean(me && msg.senderId === me.id);
               const prev = sortedMessages[index - 1];
               const showMeta =
-                index === 0 || prev?.sender?.id !== msg.sender?.id;
+                index === 0 || prev?.senderId !== msg.senderId;
 
               return (
                 <ChatBubble
