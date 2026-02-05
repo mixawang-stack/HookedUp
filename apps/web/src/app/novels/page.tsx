@@ -175,11 +175,9 @@ export default function StoriesPage() {
                 onClick={() => router.push(`/stories/${novel.id}`)}
               >
                 <div className="group relative overflow-hidden rounded-xl border border-border-default bg-card">
-                  {pricing.paywallType !== "FREE_PLUS_PAID" && (
-                    <div className="absolute right-3 top-3 z-10">
-                      <PricingBadge type={pricing.paywallType} />
-                    </div>
-                  )}
+                  <div className="absolute right-3 top-3 z-10">
+                    <PricingBadge type={pricing.paywallType} />
+                  </div>
                   {novel.coverImageUrl ? (
                     <img
                       src={resolveMediaUrl(novel.coverImageUrl) ?? ""}
