@@ -7,17 +7,31 @@ export async function POST(request: Request) {
     const user = await requireUser(request);
     const body = await request.json().catch(() => ({}));
     const matchId = String(body?.matchId ?? "");
+    const conversationId = String(body?.conversationId ?? "");
     const ciphertext = String(body?.ciphertext ?? "").trim();
 
-    if (!matchId || !ciphertext) {
+    if ((!matchId && !conversationId) || !ciphertext) {
       return NextResponse.json({ error: "INVALID_INPUT" }, { status: 400 });
     }
 
     const supabase = getSupabaseAdmin();
+    let resolvedMatchId = matchId;
+    if (!resolvedMatchId && conversationId) {
+      const { data: conversation } = await supabase
+        .from("Conversation")
+        .select("matchId")
+        .eq("id", conversationId)
+        .maybeSingle();
+      resolvedMatchId = conversation?.matchId ?? "";
+    }
+    if (!resolvedMatchId) {
+      return NextResponse.json({ error: "MATCH_NOT_FOUND" }, { status: 404 });
+    }
+
     const { data: match } = await supabase
       .from("Match")
       .select("id,user1Id,user2Id")
-      .eq("id", matchId)
+      .eq("id", resolvedMatchId)
       .maybeSingle();
 
     if (!match) {
@@ -30,7 +44,7 @@ export async function POST(request: Request) {
     const { data: message, error: messageError } = await supabase
       .from("Message")
       .insert({
-        matchId,
+        matchId: resolvedMatchId,
         senderId: user.id,
         ciphertext
       })

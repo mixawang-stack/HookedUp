@@ -103,22 +103,23 @@ function PrivateListPageInner() {
         throw new Error("Failed to load.");
       }
 
+      const normalizeOne = <T,>(value?: T | T[] | null) =>
+        Array.isArray(value) ? value[0] ?? null : value ?? null;
       const items =
         data?.map((row) => {
-          const conversation = row.conversation?.[0];
-          const match = conversation?.match?.[0];
-          const user1 = Array.isArray(match?.user1)
-            ? match?.user1?.[0]
-            : match?.user1;
-          const user2 = Array.isArray(match?.user2)
-            ? match?.user2?.[0]
-            : match?.user2;
-          const other = match?.user1Id === userId ? user2 : user1;
+          const conversation = normalizeOne(row.conversation);
+          const match = normalizeOne(conversation?.match);
+          const user1 = normalizeOne(match?.user1);
+          const user2 = normalizeOne(match?.user2);
+          const otherId =
+            match?.user1Id === userId ? match?.user2Id : match?.user1Id;
+          const other =
+            match?.user1Id === userId ? user2 ?? null : user1 ?? null;
           return {
             id: conversation?.id ?? row.conversationId,
             matchId: conversation?.matchId ?? "",
             otherUser: {
-              id: other?.id ?? "",
+              id: other?.id ?? otherId ?? "",
               maskName: other?.maskName ?? null,
               maskAvatarUrl: other?.maskAvatarUrl ?? null,
               allowStrangerPrivate: null
@@ -128,6 +129,28 @@ function PrivateListPageInner() {
             unreadCount: 0
           };
         }) ?? [];
+
+      const missingIds = items
+        .filter((item) => item.otherUser.id && !item.otherUser.maskName)
+        .map((item) => item.otherUser.id);
+      if (missingIds.length > 0) {
+        const { data: usersData } = await supabase
+          .from("User")
+          .select("id,maskName,maskAvatarUrl")
+          .in("id", missingIds);
+        const userMap = new Map(
+          (usersData ?? []).map((user) => [user.id, user])
+        );
+        items.forEach((item) => {
+          if (!item.otherUser.maskName) {
+            const filled = userMap.get(item.otherUser.id);
+            if (filled) {
+              item.otherUser.maskName = filled.maskName ?? null;
+              item.otherUser.maskAvatarUrl = filled.maskAvatarUrl ?? null;
+            }
+          }
+        });
+      }
 
       setConversations(items as ConversationItem[]);
       setCursor(null);
@@ -173,16 +196,20 @@ function PrivateListPageInner() {
     if (error || !data) {
       throw new Error("Conversation not available.");
     }
-    const conversation = data.conversation?.[0];
-    const match = conversation?.match?.[0];
-    const user1 = Array.isArray(match?.user1) ? match?.user1?.[0] : match?.user1;
-    const user2 = Array.isArray(match?.user2) ? match?.user2?.[0] : match?.user2;
-    const other = match?.user1Id === userId ? user2 : user1;
+    const normalizeOne = <T,>(value?: T | T[] | null) =>
+      Array.isArray(value) ? value[0] ?? null : value ?? null;
+    const conversation = normalizeOne(data.conversation);
+    const match = normalizeOne(conversation?.match);
+    const user1 = normalizeOne(match?.user1);
+    const user2 = normalizeOne(match?.user2);
+    const otherId =
+      match?.user1Id === userId ? match?.user2Id : match?.user1Id;
+    const other = match?.user1Id === userId ? user2 ?? null : user1 ?? null;
     const item: ConversationItem = {
       id: conversation?.id ?? data.conversationId,
       matchId: conversation?.matchId ?? "",
       otherUser: {
-        id: other?.id ?? "",
+        id: other?.id ?? otherId ?? "",
         maskName: other?.maskName ?? null,
         maskAvatarUrl: other?.maskAvatarUrl ?? null,
         allowStrangerPrivate: null
@@ -191,6 +218,18 @@ function PrivateListPageInner() {
       mutedAt: data.mutedAt ?? null,
       unreadCount: 0
     };
+    if (item.otherUser.id && !item.otherUser.maskName) {
+      const { data: otherProfile } = await supabase
+        .from("User")
+        .select("id,maskName,maskAvatarUrl")
+        .eq("id", item.otherUser.id)
+        .maybeSingle();
+      if (otherProfile) {
+        item.otherUser.maskName = otherProfile.maskName ?? null;
+        item.otherUser.maskAvatarUrl = otherProfile.maskAvatarUrl ?? null;
+      }
+    }
+
     setConversations((prev) => {
       if (prev.find((conv) => conv.id === item.id)) {
         return prev;
@@ -642,6 +681,7 @@ function PrivateConversationDrawer({
         },
         body: JSON.stringify({
           matchId: conversation.matchId,
+          conversationId: conversation.id,
           ciphertext: content
         })
       });
