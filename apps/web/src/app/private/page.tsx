@@ -767,6 +767,26 @@ function PrivateConversationDrawer({
   }, [conversation.matchId]);
 
   useEffect(() => {
+    let interval: number | undefined;
+    const tick = () => {
+      loadMessages(null).catch(() => undefined);
+    };
+    interval = window.setInterval(tick, 5000);
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        tick();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      if (interval) {
+        window.clearInterval(interval);
+      }
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [conversation.id]);
+
+  useEffect(() => {
     if (!bottomRef.current) return;
     bottomRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [sortedMessages.length]);
