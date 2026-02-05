@@ -12,6 +12,7 @@ type ChatBubbleProps = {
     ciphertext: string;
     createdAt: string;
     sender: SenderProfile;
+    senderId?: string;
   };
   isMine: boolean;
   showMeta: boolean;
@@ -46,7 +47,7 @@ export default function ChatBubble({ message, isMine, showMeta }: ChatBubbleProp
       : isMine
       ? "You"
       : "Anonymous";
-  const isSystem = !sender;
+  const isSystem = !sender && !message.senderId;
   const initial = displayName.charAt(0).toUpperCase();
 
   const bubbleClasses = [
