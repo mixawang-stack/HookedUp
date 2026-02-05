@@ -125,6 +125,9 @@ type PublicProfile = {
   maskName: string | null;
   maskAvatarUrl: string | null;
   bio: string | null;
+  dob?: string | null;
+  gender?: string | null;
+  language?: string | null;
   city?: string | null;
   country?: string | null;
   preference?: {
@@ -333,7 +336,32 @@ export default function HallPage() {
     if (currentUserId && userId === currentUserId) {
       return;
     }
-    setStatus("Private chat migration is in progress.");
+    setStatus(null);
+    try {
+      const res = await fetch("/api/private/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetUserId: userId })
+      });
+      if (res.status === 401) {
+        redirectToLogin();
+        return;
+      }
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(payload?.error ?? "Failed to start private chat.");
+      }
+      if (payload?.conversationId) {
+        setProfileCard(null);
+        router.push(`/private/${payload.conversationId}`);
+      } else {
+        throw new Error("Conversation not available.");
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to start chat.";
+      setStatus(message);
+    }
   };
 
   const openProfileCard = async (userId: string) => {
@@ -351,7 +379,7 @@ export default function HallPage() {
       const { data } = await supabase
         .from("User")
         .select(
-          "id,maskName,maskAvatarUrl,bio,city,country,preference:Preference(vibeTagsJson,interestsJson,allowStrangerPrivate,smPreference)"
+          "id,maskName,maskAvatarUrl,bio,city,country,dob,gender,language,preference:Preference(vibeTagsJson,interestsJson,allowStrangerPrivate,smPreference)"
         )
         .eq("id", userId)
         .maybeSingle();
@@ -364,6 +392,9 @@ export default function HallPage() {
         maskName: data.maskName ?? (isSelf ? "You" : null),
         maskAvatarUrl: data.maskAvatarUrl ?? null,
         bio: data.bio ?? null,
+        dob: data.dob ?? null,
+        gender: data.gender ?? null,
+        language: data.language ?? null,
         city: data.city ?? null,
         country: data.country ?? null,
         preference: data.preference?.[0]
@@ -383,14 +414,6 @@ export default function HallPage() {
     } finally {
       setProfileLoading(false);
     }
-  };
-
-  const blockUser = async (userId: string) => {
-    if (!isSignedIn) {
-      redirectToLogin();
-      return;
-    }
-    setStatus("Blocking will be available after messaging migration.");
   };
 
   const toggleLike = async (traceId: string) => {
@@ -465,14 +488,6 @@ export default function HallPage() {
     }
   };
 
-
-  const reportUser = async (userId: string) => {
-    if (!isSignedIn) {
-      redirectToLogin();
-      return;
-    }
-    setStatus("Reporting will be available after moderation migration.");
-  };
 
   const fetchTraceDetail = async (traceId: string) => {
     const supabase = getSupabaseClient();
@@ -1116,21 +1131,6 @@ export default function HallPage() {
             <span className="text-sm">{trace.likeCount ?? 0}</span>
           </button>
         </div>
-        {currentUserId &&
-          trace.author?.id &&
-          trace.author.role !== "OFFICIAL" &&
-          trace.author.id !== currentUserId && (
-            <button
-              type="button"
-              className="mt-3 w-full rounded-full border border-border-default px-3 py-2 text-[10px] font-semibold text-text-secondary"
-              onClick={(event) => {
-                event.stopPropagation();
-                startConversation(trace.author!.id);
-              }}
-            >
-              Start private
-            </button>
-          )}
       </button>
     );
   };
@@ -1599,17 +1599,6 @@ export default function HallPage() {
             await startConversation(userId);
             setProfileCard(null);
           }}
-          onViewProfile={(userId) => {
-            if (currentUserId && userId === currentUserId) {
-              router.push("/me");
-              setProfileCard(null);
-              return;
-            }
-            router.push(`/users/${userId}`);
-            setProfileCard(null);
-          }}
-          onBlock={blockUser}
-          onReport={reportUser}
         />
       )}
       {profileLoading && (

@@ -81,10 +81,14 @@ export default function RoomPage() {
     maskName: string | null;
     maskAvatarUrl: string | null;
     bio: string | null;
+    dob?: string | null;
+    gender?: string | null;
+    language?: string | null;
     preference?: {
       vibeTags?: string[] | null;
       interests?: string[] | null;
       allowStrangerPrivate?: boolean | null;
+      smPreference?: string | null;
     } | null;
   } | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
@@ -106,7 +110,7 @@ export default function RoomPage() {
       const { data } = await supabase
         .from("User")
         .select(
-          "id,maskName,maskAvatarUrl,bio,preference:Preference(vibeTagsJson,interestsJson,allowStrangerPrivate)"
+          "id,maskName,maskAvatarUrl,bio,dob,gender,language,preference:Preference(vibeTagsJson,interestsJson,allowStrangerPrivate,smPreference)"
         )
         .eq("id", targetUserId)
         .maybeSingle();
@@ -119,12 +123,16 @@ export default function RoomPage() {
         maskName: data.maskName ?? (isSelf ? "You" : null),
         maskAvatarUrl: data.maskAvatarUrl ?? null,
         bio: data.bio ?? null,
+        dob: data.dob ?? null,
+        gender: data.gender ?? null,
+        language: data.language ?? null,
         preference: data.preference?.[0]
           ? {
               vibeTags: data.preference[0].vibeTagsJson ?? null,
               interests: data.preference[0].interestsJson ?? null,
               allowStrangerPrivate:
-                data.preference[0].allowStrangerPrivate ?? null
+                data.preference[0].allowStrangerPrivate ?? null,
+              smPreference: data.preference[0].smPreference ?? null
             }
           : null
       });
@@ -137,28 +145,37 @@ export default function RoomPage() {
     }
   };
 
-  const blockUser = async (targetUserId: string) => {
-    if (!isSignedIn) {
-      setStatus("Please sign in to manage blocks.");
-      return;
-    }
-    setStatus("Blocking will be available after messaging migration.");
-  };
-
-  const reportUser = async (targetUserId: string) => {
-    if (!isSignedIn) {
-      setStatus("Please sign in to report.");
-      return;
-    }
-    setStatus("Reporting will be available after moderation migration.");
-  };
-
   const startConversation = async (targetUserId: string) => {
     if (!isSignedIn) {
       setStatus("Please sign in to start a private conversation.");
       return;
     }
-    setStatus("Private chat migration is in progress.");
+    setStatus(null);
+    try {
+      const res = await fetch("/api/private/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetUserId })
+      });
+      if (res.status === 401) {
+        setStatus("Please sign in to start a private conversation.");
+        return;
+      }
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(payload?.error ?? "Failed to start private chat.");
+      }
+      if (payload?.conversationId) {
+        setProfileCard(null);
+        router.push(`/private/${payload.conversationId}`);
+      } else {
+        throw new Error("Conversation not available.");
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to start chat.";
+      setStatus(message);
+    }
   };
 
   useEffect(() => {
@@ -669,8 +686,6 @@ export default function RoomPage() {
             await startConversation(userId);
             setProfileCard(null);
           }}
-          onBlock={blockUser}
-          onReport={reportUser}
         />
       )}
       {profileLoading && (

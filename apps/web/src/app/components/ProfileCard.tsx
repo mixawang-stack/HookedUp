@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 
@@ -8,19 +8,20 @@ type ProfileCardProps = {
     maskName: string | null;
     maskAvatarUrl: string | null;
     bio: string | null;
+    dob?: string | null;
+    gender?: string | null;
+    language?: string | null;
     city?: string | null;
     country?: string | null;
     preference?: {
       vibeTags?: string[] | null;
       interests?: string[] | null;
       allowStrangerPrivate?: boolean | null;
+      smPreference?: string | null;
     } | null;
   };
   mutedHint?: string | null;
   onStartPrivate: (userId: string) => Promise<void> | void;
-  onViewProfile?: (userId: string) => Promise<void> | void;
-  onBlock?: (userId: string) => Promise<void> | void;
-  onReport?: (userId: string) => Promise<void> | void;
   onClose: () => void;
 };
 
@@ -28,21 +29,26 @@ export default function ProfileCard({
   profile,
   mutedHint,
   onStartPrivate,
-  onViewProfile,
-  onBlock,
-  onReport,
   onClose
 }: ProfileCardProps) {
   const [starting, setStarting] = useState(false);
   const vibeTags = profile.preference?.vibeTags ?? [];
   const interests = profile.preference?.interests ?? [];
   const allowStrangerPrivate = profile.preference?.allowStrangerPrivate ?? true;
+  const smPreference = profile.preference?.smPreference ?? null;
   const tags = [...vibeTags, ...interests].filter(Boolean);
   const displayTags = tags.slice(0, 6);
   const overflowCount = Math.max(tags.length - displayTags.length, 0);
   const locationLine = [profile.city, profile.country]
     .filter((item) => item && item.trim().length > 0)
-    .join(" · ");
+    .join(" 路 ");
+  const age =
+    profile.dob && !Number.isNaN(Date.parse(profile.dob))
+      ? Math.max(
+          0,
+          new Date().getFullYear() - new Date(profile.dob).getFullYear()
+        )
+      : null;
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -107,6 +113,31 @@ export default function ProfileCard({
           <p className="mt-4 text-sm text-text-secondary">{profile.bio}</p>
         )}
 
+        <div className="mt-4 grid gap-2 rounded-xl border border-border-default bg-card px-4 py-3 text-xs text-text-secondary">
+          {profile.gender && (
+            <p>
+              <span className="text-text-muted">Gender:</span> {profile.gender}
+            </p>
+          )}
+          {age !== null && (
+            <p>
+              <span className="text-text-muted">Age:</span> {age}
+            </p>
+          )}
+          {profile.language && (
+            <p>
+              <span className="text-text-muted">Language:</span>{" "}
+              {profile.language}
+            </p>
+          )}
+          {smPreference && (
+            <p>
+              <span className="text-text-muted">Preference:</span>{" "}
+              {smPreference}
+            </p>
+          )}
+        </div>
+
         {displayTags.length > 0 && (
           <div className="mt-4">
             <p className="text-[10px] uppercase tracking-wide text-text-muted">
@@ -156,37 +187,10 @@ export default function ProfileCard({
                 ? "Start private chat"
                 : "Request private chat"}
           </button>
-          {onViewProfile && (
-            <button
-              type="button"
-              className="btn-secondary w-full px-4 py-2 text-xs"
-              onClick={() => onViewProfile(profile.id)}
-            >
-              View profile
-            </button>
-          )}
-          <div className="flex items-center justify-between gap-2 text-xs">
-            {onReport && (
-              <button
-                type="button"
-                className="btn-secondary flex-1 px-3 py-2 text-xs"
-                onClick={() => onReport(profile.id)}
-              >
-                Report
-              </button>
-            )}
-            {onBlock && (
-              <button
-                type="button"
-                className="btn-secondary flex-1 px-3 py-2 text-xs"
-                onClick={() => onBlock(profile.id)}
-              >
-                Block
-              </button>
-            )}
-          </div>
         </div>
       </div>
     </div>
   );
 }
+
+
