@@ -92,8 +92,8 @@ function PrivateListPageInner() {
             match:Match(
               user1Id,
               user2Id,
-              user1:User(id,maskName,maskAvatarUrl),
-              user2:User(id,maskName,maskAvatarUrl)
+              user1:User!Match_user1Id_fkey(id,maskName,maskAvatarUrl),
+              user2:User!Match_user2Id_fkey(id,maskName,maskAvatarUrl)
             )
           )
         `
@@ -156,8 +156,8 @@ function PrivateListPageInner() {
             match:Match(
               user1Id,
               user2Id,
-              user1:User(id,maskName,maskAvatarUrl),
-              user2:User(id,maskName,maskAvatarUrl)
+              user1:User!Match_user1Id_fkey(id,maskName,maskAvatarUrl),
+              user2:User!Match_user2Id_fkey(id,maskName,maskAvatarUrl)
             )
           )
         `
