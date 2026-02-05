@@ -107,8 +107,13 @@ function PrivateListPageInner() {
         data?.map((row) => {
           const conversation = row.conversation?.[0];
           const match = conversation?.match?.[0];
-          const other =
-            match?.user1Id === userId ? match?.user2?.[0] : match?.user1?.[0];
+          const user1 = Array.isArray(match?.user1)
+            ? match?.user1?.[0]
+            : match?.user1;
+          const user2 = Array.isArray(match?.user2)
+            ? match?.user2?.[0]
+            : match?.user2;
+          const other = match?.user1Id === userId ? user2 : user1;
           return {
             id: conversation?.id ?? row.conversationId,
             matchId: conversation?.matchId ?? "",
@@ -624,21 +629,29 @@ function PrivateConversationDrawer({
       if (!supabase) {
         throw new Error("Supabase not configured.");
       }
-      const { data, error } = await supabase
-        .from("Message")
-        .insert({
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token ?? null;
+      if (!accessToken) {
+        throw new Error("Please sign in to send messages.");
+      }
+      const res = await fetch("/api/private/message", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`
+        },
+        body: JSON.stringify({
           matchId: conversation.matchId,
-          senderId: me.id,
           ciphertext: content
         })
-        .select("id,matchId,senderId,ciphertext,createdAt,sender:User(id,maskName,maskAvatarUrl)")
-        .single();
-      if (error || !data) {
-        throw new Error("Failed to send.");
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(payload?.error ?? "Failed to send.");
       }
       const normalizedMessage = {
-        ...data,
-        sender: data.sender?.[0] ?? null
+        ...payload,
+        sender: payload.sender?.[0] ?? null
       } as MessageItem;
       setMessages((prev) => [...prev, normalizedMessage]);
       if (!overrideContent || content === input.trim()) {
