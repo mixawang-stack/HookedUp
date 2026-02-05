@@ -163,6 +163,14 @@ export default function NovelDetailPage() {
     pricing.price,
     pricing.currency
   );
+  const bookPriceLabel = formatPriceWithCurrency(
+    novel?.bookPrice ?? null,
+    pricing.currency
+  );
+  const promoPriceLabel = formatPriceWithCurrency(
+    novel?.bookPromoPrice ?? null,
+    pricing.currency
+  );
   const priceAmount = formatPriceAmount(pricing.price, pricing.currency);
   const chaptersToRender =
     lockedChapters.length > 0 && !isUnlocked ? freeChapters : chapters;
@@ -495,9 +503,30 @@ export default function NovelDetailPage() {
                         {"\n"}Unlock the rest of the story to find out what happens next.
                       </p>
                       <div className="mt-4 space-y-2">
-                        <p className="text-sm text-text-primary">
-                          Price: {priceLabel ?? "Available soon"}
-                        </p>
+                        <div className="text-sm text-text-primary">
+                          <p>Price:</p>
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            {promoPriceLabel ? (
+                              <span className="text-base font-semibold text-brand-primary">
+                                {promoPriceLabel}
+                              </span>
+                            ) : null}
+                            {bookPriceLabel ? (
+                              <span
+                                className={`text-xs text-text-muted ${
+                                  promoPriceLabel ? "line-through" : ""
+                                }`}
+                              >
+                                {bookPriceLabel}
+                              </span>
+                            ) : null}
+                            {!promoPriceLabel && !bookPriceLabel && (
+                              <span className="text-xs text-text-muted">
+                                Available soon
+                              </span>
+                            )}
+                          </div>
+                        </div>
                         <p className="text-xs text-text-muted">
                           One-time purchase. No subscription.
                         </p>
