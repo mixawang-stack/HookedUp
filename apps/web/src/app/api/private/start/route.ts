@@ -72,7 +72,7 @@ export async function POST(request: Request) {
 
     let conversationId = existingConversation?.id ?? null;
     if (!conversationId) {
-      const { data: conversation, error: convoError } = await supabase
+      const { data: conversation, error: conversationError } = await supabase
         .from("Conversation")
         .insert({
           id: crypto.randomUUID(),
@@ -91,13 +91,6 @@ export async function POST(request: Request) {
         );
       }
       conversationId = conversation.id;
-    }
-
-    if (convoError || !conversation?.id) {
-      return NextResponse.json(
-        { error: "CONVERSATION_CREATE_FAILED" },
-        { status: 500 }
-      );
     }
 
     await Promise.all([
