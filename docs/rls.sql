@@ -235,9 +235,10 @@ for select
 using (
   exists (
     select 1
-    from "ConversationParticipant" cp
-    where cp."conversationId" = "ConversationParticipant"."conversationId"
-      and cp."userId" = auth.uid()::text
+    from "Conversation" c
+    join "Match" m on m.id = c."matchId"
+    where c.id = "ConversationParticipant"."conversationId"
+      and (m."user1Id" = auth.uid()::text or m."user2Id" = auth.uid()::text)
   )
 );
 
