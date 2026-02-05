@@ -456,10 +456,10 @@ function PrivateListPageInner() {
     <div className="min-h-screen bg-[#FBF4EE]">
       <div className="mx-auto max-w-6xl px-6 py-10">
         <div className="mb-6">
-          <h1 className="text-5xl font-extrabold tracking-tight text-[#3A2E2A]">
+          <h1 className="text-2xl font-semibold text-[#3A2E2A]">
             Private Messages
           </h1>
-          <p className="mt-2 text-lg text-[#6B5A52]">
+          <p className="mt-2 text-sm text-[#6B5A52]">
             Connect one-on-one with other community members
           </p>
           {status && <p className="mt-2 text-sm text-brand-secondary">{status}</p>}
