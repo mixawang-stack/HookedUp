@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "../lib/supabaseClient";
 import PricingBadge from "../components/PricingBadge";
 import PricingSnippet from "../components/PricingSnippet";
+import PricingHoverSnippet from "../components/PricingHoverSnippet";
 import {
   formatPriceAmount,
   formatPriceWithCurrency,
@@ -199,12 +200,10 @@ export default function StoriesPage() {
                         {teaser || novel.title}
                       </p>
                     )}
-                    <PricingSnippet
+                    <PricingHoverSnippet
                       type={pricing.paywallType}
                       freeChaptersCount={pricing.freeChaptersCount}
                       totalChaptersCount={totalChaptersCount}
-                      price={pricing.price}
-                      currency={pricing.currency}
                       className="text-white/90"
                     />
                     <span className="inline-flex w-fit items-center justify-center rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-slate-900">
@@ -228,7 +227,6 @@ export default function StoriesPage() {
                   <PricingSnippet
                     type={pricing.paywallType}
                     freeChaptersCount={pricing.freeChaptersCount}
-                    totalChaptersCount={totalChaptersCount}
                     price={pricing.price}
                     currency={pricing.currency}
                   />

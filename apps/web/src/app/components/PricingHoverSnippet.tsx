@@ -1,22 +1,18 @@
 import type { PaywallType } from "../lib/pricing";
-import { formatPriceWithCurrency } from "../lib/pricing";
 
-type PricingSnippetProps = {
+type PricingHoverSnippetProps = {
   type: PaywallType;
   freeChaptersCount?: number | null;
-  price?: number | null;
-  currency?: string | null;
+  totalChaptersCount?: number | null;
   className?: string;
 };
 
-export default function PricingSnippet({
+export default function PricingHoverSnippet({
   type,
   freeChaptersCount,
-  price,
-  currency,
+  totalChaptersCount,
   className
-}: PricingSnippetProps) {
-  const priceLabel = formatPriceWithCurrency(price ?? null, currency);
+}: PricingHoverSnippetProps) {
   if (type === "FREE") {
     return (
       <p className={`text-xs text-text-secondary ${className ?? ""}`}>
@@ -27,18 +23,22 @@ export default function PricingSnippet({
   if (type === "PREMIUM") {
     return (
       <p className={`text-xs text-text-secondary ${className ?? ""}`}>
-        {priceLabel ? `Full access ${priceLabel}` : "Pricing available soon"}
+        Full access
       </p>
     );
   }
+  const totalLine =
+    totalChaptersCount && totalChaptersCount > 0
+      ? `Total ${totalChaptersCount} chapters.`
+      : "Total chapters available.";
   const freeLine =
     freeChaptersCount && freeChaptersCount > 0
-      ? `First ${freeChaptersCount} chapters free`
-      : "Free preview available";
+      ? `First ${freeChaptersCount} chapters free.`
+      : "Free preview available.";
   return (
     <div className={`space-y-1 text-xs text-text-secondary ${className ?? ""}`}>
+      <p>{totalLine}</p>
       <p>{freeLine}</p>
-      <p>{priceLabel ? `Unlock from ${priceLabel}` : "Pricing available soon"}</p>
     </div>
   );
 }
