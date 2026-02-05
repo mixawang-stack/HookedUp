@@ -149,8 +149,76 @@ function PrivateListPageInner() {
     );
     if (match) {
       setActiveConversation(match);
+      return;
     }
-  }, [requestedConversationId, conversations, activeConversation]);
+    if (!userId) {
+      return;
+    }
+    const loadRequested = async () => {
+      try {
+        const supabase = getSupabaseClient();
+        if (!supabase) {
+          throw new Error("Supabase not configured.");
+        }
+        const { data, error } = await supabase
+          .from("ConversationParticipant")
+          .select(
+            `
+            conversationId,
+            isMuted,
+            mutedAt,
+            conversation:Conversation(
+              id,
+              matchId,
+              match:Match(
+                user1Id,
+                user2Id,
+                user1:User(id,maskName,maskAvatarUrl),
+                user2:User(id,maskName,maskAvatarUrl)
+              )
+            )
+          `
+          )
+          .eq("userId", userId)
+          .eq("conversationId", requestedConversationId)
+          .maybeSingle();
+        if (error || !data) {
+          throw new Error("Conversation not available.");
+        }
+        const conversation = data.conversation?.[0];
+        const matchData = conversation?.match?.[0];
+        const other =
+          matchData?.user1Id === userId
+            ? matchData?.user2?.[0]
+            : matchData?.user1?.[0];
+        const item: ConversationItem = {
+          id: conversation?.id ?? data.conversationId,
+          matchId: conversation?.matchId ?? "",
+          otherUser: {
+            id: other?.id ?? "",
+            maskName: other?.maskName ?? null,
+            maskAvatarUrl: other?.maskAvatarUrl ?? null,
+            allowStrangerPrivate: null
+          },
+          isMuted: data.isMuted ?? false,
+          mutedAt: data.mutedAt ?? null,
+          unreadCount: 0
+        };
+        setConversations((prev) => {
+          if (prev.find((conv) => conv.id === item.id)) {
+            return prev;
+          }
+          return [item, ...prev];
+        });
+        setActiveConversation(item);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to load.";
+        setStatus(message);
+      }
+    };
+    loadRequested().catch(() => setStatus("Failed to load."));
+  }, [requestedConversationId, conversations, activeConversation, userId]);
 
   useEffect(() => {
     emitHostStatus({ page: "private", cold: conversations.length === 0 });
