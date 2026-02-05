@@ -871,20 +871,30 @@ function PrivateConversationDrawer({
                 hour: "2-digit",
                 minute: "2-digit"
               });
+              const otherAvatar =
+                msg.sender?.maskAvatarUrl ??
+                conversation.otherUser?.maskAvatarUrl ??
+                null;
+              const otherName =
+                msg.sender?.maskName ??
+                conversation.otherUser?.maskName ??
+                "Anonymous";
               return (
                 <div
                   key={msg.id}
                   className={isOwnMessage ? "flex justify-end" : "flex justify-start"}
                 >
                   {!isOwnMessage ? (
-                    <div className="mr-2 mt-1 h-9 w-9 shrink-0 overflow-hidden rounded-full bg-[#E7D7CC]">
-                      {msg.sender?.maskAvatarUrl ? (
+                    <div className="mr-2 mt-1 flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#E7D7CC] text-[11px] font-semibold text-[#6B5A52]">
+                      {otherAvatar ? (
                         <img
-                          src={msg.sender.maskAvatarUrl}
-                          alt={msg.sender?.maskName ?? "User"}
+                          src={otherAvatar}
+                          alt={otherName}
                           className="h-full w-full object-cover"
                         />
-                      ) : null}
+                      ) : (
+                        <span>{otherName.charAt(0).toUpperCase()}</span>
+                      )}
                     </div>
                   ) : null}
 
