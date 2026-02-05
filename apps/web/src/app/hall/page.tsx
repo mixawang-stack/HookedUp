@@ -368,7 +368,7 @@ export default function HallPage() {
       }
       if (payload?.conversationId) {
         setProfileCard(null);
-        router.push(`/private/${payload.conversationId}`);
+        router.push(`/private?conversationId=${payload.conversationId}`);
       } else {
         throw new Error("Conversation not available.");
       }
