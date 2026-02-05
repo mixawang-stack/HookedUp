@@ -155,6 +155,7 @@ export default function RoomPage() {
       const res = await fetch("/api/private/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ targetUserId })
       });
       if (res.status === 401) {
@@ -681,6 +682,7 @@ export default function RoomPage() {
       {profileCard && (
         <ProfileCard
           profile={profileCard}
+          viewerId={userId}
           onClose={() => setProfileCard(null)}
           onStartPrivate={async (userId) => {
             await startConversation(userId);

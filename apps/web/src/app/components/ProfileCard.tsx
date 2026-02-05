@@ -21,6 +21,7 @@ type ProfileCardProps = {
     } | null;
   };
   mutedHint?: string | null;
+  viewerId?: string | null;
   onStartPrivate: (userId: string) => Promise<void> | void;
   onClose: () => void;
 };
@@ -28,6 +29,7 @@ type ProfileCardProps = {
 export default function ProfileCard({
   profile,
   mutedHint,
+  viewerId,
   onStartPrivate,
   onClose
 }: ProfileCardProps) {
@@ -39,6 +41,7 @@ export default function ProfileCard({
   const tags = [...vibeTags, ...interests].filter(Boolean);
   const displayTags = tags.slice(0, 6);
   const overflowCount = Math.max(tags.length - displayTags.length, 0);
+  const isSelf = Boolean(viewerId && viewerId === profile.id);
   const locationLine = [profile.city, profile.country]
     .filter((item) => item && item.trim().length > 0)
     .join(" 路 ");
@@ -175,18 +178,20 @@ export default function ProfileCard({
         )}
 
         <div className="mt-5 space-y-2">
-          <button
-            type="button"
-            className="btn-primary w-full px-4 py-2 text-sm"
-            onClick={handleStart}
-            disabled={starting}
-          >
-            {starting
-              ? "Starting..."
-              : allowStrangerPrivate
-                ? "Start private chat"
-                : "Request private chat"}
-          </button>
+          {!isSelf && (
+            <button
+              type="button"
+              className="btn-primary w-full px-4 py-2 text-sm"
+              onClick={handleStart}
+              disabled={starting}
+            >
+              {starting
+                ? "Starting..."
+                : allowStrangerPrivate
+                  ? "Start private chat"
+                  : "Request private chat"}
+            </button>
+          )}
         </div>
       </div>
     </div>

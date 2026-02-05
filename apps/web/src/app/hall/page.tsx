@@ -341,6 +341,7 @@ export default function HallPage() {
       const res = await fetch("/api/private/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ targetUserId: userId })
       });
       if (res.status === 401) {
@@ -1594,6 +1595,7 @@ export default function HallPage() {
       {profileCard && (
         <ProfileCard
           profile={profileCard}
+          viewerId={currentUserId}
           onClose={() => setProfileCard(null)}
           onStartPrivate={async (userId) => {
             await startConversation(userId);
