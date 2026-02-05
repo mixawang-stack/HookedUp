@@ -885,7 +885,7 @@ function PrivateConversationDrawer({
             )}
 
             {sortedMessages.map((msg, index) => {
-              const isOwnMessage = Boolean(me && msg.sender?.id === me.id);
+              const isOwnMessage = Boolean(me && msg.senderId === me.id);
               const prev = sortedMessages[index - 1];
               const showMeta =
                 index === 0 || prev?.sender?.id !== msg.sender?.id;
