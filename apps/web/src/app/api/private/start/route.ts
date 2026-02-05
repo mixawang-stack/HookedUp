@@ -81,11 +81,11 @@ export async function POST(request: Request) {
         .select("id")
         .maybeSingle();
 
-      if (convoError || !conversation?.id) {
+      if (conversationError || !conversation?.id) {
         return NextResponse.json(
           {
             error: "CONVERSATION_CREATE_FAILED",
-            details: convoError?.message ?? null
+            details: conversationError?.message ?? null
           },
           { status: 500 }
         );
