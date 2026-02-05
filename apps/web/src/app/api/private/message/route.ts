@@ -44,16 +44,21 @@ export async function POST(request: Request) {
     const { data: message, error: messageError } = await supabase
       .from("Message")
       .insert({
+        id: crypto.randomUUID(),
         matchId: resolvedMatchId,
         senderId: user.id,
-        ciphertext
+        ciphertext,
+        createdAt: new Date().toISOString()
       })
       .select("id,matchId,senderId,ciphertext,createdAt")
       .maybeSingle();
 
     if (messageError || !message) {
       return NextResponse.json(
-        { error: "MESSAGE_CREATE_FAILED" },
+        {
+          error: "MESSAGE_CREATE_FAILED",
+          details: messageError?.message ?? null
+        },
         { status: 500 }
       );
     }
