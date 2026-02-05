@@ -106,7 +106,7 @@ function PrivateListPageInner() {
 
       const normalizeOne = <T,>(value?: T | T[] | null) =>
         Array.isArray(value) ? value[0] ?? null : value ?? null;
-      const items =
+      const items: ConversationItem[] =
         data?.map((row) => {
           const conversation = normalizeOne(row.conversation);
           const match = normalizeOne(conversation?.match);
