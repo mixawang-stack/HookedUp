@@ -51,6 +51,7 @@ function PrivateListPageInner() {
     useState<ConversationItem | null>(null);
   const searchParams = useSearchParams();
   const requestedConversationId = searchParams?.get("conversationId");
+  const requestedUserId = searchParams?.get("userId");
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
@@ -134,6 +135,65 @@ function PrivateListPageInner() {
     }
   };
 
+  const loadConversationById = async (conversationId: string) => {
+    if (!userId) {
+      throw new Error("Please sign in to view private conversations.");
+    }
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      throw new Error("Supabase not configured.");
+    }
+    const { data, error } = await supabase
+      .from("ConversationParticipant")
+      .select(
+        `
+          conversationId,
+          isMuted,
+          mutedAt,
+          conversation:Conversation(
+            id,
+            matchId,
+            match:Match(
+              user1Id,
+              user2Id,
+              user1:User(id,maskName,maskAvatarUrl),
+              user2:User(id,maskName,maskAvatarUrl)
+            )
+          )
+        `
+      )
+      .eq("userId", userId)
+      .eq("conversationId", conversationId)
+      .maybeSingle();
+    if (error || !data) {
+      throw new Error("Conversation not available.");
+    }
+    const conversation = data.conversation?.[0];
+    const match = conversation?.match?.[0];
+    const other =
+      match?.user1Id === userId ? match?.user2?.[0] : match?.user1?.[0];
+    const item: ConversationItem = {
+      id: conversation?.id ?? data.conversationId,
+      matchId: conversation?.matchId ?? "",
+      otherUser: {
+        id: other?.id ?? "",
+        maskName: other?.maskName ?? null,
+        maskAvatarUrl: other?.maskAvatarUrl ?? null,
+        allowStrangerPrivate: null
+      },
+      isMuted: data.isMuted ?? false,
+      mutedAt: data.mutedAt ?? null,
+      unreadCount: 0
+    };
+    setConversations((prev) => {
+      if (prev.find((conv) => conv.id === item.id)) {
+        return prev;
+      }
+      return [item, ...prev];
+    });
+    setActiveConversation(item);
+  };
+
   useEffect(() => {
     if (!authReady) return;
     loadConversations(null).catch(() => setStatus("Failed to load."));
@@ -156,61 +216,7 @@ function PrivateListPageInner() {
     }
     const loadRequested = async () => {
       try {
-        const supabase = getSupabaseClient();
-        if (!supabase) {
-          throw new Error("Supabase not configured.");
-        }
-        const { data, error } = await supabase
-          .from("ConversationParticipant")
-          .select(
-            `
-            conversationId,
-            isMuted,
-            mutedAt,
-            conversation:Conversation(
-              id,
-              matchId,
-              match:Match(
-                user1Id,
-                user2Id,
-                user1:User(id,maskName,maskAvatarUrl),
-                user2:User(id,maskName,maskAvatarUrl)
-              )
-            )
-          `
-          )
-          .eq("userId", userId)
-          .eq("conversationId", requestedConversationId)
-          .maybeSingle();
-        if (error || !data) {
-          throw new Error("Conversation not available.");
-        }
-        const conversation = data.conversation?.[0];
-        const matchData = conversation?.match?.[0];
-        const other =
-          matchData?.user1Id === userId
-            ? matchData?.user2?.[0]
-            : matchData?.user1?.[0];
-        const item: ConversationItem = {
-          id: conversation?.id ?? data.conversationId,
-          matchId: conversation?.matchId ?? "",
-          otherUser: {
-            id: other?.id ?? "",
-            maskName: other?.maskName ?? null,
-            maskAvatarUrl: other?.maskAvatarUrl ?? null,
-            allowStrangerPrivate: null
-          },
-          isMuted: data.isMuted ?? false,
-          mutedAt: data.mutedAt ?? null,
-          unreadCount: 0
-        };
-        setConversations((prev) => {
-          if (prev.find((conv) => conv.id === item.id)) {
-            return prev;
-          }
-          return [item, ...prev];
-        });
-        setActiveConversation(item);
+        await loadConversationById(requestedConversationId);
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Failed to load.";
@@ -219,6 +225,51 @@ function PrivateListPageInner() {
     };
     loadRequested().catch(() => setStatus("Failed to load."));
   }, [requestedConversationId, conversations, activeConversation, userId]);
+
+  useEffect(() => {
+    if (!requestedUserId || requestedConversationId || activeConversation) {
+      return;
+    }
+    if (!userId) {
+      return;
+    }
+    const ensureConversation = async () => {
+      try {
+        const supabase = getSupabaseClient();
+        if (!supabase) {
+          throw new Error("Supabase not configured.");
+        }
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token ?? null;
+        if (!accessToken) {
+          setStatus("Please sign in to view private conversations.");
+          return;
+        }
+        const res = await fetch("/api/private/start", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`
+          },
+          body: JSON.stringify({ targetUserId: requestedUserId })
+        });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok || !payload?.conversationId) {
+          throw new Error(payload?.error ?? "Conversation not available.");
+        }
+        const url = new URL(window.location.href);
+        url.searchParams.set("conversationId", payload.conversationId);
+        url.searchParams.delete("userId");
+        window.history.replaceState({}, "", url.toString());
+        await loadConversationById(payload.conversationId);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to load.";
+        setStatus(message);
+      }
+    };
+    ensureConversation().catch(() => setStatus("Failed to load."));
+  }, [requestedUserId, requestedConversationId, activeConversation, userId]);
 
   useEffect(() => {
     emitHostStatus({ page: "private", cold: conversations.length === 0 });
