@@ -7,7 +7,6 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { Suspense, useEffect, useMemo, useState } from "react";
 
-import ChatBubble from "../components/ChatBubble";
 import { emitHostStatus } from "../lib/hostStatus";
 import { getSupabaseClient } from "../lib/supabaseClient";
 
@@ -41,6 +40,14 @@ type MessageItem = {
   createdAt: string;
   sender: SenderProfile;
 };
+
+const formatListTime = (value?: string | null) =>
+  value
+    ? new Date(value).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit"
+      })
+    : "";
 
 function PrivateListPageInner() {
   const [userId, setUserId] = useState<string | null>(null);
@@ -446,103 +453,102 @@ function PrivateListPageInner() {
   }, [conversations, searchQuery]);
 
   return (
-    <main className="ui-page">
-      <div className="mx-auto w-full max-w-6xl px-4 py-6">
-        <header className="mb-6">
-          <h1 className="text-3xl font-semibold text-text-primary">
+    <div className="min-h-screen bg-[#FBF4EE]">
+      <div className="mx-auto max-w-6xl px-6 py-10">
+        <div className="mb-6">
+          <h1 className="text-5xl font-extrabold tracking-tight text-[#3A2E2A]">
             Private Messages
           </h1>
-          <p className="mt-1 text-sm text-text-secondary">
+          <p className="mt-2 text-lg text-[#6B5A52]">
             Connect one-on-one with other community members
           </p>
           {status && <p className="mt-2 text-sm text-brand-secondary">{status}</p>}
-        </header>
+        </div>
 
-        <div className="rounded-3xl border border-border-default bg-card/80 shadow-sm">
-          <div className="grid h-[calc(100vh-220px)] min-h-[520px] lg:grid-cols-[360px_1fr]">
-            <aside className="flex h-full flex-col border-r border-border-default p-4">
-              <div className="relative">
-                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-text-muted">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    className="h-4 w-4"
-                  >
-                    <circle cx="11" cy="11" r="7" />
-                    <path d="M20 20l-3.5-3.5" />
-                  </svg>
-                </span>
-                <input
-                  className="w-full rounded-full border border-border-default bg-surface py-2.5 pl-11 pr-4 text-sm text-text-primary placeholder:text-text-muted"
-                  placeholder="Search conversations..."
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                />
+        <div className="rounded-[28px] border border-[#E7D7CC] bg-[#FFFDFB] shadow-[0_6px_24px_rgba(0,0,0,0.06)] overflow-hidden">
+          <div className="flex h-[720px]">
+            <aside className="w-[360px] bg-[#FFFDFB]">
+              <div className="p-4">
+                <div className="relative">
+                  <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#9B877D]">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      className="h-4 w-4"
+                    >
+                      <circle cx="11" cy="11" r="7" />
+                      <path d="M20 20l-3.5-3.5" />
+                    </svg>
+                  </div>
+                  <input
+                    placeholder="Search conversations..."
+                    className="w-full rounded-full border border-[#E7D7CC] bg-[#FBF4EE] py-3 pl-12 pr-4 text-[#3A2E2A] placeholder:text-[#9B877D] outline-none focus:ring-2 focus:ring-[#E7D7CC]"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                  />
+                </div>
               </div>
 
-              <div className="mt-4 flex-1 space-y-3 overflow-y-auto pr-1">
+              <div className="h-[calc(720px-84px)] overflow-y-auto px-2 pb-3">
                 {filteredConversations.map((item) => {
                   const displayName = item.otherUser?.maskName ?? "Anonymous";
                   const snippet =
                     item.lastMessageSnippet?.trim() || "No messages yet";
-                  const lastTime = item.lastMessageAt
-                    ? new Date(item.lastMessageAt).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit"
-                      })
-                    : "-";
-                  const isActive = activeConversation?.id === item.id;
+                  const lastTime = formatListTime(item.lastMessageAt);
+                  const active = activeConversation?.id === item.id;
                   return (
                     <button
                       key={item.id}
-                      type="button"
-                      className={`w-full rounded-2xl border px-3 py-3 text-left transition ${
-                        isActive
-                          ? "border-brand-primary/40 bg-surface"
-                          : "border-border-default bg-card hover:bg-surface"
-                      }`}
                       onClick={() => openConversation(item)}
+                      className={[
+                        "w-full rounded-2xl px-3 py-3 text-left transition",
+                        active
+                          ? "bg-[#F3E7DE] border border-[#E7D7CC]"
+                          : "hover:bg-[#FBF4EE]"
+                      ].join(" ")}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-border-default bg-surface text-xs font-semibold text-text-secondary">
+                        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-[#E7D7CC]">
                           {item.otherUser?.maskAvatarUrl ? (
                             <img
                               src={item.otherUser.maskAvatarUrl}
                               alt={displayName}
-                              className="h-10 w-10 rounded-full object-cover"
+                              className="h-full w-full object-cover"
                             />
-                          ) : (
-                            <span>{displayName.slice(0, 1).toUpperCase()}</span>
-                          )}
-                          <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-card bg-emerald-400" />
+                          ) : null}
+                          <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#FFFDFB] bg-[#3BCB6B]" />
                         </div>
+
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center justify-between gap-2">
-                            <p className="truncate text-sm font-semibold text-text-primary">
+                            <div className="truncate font-semibold text-[#3A2E2A]">
                               {displayName}
-                            </p>
-                            <span className="text-[11px] text-text-muted">
+                            </div>
+                            <div className="shrink-0 text-xs text-[#8A766C]">
                               {lastTime}
-                            </span>
+                            </div>
                           </div>
-                          <p className="mt-1 truncate text-xs text-text-secondary">
-                            {snippet}
-                          </p>
+
+                          <div className="mt-1 flex items-center justify-between gap-2">
+                            <div className="min-w-0 truncate text-sm text-[#8A766C]">
+                              {snippet}
+                            </div>
+                            {item.unreadCount ? (
+                              <span className="shrink-0 rounded-full bg-[#E3AFA0] px-2 py-0.5 text-xs font-semibold text-white">
+                                {item.unreadCount}
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
-                        {item.unreadCount > 0 && (
-                          <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-brand-primary px-1 text-[10px] font-semibold text-card">
-                            {item.unreadCount}
-                          </span>
-                        )}
                       </div>
                     </button>
                   );
                 })}
 
                 {conversations.length === 0 && (
-                  <div className="rounded-2xl border border-border-default bg-surface p-4 text-sm text-text-secondary">
+                  <div className="rounded-2xl border border-[#E7D7CC] bg-[#FBF4EE] p-4 text-sm text-[#6B5A52]">
                     <p>No conversations yet.</p>
                     <p className="mt-2 text-xs">
                       Start from the Forum or Rooms to begin.
@@ -563,14 +569,16 @@ function PrivateListPageInner() {
               </div>
             </aside>
 
-            <section className="flex h-full flex-col overflow-hidden">
+            <div className="w-px bg-[#E7D7CC]" />
+
+            <section className="flex min-w-0 flex-1 flex-col bg-[#FFFDFB]">
               {activeConversation ? (
                 <PrivateConversationDrawer
                   conversation={activeConversation}
                   onClose={closeConversation}
                 />
               ) : (
-                <div className="flex h-full flex-1 items-center justify-center text-sm text-text-secondary">
+                <div className="flex h-full flex-1 items-center justify-center text-sm text-[#6B5A52]">
                   Select a conversation to start chatting.
                 </div>
               )}
@@ -578,7 +586,7 @@ function PrivateListPageInner() {
           </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
 
@@ -611,21 +619,6 @@ function PrivateConversationDrawer({
   );
   const [me, setMe] = useState<SenderProfile | null>(null);
   const [isMuted, setIsMuted] = useState(false);
-  const otherUserId = conversation.otherUser?.id ?? null;
-  const isRequestOnly = conversation.otherUser?.allowStrangerPrivate === false;
-
-  const otherReplied = useMemo(() => {
-    if (!otherUserId) return false;
-    return messages.some((message) => message.senderId === otherUserId);
-  }, [messages, otherUserId]);
-
-  const hasSentRequest = useMemo(() => {
-    if (!me?.id) return false;
-    return messages.some((message) => message.senderId === me.id);
-  }, [messages, me?.id]);
-
-  const requestPending = isRequestOnly && hasSentRequest && !otherReplied;
-
   const redirectToLogin = (message?: string) => {
     setStatus(message ?? "Please sign in to continue.");
     onClose();
@@ -770,15 +763,6 @@ function PrivateConversationDrawer({
       const rawMessage =
         error instanceof Error ? error.message : "Failed to send.";
       const normalized = rawMessage.toLowerCase();
-      if (normalized.includes("private_reply_required")) {
-        setStatus(
-          isRequestOnly
-            ? "This user only accepts a single request until they reply."
-            : "You can send up to 3 messages until they reply."
-        );
-        setLastFailedMessage(null);
-        return;
-      }
       const isNetwork =
         error instanceof TypeError ||
         normalized.includes("network") ||
@@ -812,17 +796,17 @@ function PrivateConversationDrawer({
 
   return (
     <div className="flex h-full flex-col" role="region" aria-label="Private chat">
-      <header className="flex items-center justify-between border-b border-border-default px-6 py-4">
+      <div className="flex items-center justify-between border-b border-[#E7D7CC] px-6 py-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-border-default bg-surface text-xs font-semibold uppercase text-text-secondary">
+          <div className="relative h-12 w-12 overflow-hidden rounded-full bg-[#E7D7CC]">
             {conversation.otherUser?.maskAvatarUrl ? (
               <img
                 src={conversation.otherUser.maskAvatarUrl}
                 alt={conversation.otherUser?.maskName ?? "User"}
-                className="h-full w-full rounded-full object-cover"
+                className="h-full w-full object-cover"
               />
             ) : (
-              <span>
+              <span className="flex h-full w-full items-center justify-center text-xs font-semibold text-[#6B5A52]">
                 {(conversation.otherUser?.maskName ?? "A")
                   .charAt(0)
                   .toUpperCase()}
@@ -831,39 +815,30 @@ function PrivateConversationDrawer({
           </div>
 
           <div>
-            <p className="text-base font-semibold text-text-primary">
+            <div className="font-semibold text-[#3A2E2A]">
               {conversation.otherUser?.maskName ?? "Anonymous"}
-            </p>
-            <div className="mt-1 flex items-center gap-2 text-xs text-text-secondary">
-              <span className="ui-status-online inline-flex h-2 w-2 rounded-full" />
+            </div>
+            <div className="mt-0.5 flex items-center gap-2 text-sm text-[#8A766C]">
+              <span className="h-2 w-2 rounded-full bg-[#3BCB6B]" />
               <span>Online</span>
             </div>
-            {isRequestOnly && (
-              <p className="mt-1 text-[10px] text-brand-secondary">
-                This user has closed stranger DMs
-              </p>
-            )}
           </div>
         </div>
 
         <button
           type="button"
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-border-default bg-card text-text-secondary"
+          className="rounded-full border border-[#E7D7CC] bg-[#FBF4EE] px-4 py-2 text-[#6B5A52] hover:bg-[#F3E7DE]"
           aria-label="More"
         >
-          <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
-            <circle cx="12" cy="5" r="1.8" />
-            <circle cx="12" cy="12" r="1.8" />
-            <circle cx="12" cy="19" r="1.8" />
-          </svg>
+          ⋯
         </button>
-      </header>
+      </div>
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        <div className="flex-1 overflow-y-auto px-6 py-6">
-          <div className="mx-auto flex max-w-[640px] flex-col gap-4">
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+          <div className="space-y-4">
             {status && (
-              <div className="rounded-2xl border border-border-default bg-surface p-3 text-xs text-brand-secondary">
+              <div className="rounded-2xl border border-[#E7D7CC] bg-[#FBF4EE] p-3 text-xs text-[#6B5A52]">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span>{status}</span>
                   {lastFailedMessage && (
@@ -890,46 +865,81 @@ function PrivateConversationDrawer({
               </p>
             )}
 
-            {sortedMessages.map((msg, index) => {
+            {sortedMessages.map((msg) => {
               const isOwnMessage = Boolean(me && msg.senderId === me.id);
-              const prev = sortedMessages[index - 1];
-              const showMeta =
-                index === 0 || prev?.senderId !== msg.senderId;
-
+              const timeLabel = new Date(msg.createdAt).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit"
+              });
               return (
-                <ChatBubble
+                <div
                   key={msg.id}
-                  message={msg}
-                  isMine={isOwnMessage}
-                  showMeta={showMeta}
-                />
+                  className={isOwnMessage ? "flex justify-end" : "flex justify-start"}
+                >
+                  {!isOwnMessage ? (
+                    <div className="mr-2 mt-1 h-9 w-9 shrink-0 overflow-hidden rounded-full bg-[#E7D7CC]">
+                      {msg.sender?.maskAvatarUrl ? (
+                        <img
+                          src={msg.sender.maskAvatarUrl}
+                          alt={msg.sender?.maskName ?? "User"}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  <div className="max-w-[60%] min-w-[64px]">
+                    <div
+                      className={[
+                        "px-4 py-3 rounded-2xl text-[15px] leading-relaxed",
+                        "whitespace-pre-wrap break-words",
+                        isOwnMessage
+                          ? "bg-[#E3AFA0] text-white"
+                          : "bg-[#F3EDE8] text-[#3A2E2A]"
+                      ].join(" ")}
+                    >
+                      {msg.ciphertext}
+                    </div>
+
+                    <div
+                      className={[
+                        "mt-1 text-xs text-[#8A766C]",
+                        isOwnMessage ? "text-right" : "text-left"
+                      ].join(" ")}
+                    >
+                      {timeLabel}
+                    </div>
+                  </div>
+                </div>
               );
             })}
           </div>
         </div>
 
-        <div className="border-t border-border-default bg-card px-6 py-4">
-          <div className="flex items-center gap-3">
-            <textarea
-              className="flex-1 rounded-full border border-border-default bg-surface px-5 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/30"
+        <div className="border-t border-[#E7D7CC] px-6 py-4">
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              sendMessage();
+            }}
+            className="flex items-center gap-3"
+          >
+            <input
+              className="h-12 flex-1 rounded-full border border-[#E7D7CC] bg-[#FBF4EE] px-5 text-[#3A2E2A] placeholder:text-[#9B877D] outline-none focus:ring-2 focus:ring-[#E7D7CC]"
               placeholder="Type a message..."
               value={input}
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={handleKeyDown}
-              rows={1}
             />
             <button
-              type="button"
-              className="flex h-12 w-12 items-center justify-center rounded-full bg-[#b17c5a] text-white shadow-sm transition hover:bg-[#9f6f52]"
-              onClick={() => sendMessage()}
-              disabled={sending}
-              aria-label="Send message"
+              type="submit"
+              className="h-12 w-12 rounded-full bg-[#B58B6D] text-white shadow hover:opacity-90"
+              aria-label="Send"
+              title="Send"
             >
-              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
-                <path d="M3 12l18-9-5 18-4-6-6-3 17-8" />
-              </svg>
+              ➤
             </button>
-          </div>
+          </form>
         </div>
       </div>
     </div>
