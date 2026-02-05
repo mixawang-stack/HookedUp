@@ -37,7 +37,8 @@ export async function POST(request: Request) {
       .upsert(
         {
           user1Id,
-          user2Id
+          user2Id,
+          matchedAt: new Date().toISOString()
         },
         { onConflict: "user1Id,user2Id" }
       )
@@ -45,7 +46,13 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (matchError || !match?.id) {
-      return NextResponse.json({ error: "MATCH_CREATE_FAILED" }, { status: 500 });
+      return NextResponse.json(
+        {
+          error: "MATCH_CREATE_FAILED",
+          details: matchError?.message ?? null
+        },
+        { status: 500 }
+      );
     }
 
     const { data: conversation, error: convoError } = await supabase
