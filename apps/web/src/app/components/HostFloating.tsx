@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useSupabaseSession } from "../lib/useSupabaseSession";
+import { getSupabaseClient } from "../lib/supabaseClient";
 
 const STORAGE_KEY = "host_pos";
 const HOST_MARGIN = 16;
@@ -16,13 +17,16 @@ const DEFAULT_POS: Position = { x: 32, y: 32 };
 
 export default function HostFloating() {
   const router = useRouter();
-  const { session } = useSupabaseSession();
+  const { session, user } = useSupabaseSession();
   const [unreadTotal, setUnreadTotal] = useState(0);
   const [position, setPosition] = useState<Position>(DEFAULT_POS);
   const [isDragging, setIsDragging] = useState(false);
   const hostRef = useRef<HTMLDivElement | null>(null);
   const lastUserMoveRef = useRef<number>(0);
   const dragMovedRef = useRef(false);
+  const channelRef = useRef<ReturnType<
+    NonNullable<ReturnType<typeof getSupabaseClient>>["channel"]
+  > | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -37,19 +41,64 @@ export default function HostFloating() {
   }, []);
 
   useEffect(() => {
-    if (!session) {
+    if (!session || !user) {
       setUnreadTotal(0);
       return;
     }
     const fetchUnread = async () => {
-      setUnreadTotal(0);
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        setUnreadTotal(0);
+        return;
+      }
+      const { data: matches } = await supabase
+        .from("Match")
+        .select("id")
+        .or(`user1Id.eq.${user.id},user2Id.eq.${user.id}`);
+      const matchIds = (matches ?? []).map((m) => m.id);
+      if (matchIds.length === 0) {
+        setUnreadTotal(0);
+        return;
+      }
+      const since =
+        typeof window !== "undefined"
+          ? localStorage.getItem("private_last_seen")
+          : null;
+      let query = supabase
+        .from("Message")
+        .select("id", { count: "exact", head: true })
+        .in("matchId", matchIds)
+        .neq("senderId", user.id);
+      if (since) {
+        query = query.gte("createdAt", since);
+      }
+      const { count } = await query;
+      setUnreadTotal(count ?? 0);
     };
     fetchUnread().catch(() => undefined);
+    channelRef.current?.unsubscribe();
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const channel = supabase
+        .channel(`host-unread-${user.id}`)
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "Message" },
+          () => {
+            fetchUnread().catch(() => undefined);
+          }
+        )
+        .subscribe();
+      channelRef.current = channel;
+    }
     const interval = window.setInterval(() => {
       fetchUnread().catch(() => undefined);
     }, 20000);
-    return () => window.clearInterval(interval);
-  }, [session]);
+    return () => {
+      channelRef.current?.unsubscribe();
+      window.clearInterval(interval);
+    };
+  }, [session, user]);
 
   const clampPosition = useCallback((pos: Position) => {
     if (typeof window === "undefined") {

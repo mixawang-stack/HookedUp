@@ -94,8 +94,39 @@ export default function TopNav() {
   );
 
   const fetchUnreadTotal = useCallback(async () => {
-    setUnreadTotal(0);
-  }, []);
+    if (!user) {
+      setUnreadTotal(0);
+      return;
+    }
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setUnreadTotal(0);
+      return;
+    }
+    const { data: matches } = await supabase
+      .from("Match")
+      .select("id")
+      .or(`user1Id.eq.${user.id},user2Id.eq.${user.id}`);
+    const matchIds = (matches ?? []).map((m) => m.id);
+    if (matchIds.length === 0) {
+      setUnreadTotal(0);
+      return;
+    }
+    const since =
+      typeof window !== "undefined"
+        ? localStorage.getItem("private_last_seen")
+        : null;
+    let query = supabase
+      .from("Message")
+      .select("id", { count: "exact", head: true })
+      .in("matchId", matchIds)
+      .neq("senderId", user.id);
+    if (since) {
+      query = query.gte("createdAt", since);
+    }
+    const { count } = await query;
+    setUnreadTotal(count ?? 0);
+  }, [user]);
 
   useEffect(() => {
     if (!ready || !user) {
@@ -123,10 +154,24 @@ export default function TopNav() {
     if (!user) {
       return;
     }
+    const supabase = getSupabaseClient();
+    const channel = supabase
+      ?.channel(`nav-unread-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "Message" },
+        () => {
+          fetchUnreadTotal().catch(() => undefined);
+        }
+      )
+      .subscribe();
     const interval = window.setInterval(() => {
       fetchUnreadTotal().catch(() => undefined);
     }, 20000);
-    return () => window.clearInterval(interval);
+    return () => {
+      channel?.unsubscribe();
+      window.clearInterval(interval);
+    };
   }, [user, fetchUnreadTotal]);
 
   useEffect(() => {
