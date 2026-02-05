@@ -25,7 +25,7 @@ const formatShortTime = (value: string) =>
   });
 
 const Avatar = ({ avatarUrl, label }: { avatarUrl: string | null; label: string }) => (
-  <div className="flex h-10 w-10 items-center justify-center rounded-full border border-border-default bg-surface text-xs font-semibold uppercase text-text-secondary">
+  <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-border-default bg-surface text-[11px] font-semibold uppercase text-text-secondary">
     {avatarUrl ? (
       <img
         src={avatarUrl}
@@ -53,13 +53,12 @@ export default function ChatBubble({ message, isMine, showMeta }: ChatBubbleProp
   const bubbleClasses = [
     "inline-block",
     "w-fit",
-    "min-w-[72px]",
-    "max-w-[min(640px,85%)]",
+    "max-w-[60%]",
     "break-words",
     "overflow-hidden",
-    "rounded-[16px]",
-    "px-[14px]",
-    "py-[12px]",
+    "rounded-[18px]",
+    "px-4",
+    "py-3",
     "text-sm",
     "leading-[1.5]",
     "animate-chat-bubble",
@@ -78,16 +77,10 @@ export default function ChatBubble({ message, isMine, showMeta }: ChatBubbleProp
       "tracking-[0.4em]"
     );
   } else if (isMine) {
-    bubbleClasses.push(
-      "bg-brand-primary",
-      "text-card",
-      "shadow-sm",
-      "border",
-      "border-brand-primary/40"
-    );
+    bubbleClasses.push("bg-rose-400", "text-white", "shadow-sm");
   } else {
     bubbleClasses.push(
-      "bg-card",
+      "bg-surface",
       "border",
       "border-border-default",
       "text-text-primary",
@@ -102,27 +95,23 @@ export default function ChatBubble({ message, isMine, showMeta }: ChatBubbleProp
     : "justify-start";
 
   return (
-    <div className={`flex w-full items-start gap-3 ${alignClass}`}>
-      {!isMine && !isSystem && showMeta && (
+    <div className={`flex w-full items-end gap-3 ${alignClass}`}>
+      {!isMine && !isSystem && (
         <Avatar avatarUrl={sender?.maskAvatarUrl ?? null} label={initial} />
       )}
       <div className={`flex flex-col ${isMine ? "items-end" : "items-start"} gap-1`}>
-        {showMeta && !isSystem && (
-          <div className="text-[11px] text-text-muted flex items-center gap-2">
-            <span className="font-semibold">{displayName}</span>
-            <span>{formatShortTime(message.createdAt)}</span>
-          </div>
-        )}
-        <div 
-          className={bubbleClasses.join(" ")} 
+        <div
+          className={bubbleClasses.join(" ")}
           style={{ wordBreak: "break-word", overflowWrap: "break-word" }}
         >
           {message.ciphertext}
         </div>
+        {!isSystem && (
+          <span className="text-[10px] text-text-muted">
+            {formatShortTime(message.createdAt)}
+          </span>
+        )}
       </div>
-      {isMine && !isSystem && showMeta && (
-        <Avatar avatarUrl={sender?.maskAvatarUrl ?? null} label={initial} />
-      )}
     </div>
   );
 }

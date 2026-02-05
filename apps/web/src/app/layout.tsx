@@ -2,11 +2,9 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import AuthGate from "./components/AuthGate";
-import ActiveRoomPanel from "./components/ActiveRoomPanel";
 import PageShell from "./components/PageShell";
 import TopNav from "./components/TopNav";
-import Footer from "./components/Footer";
-import HostFloating from "./components/HostFloating";
+import LayoutChrome from "./components/LayoutChrome";
 
 export const metadata: Metadata = {
   title: "Hookedup Me",
@@ -26,9 +24,7 @@ export default function RootLayout({
         </Suspense>
         <TopNav />
         {children}
-        <Footer />
-        <ActiveRoomPanel />
-        <HostFloating />
+        <LayoutChrome />
       </body>
     </html>
   );

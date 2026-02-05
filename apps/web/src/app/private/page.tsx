@@ -24,6 +24,7 @@ type ConversationItem = {
   mutedAt: string | null;
   unreadCount: number;
   lastMessageAt: string | null;
+  lastMessageSnippet?: string | null;
 };
 
 type SenderProfile = {
@@ -52,7 +53,7 @@ function PrivateListPageInner() {
     useState<ConversationItem | null>(null);
   const searchParams = useSearchParams();
   const requestedConversationId = searchParams?.get("conversationId");
-  const requestedUserId = searchParams?.get("userId");
+  const requestedUserId = searchParams?.get("user") ?? searchParams?.get("userId");
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
@@ -128,7 +129,8 @@ function PrivateListPageInner() {
             isMuted: row.isMuted ?? false,
             mutedAt: row.mutedAt ?? null,
             unreadCount: 0,
-            lastMessageAt: null
+            lastMessageAt: null,
+            lastMessageSnippet: null
           };
         }) ?? [];
 
@@ -137,17 +139,22 @@ function PrivateListPageInner() {
         if (matchIds.length > 0) {
           const { data: latestMessages } = await supabase
             .from("Message")
-            .select("matchId,createdAt")
+            .select("matchId,createdAt,ciphertext")
             .in("matchId", matchIds)
             .order("createdAt", { ascending: false });
-          const latestMap = new Map<string, string>();
+          const latestMap = new Map<string, { createdAt: string; ciphertext: string }>();
           (latestMessages ?? []).forEach((msg) => {
             if (!latestMap.has(msg.matchId)) {
-              latestMap.set(msg.matchId, msg.createdAt);
+              latestMap.set(msg.matchId, {
+                createdAt: msg.createdAt,
+                ciphertext: msg.ciphertext ?? ""
+              });
             }
           });
           items.forEach((item) => {
-            item.lastMessageAt = latestMap.get(item.matchId) ?? null;
+            const latest = latestMap.get(item.matchId);
+            item.lastMessageAt = latest?.createdAt ?? null;
+            item.lastMessageSnippet = latest?.ciphertext ?? null;
           });
         }
       }
@@ -239,7 +246,8 @@ function PrivateListPageInner() {
       isMuted: data.isMuted ?? false,
       mutedAt: data.mutedAt ?? null,
       unreadCount: 0,
-      lastMessageAt: null
+      lastMessageAt: null,
+      lastMessageSnippet: null
     };
     if (item.otherUser.id && !item.otherUser.maskName) {
       const { data: otherProfile } = await supabase
@@ -256,12 +264,13 @@ function PrivateListPageInner() {
     if (item.matchId) {
       const { data: lastMessage } = await supabase
         .from("Message")
-        .select("createdAt")
+        .select("createdAt,ciphertext")
         .eq("matchId", item.matchId)
         .order("createdAt", { ascending: false })
         .limit(1)
         .maybeSingle();
       item.lastMessageAt = lastMessage?.createdAt ?? null;
+      item.lastMessageSnippet = lastMessage?.ciphertext ?? null;
     }
 
     setConversations((prev) => {
@@ -278,6 +287,21 @@ function PrivateListPageInner() {
     loadConversations(null).catch(() => setStatus("Failed to load."));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, authReady]);
+
+  useEffect(() => {
+    if (requestedConversationId || requestedUserId || activeConversation) {
+      return;
+    }
+    if (conversations.length === 0) {
+      return;
+    }
+    const sorted = [...conversations].sort((a, b) => {
+      const aTime = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+      const bTime = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+      return bTime - aTime;
+    });
+    setActiveConversation(sorted[0]);
+  }, [conversations, requestedConversationId, requestedUserId, activeConversation]);
 
   useEffect(() => {
     if (!requestedConversationId || activeConversation) {
@@ -423,147 +447,135 @@ function PrivateListPageInner() {
 
   return (
     <main className="ui-page">
-      <div className="ui-container py-8">
-        <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-          <aside className="ui-card flex flex-col gap-4 p-4">
-            <div className="space-y-2">
-              <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
-                Private Conversations
-              </h1>
-              <p className="text-sm text-text-secondary">
-                <span className="block">
-                  Private is what happens after things click.
-                </span>
-                <span className="block">
-                  Not planned. Not forced. Just continued.
-                </span>
-              </p>
-              {status && <p className="text-sm text-brand-secondary">{status}</p>}
-            </div>
+      <div className="mx-auto w-full max-w-6xl px-4 py-6">
+        <header className="mb-6">
+          <h1 className="text-3xl font-semibold text-text-primary">
+            Private Messages
+          </h1>
+          <p className="mt-1 text-sm text-text-secondary">
+            Connect one-on-one with other community members
+          </p>
+          {status && <p className="mt-2 text-sm text-brand-secondary">{status}</p>}
+        </header>
 
-            <div className="relative">
-              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-text-muted">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  className="h-4 w-4"
-                >
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="M20 20l-3.5-3.5" />
-                </svg>
-              </span>
-              <input
-                className="w-full rounded-full border border-border-default bg-card py-2.5 pl-11 pr-4 text-sm text-text-primary placeholder:text-text-muted"
-                placeholder="Search conversations"
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-              />
-            </div>
-
-            <div className="space-y-3">
-              {filteredConversations.map((item) => {
-                const displayName = item.otherUser?.maskName ?? "Anonymous";
-                const snippet = item.isMuted
-                  ? "Private room - Muted"
-                  : "Private room";
-                const lastTime = item.lastMessageAt
-                  ? new Date(item.lastMessageAt).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit"
-                    })
-                  : "-";
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={`w-full rounded-2xl border px-3 py-3 text-left transition ${
-                      activeConversation?.id === item.id
-                        ? "border-brand-primary/40 bg-surface"
-                        : "border-border-default bg-card"
-                    }`}
-                    onClick={() => openConversation(item)}
+        <div className="rounded-3xl border border-border-default bg-card/80 shadow-sm">
+          <div className="grid h-[calc(100vh-220px)] min-h-[520px] lg:grid-cols-[360px_1fr]">
+            <aside className="flex h-full flex-col border-r border-border-default p-4">
+              <div className="relative">
+                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-text-muted">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    className="h-4 w-4"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-border-default bg-surface text-xs font-semibold text-text-secondary">
-                        {item.otherUser?.maskAvatarUrl ? (
-                          <img
-                            src={item.otherUser.maskAvatarUrl}
-                            alt={displayName}
-                            className="h-10 w-10 rounded-full object-cover"
-                          />
-                        ) : (
-                          <span>{displayName.slice(0, 1).toUpperCase()}</span>
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="M20 20l-3.5-3.5" />
+                  </svg>
+                </span>
+                <input
+                  className="w-full rounded-full border border-border-default bg-surface py-2.5 pl-11 pr-4 text-sm text-text-primary placeholder:text-text-muted"
+                  placeholder="Search conversations..."
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                />
+              </div>
+
+              <div className="mt-4 flex-1 space-y-3 overflow-y-auto pr-1">
+                {filteredConversations.map((item) => {
+                  const displayName = item.otherUser?.maskName ?? "Anonymous";
+                  const snippet =
+                    item.lastMessageSnippet?.trim() || "No messages yet";
+                  const lastTime = item.lastMessageAt
+                    ? new Date(item.lastMessageAt).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit"
+                      })
+                    : "-";
+                  const isActive = activeConversation?.id === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`w-full rounded-2xl border px-3 py-3 text-left transition ${
+                        isActive
+                          ? "border-brand-primary/40 bg-surface"
+                          : "border-border-default bg-card hover:bg-surface"
+                      }`}
+                      onClick={() => openConversation(item)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-border-default bg-surface text-xs font-semibold text-text-secondary">
+                          {item.otherUser?.maskAvatarUrl ? (
+                            <img
+                              src={item.otherUser.maskAvatarUrl}
+                              alt={displayName}
+                              className="h-10 w-10 rounded-full object-cover"
+                            />
+                          ) : (
+                            <span>{displayName.slice(0, 1).toUpperCase()}</span>
+                          )}
+                          <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-card bg-emerald-400" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="truncate text-sm font-semibold text-text-primary">
+                              {displayName}
+                            </p>
+                            <span className="text-[11px] text-text-muted">
+                              {lastTime}
+                            </span>
+                          </div>
+                          <p className="mt-1 truncate text-xs text-text-secondary">
+                            {snippet}
+                          </p>
+                        </div>
+                        {item.unreadCount > 0 && (
+                          <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-brand-primary px-1 text-[10px] font-semibold text-card">
+                            {item.unreadCount}
+                          </span>
                         )}
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="truncate text-sm font-semibold text-text-primary">
-                            {displayName}
-                          </p>
-                          <span className="text-[11px] text-text-muted">
-                            {lastTime}
-                          </span>
-                        </div>
-                        <p className="mt-1 truncate text-xs text-text-secondary">
-                          {snippet}
-                        </p>
-                      </div>
-                      {item.unreadCount > 0 && (
-                        <span className="rounded-full bg-brand-primary px-2 py-0.5 text-[10px] font-semibold text-card">
-                          {item.unreadCount}
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
+                    </button>
+                  );
+                })}
 
-              {conversations.length === 0 && (
-                <div className="ui-surface border-dashed p-4 text-sm text-text-secondary">
-                  <p>Nothing private yet.</p>
-                  <p>Most conversations start in the Forum</p>
-                  <p>or inside a room. Go stir things up.</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Link href="/forum" className="btn-primary px-4 py-2 text-xs">
-                      Forum
-                    </Link>
-                    <Link
-                      href="/rooms"
-                      className="btn-secondary px-4 py-2 text-xs"
-                    >
-                      Rooms
-                    </Link>
+                {conversations.length === 0 && (
+                  <div className="rounded-2xl border border-border-default bg-surface p-4 text-sm text-text-secondary">
+                    <p>No conversations yet.</p>
+                    <p className="mt-2 text-xs">
+                      Start from the Forum or Rooms to begin.
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Link href="/forum" className="btn-primary px-4 py-2 text-xs">
+                        Forum
+                      </Link>
+                      <Link
+                        href="/rooms"
+                        className="btn-secondary px-4 py-2 text-xs"
+                      >
+                        Rooms
+                      </Link>
+                    </div>
                   </div>
+                )}
+              </div>
+            </aside>
+
+            <section className="flex h-full flex-col overflow-hidden">
+              {activeConversation ? (
+                <PrivateConversationDrawer
+                  conversation={activeConversation}
+                  onClose={closeConversation}
+                />
+              ) : (
+                <div className="flex h-full flex-1 items-center justify-center text-sm text-text-secondary">
+                  Select a conversation to start chatting.
                 </div>
               )}
-            </div>
-
-            {cursor && (
-              <div className="flex justify-center">
-                <button
-                  type="button"
-                  className="btn-secondary px-4 py-2 text-xs"
-                  onClick={() => loadConversations(cursor)}
-                  disabled={loading}
-                >
-                  {loading ? "Loading..." : "Load more"}
-                </button>
-              </div>
-            )}
-          </aside>
-
-          <section className="ui-card flex min-h-[70vh] flex-col overflow-hidden">
-            {activeConversation ? (
-              <PrivateConversationDrawer
-                conversation={activeConversation}
-                onClose={closeConversation}
-              />
-            ) : (
-              <div className="flex h-full flex-1" />
-            )}
-          </section>
+            </section>
+          </div>
         </div>
       </div>
     </main>
@@ -850,14 +862,8 @@ function PrivateConversationDrawer({
       <div className="flex flex-1 flex-col overflow-hidden">
         <div className="flex-1 overflow-y-auto px-6 py-6">
           <div className="mx-auto flex max-w-[640px] flex-col gap-4">
-            {requestPending && (
-              <div className="ui-surface p-3 text-xs text-text-secondary">
-                Request sent. Waiting for their reply.
-              </div>
-            )}
-
             {status && (
-              <div className="ui-surface p-3 text-xs text-brand-secondary">
+              <div className="rounded-2xl border border-border-default bg-surface p-3 text-xs text-brand-secondary">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span>{status}</span>
                   {lastFailedMessage && (
@@ -880,7 +886,7 @@ function PrivateConversationDrawer({
 
             {!loading && sortedMessages.length === 0 && (
               <p className="text-center text-xs text-text-muted">
-                No messages yet. Say something to start.
+                No messages yet.
               </p>
             )}
 
@@ -905,8 +911,8 @@ function PrivateConversationDrawer({
         <div className="border-t border-border-default bg-card px-6 py-4">
           <div className="flex items-center gap-3">
             <textarea
-              className="flex-1 rounded-full border border-border-default bg-card px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/30"
-              placeholder="Say something when it feels right."
+              className="flex-1 rounded-full border border-border-default bg-surface px-5 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/30"
+              placeholder="Type a message..."
               value={input}
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={handleKeyDown}
@@ -914,35 +920,15 @@ function PrivateConversationDrawer({
             />
             <button
               type="button"
-              className="btn-primary px-5 py-2.5 text-sm"
+              className="flex h-12 w-12 items-center justify-center rounded-full bg-[#b17c5a] text-white shadow-sm transition hover:bg-[#9f6f52]"
               onClick={() => sendMessage()}
               disabled={sending}
+              aria-label="Send message"
             >
-              {sending ? "Sending..." : "Send"}
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
+                <path d="M3 12l18-9-5 18-4-6-6-3 17-8" />
+              </svg>
             </button>
-          </div>
-          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-text-muted">
-            <span>{input.length} chars</span>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className="btn-secondary px-3 py-1 text-xs"
-                onClick={() => loadMessages(null)}
-                disabled={loading}
-              >
-                Refresh
-              </button>
-              {cursor && (
-                <button
-                  type="button"
-                  className="btn-secondary px-3 py-1 text-xs"
-                  onClick={() => loadMessages(cursor)}
-                  disabled={loading}
-                >
-                  Load earlier
-                </button>
-              )}
-            </div>
           </div>
         </div>
       </div>
