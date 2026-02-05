@@ -23,6 +23,7 @@ type ConversationItem = {
   isMuted: boolean;
   mutedAt: string | null;
   unreadCount: number;
+  lastMessageAt?: string | null;
 };
 
 type SenderProfile = {
@@ -126,9 +127,30 @@ function PrivateListPageInner() {
             },
             isMuted: row.isMuted ?? false,
             mutedAt: row.mutedAt ?? null,
-            unreadCount: 0
+            unreadCount: 0,
+            lastMessageAt: null
           };
         }) ?? [];
+
+      if (items.length > 0) {
+        const matchIds = items.map((item) => item.matchId).filter(Boolean);
+        if (matchIds.length > 0) {
+          const { data: latestMessages } = await supabase
+            .from("Message")
+            .select("matchId,createdAt")
+            .in("matchId", matchIds)
+            .order("createdAt", { ascending: false });
+          const latestMap = new Map<string, string>();
+          (latestMessages ?? []).forEach((msg) => {
+            if (!latestMap.has(msg.matchId)) {
+              latestMap.set(msg.matchId, msg.createdAt);
+            }
+          });
+          items.forEach((item) => {
+            item.lastMessageAt = latestMap.get(item.matchId) ?? null;
+          });
+        }
+      }
 
       const missingIds = items
         .filter((item) => item.otherUser.id && !item.otherUser.maskName)
@@ -216,7 +238,8 @@ function PrivateListPageInner() {
       },
       isMuted: data.isMuted ?? false,
       mutedAt: data.mutedAt ?? null,
-      unreadCount: 0
+      unreadCount: 0,
+      lastMessageAt: null
     };
     if (item.otherUser.id && !item.otherUser.maskName) {
       const { data: otherProfile } = await supabase
@@ -228,6 +251,17 @@ function PrivateListPageInner() {
         item.otherUser.maskName = otherProfile.maskName ?? null;
         item.otherUser.maskAvatarUrl = otherProfile.maskAvatarUrl ?? null;
       }
+    }
+
+    if (item.matchId) {
+      const { data: lastMessage } = await supabase
+        .from("Message")
+        .select("createdAt")
+        .eq("matchId", item.matchId)
+        .order("createdAt", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      item.lastMessageAt = lastMessage?.createdAt ?? null;
     }
 
     setConversations((prev) => {
@@ -434,6 +468,12 @@ function PrivateListPageInner() {
                 const snippet = item.isMuted
                   ? "Private room - Muted"
                   : "Private room";
+                const lastTime = item.lastMessageAt
+                  ? new Date(item.lastMessageAt).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit"
+                    })
+                  : "-";
                 return (
                   <button
                     key={item.id}
@@ -462,7 +502,9 @@ function PrivateListPageInner() {
                           <p className="truncate text-sm font-semibold text-text-primary">
                             {displayName}
                           </p>
-                          <span className="text-[11px] text-text-muted">-</span>
+                          <span className="text-[11px] text-text-muted">
+                            {lastTime}
+                          </span>
                         </div>
                         <p className="mt-1 truncate text-xs text-text-secondary">
                           {snippet}
@@ -622,10 +664,22 @@ function PrivateConversationDrawer({
         throw new Error("Failed to load.");
       }
 
+      const rawMessages = data ?? [];
+      const senderIds = rawMessages
+        .filter((item) => !item.sender && item.senderId)
+        .map((item) => item.senderId);
+      let senderMap = new Map<string, { id: string; maskName: string | null; maskAvatarUrl: string | null }>();
+      if (senderIds.length > 0) {
+        const { data: senderData } = await supabase
+          .from("User")
+          .select("id,maskName,maskAvatarUrl")
+          .in("id", senderIds);
+        senderMap = new Map((senderData ?? []).map((user) => [user.id, user]));
+      }
       const incoming =
-        data?.map((item) => ({
+        rawMessages.map((item) => ({
           ...item,
-          sender: item.sender?.[0] ?? null
+          sender: item.sender?.[0] ?? senderMap.get(item.senderId) ?? null
         })) ?? [];
       setMessages((prev) => (nextCursor ? [...incoming, ...prev] : incoming));
       setCursor(null);
@@ -746,10 +800,20 @@ function PrivateConversationDrawer({
     <div className="flex h-full flex-col" role="region" aria-label="Private chat">
       <header className="flex items-center justify-between border-b border-border-default px-6 py-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full border border-border-default bg-surface text-xs font-semibold uppercase text-text-secondary">
-            {conversation.otherUser?.maskName
-              ? conversation.otherUser.maskName.charAt(0).toUpperCase()
-              : "A"}
+          <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-border-default bg-surface text-xs font-semibold uppercase text-text-secondary">
+            {conversation.otherUser?.maskAvatarUrl ? (
+              <img
+                src={conversation.otherUser.maskAvatarUrl}
+                alt={conversation.otherUser?.maskName ?? "User"}
+                className="h-full w-full rounded-full object-cover"
+              />
+            ) : (
+              <span>
+                {(conversation.otherUser?.maskName ?? "A")
+                  .charAt(0)
+                  .toUpperCase()}
+              </span>
+            )}
           </div>
 
           <div>
