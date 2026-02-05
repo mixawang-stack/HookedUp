@@ -1008,12 +1008,13 @@ function PrivateConversationDrawer({
               aria-label="Send"
               title="Send"
             >
-              鉃?            </button>
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor"><path d="M3 12l18-9-5 18-4-6-6-3 17-8" /></svg>            </button>
           </form>
         </div>
       </div>
     </div>
   );
 }
+
 
 
