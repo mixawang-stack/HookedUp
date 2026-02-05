@@ -142,7 +142,7 @@ export default function PrivateConversationPage() {
       let query = supabase
         .from("Message")
         .select(
-          "id,matchId,senderId,ciphertext,createdAt,sender:User(id,maskName,maskAvatarUrl)"
+          "id,matchId,senderId,ciphertext,createdAt,sender:User!Message_senderId_fkey(id,maskName,maskAvatarUrl)"
         )
         .eq("matchId", conversationMatchId)
         .order("createdAt", { ascending: false })

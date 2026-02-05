@@ -656,7 +656,9 @@ function PrivateConversationDrawer({
       }
       const { data, error } = await supabase
         .from("Message")
-        .select("id,matchId,senderId,ciphertext,createdAt,sender:User(id,maskName,maskAvatarUrl)")
+        .select(
+          "id,matchId,senderId,ciphertext,createdAt,sender:User!Message_senderId_fkey(id,maskName,maskAvatarUrl)"
+        )
         .eq("matchId", conversation.matchId)
         .order("createdAt", { ascending: true })
         .limit(200);
