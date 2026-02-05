@@ -1,10 +1,15 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { getSupabaseClient } from "../../lib/supabaseClient";
 import { cleanNovelText } from "../../../utils/textClean";
+import {
+  formatPriceAmount,
+  formatPriceWithCurrency,
+  resolvePricingMeta
+} from "../../lib/pricing";
 
 type NovelPreview = {
   id: string;
@@ -51,6 +56,7 @@ export default function NovelDetailPage() {
   const [dislikeCount, setDislikeCount] = useState(0);
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
+  const [showCheckoutNotice, setShowCheckoutNotice] = useState(false);
   const isSignedIn = Boolean(userId);
 
   useEffect(() => {
@@ -142,6 +148,22 @@ export default function NovelDetailPage() {
     () => chapters.filter((chapter) => !chapter.isFree),
     [chapters]
   );
+  const pricing = useMemo(
+    () =>
+      resolvePricingMeta({
+        pricingMode: novel?.pricingMode,
+        bookPrice: novel?.bookPrice,
+        bookPromoPrice: novel?.bookPromoPrice,
+        currency: novel?.currency,
+        chapters: chapters
+      }),
+    [novel, chapters]
+  );
+  const priceLabel = formatPriceWithCurrency(
+    pricing.price,
+    pricing.currency
+  );
+  const priceAmount = formatPriceAmount(pricing.price, pricing.currency);
   const chaptersToRender =
     lockedChapters.length > 0 && !isUnlocked ? freeChapters : chapters;
   const shouldShowAttachment =
@@ -272,35 +294,13 @@ export default function NovelDetailPage() {
       );
       return;
     }
-    if (novel.paymentLink) {
-      window.location.href = novel.paymentLink;
+    if (!novel.paymentLink || priceAmount === null) {
+      setShowCheckoutNotice(true);
       return;
     }
     setUnlocking(true);
     try {
-      const supabase = getSupabaseClient();
-      if (!supabase) {
-        setStatus("Supabase is not configured.");
-        return;
-      }
-      await supabase.from("Entitlement").upsert(
-        {
-          userId,
-          novelId,
-          scope: "BOOK"
-        },
-        { onConflict: "userId,novelId,scope" }
-      );
-      await supabase.from("NovelPurchase").insert({
-        userId,
-        novelId,
-        pricingMode: novel.pricingMode ?? "BOOK",
-        amount: novel.bookPromoPrice ?? novel.bookPrice ?? 0,
-        currency: novel.currency ?? "USD"
-      });
-      await refreshEntitlement(novelId);
-    } catch {
-      setStatus("Failed to unlock.");
+      window.location.href = novel.paymentLink;
     } finally {
       setUnlocking(false);
     }
@@ -494,44 +494,70 @@ export default function NovelDetailPage() {
                         This is only the beginning.
                         {"\n"}Unlock the rest of the story to find out what happens next.
                       </p>
-                      {novel.pricingMode === "BOOK" ? (
-                        <div className="mt-4 space-y-2">
-                          <p className="text-xs text-text-muted">
-                            {novel.bookPromoPrice ?? novel.bookPrice}{" "}
-                            {novel.currency ?? "USD"}
-                          </p>
-                          <p className="text-[11px] text-text-muted">
-                            You can unlock the full book to keep reading.
-                          </p>
-                          <button
-                            type="button"
-                            className="btn-primary mt-2 px-4 py-2 text-xs"
-                            onClick={startCheckout}
-                            disabled={unlocking}
-                          >
-                            {unlocking ? "Unlocking..." : "Unlock more"}
-                          </button>
-                        </div>
-                      ) : (
+                      <div className="mt-4 space-y-2">
+                        <p className="text-sm text-text-primary">
+                          Price: {priceLabel ?? "Available soon"}
+                        </p>
+                        <p className="text-xs text-text-muted">
+                          One-time purchase. No subscription.
+                        </p>
+                        <button
+                          type="button"
+                          className="btn-primary mt-2 px-4 py-2 text-xs"
+                          onClick={startCheckout}
+                          disabled={unlocking}
+                        >
+                          {unlocking
+                            ? "Unlocking..."
+                            : priceAmount
+                              ? `Unlock full story — ${priceAmount}`
+                              : "Unlock full story"}
+                        </button>
+                        <p className="text-[11px] text-text-muted">
+                          Secure checkout. Instant access after payment.
+                        </p>
+                        <p className="text-[11px] text-text-muted">
+                          By purchasing, you agree to our{" "}
+                          <Link href="/terms" className="underline">
+                            Terms
+                          </Link>
+                          . See{" "}
+                          <Link href="/refunds" className="underline">
+                            Refund policy
+                          </Link>
+                          .
+                        </p>
+                      </div>
+                      {novel.pricingMode === "CHAPTER" && (
                         <div className="mt-4 space-y-2 text-xs">
-                          {lockedChapters.map((chapter) => (
-                            <div
-                              key={chapter.id}
-                              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border-default bg-card px-3 py-2"
-                            >
-                              <span>
-                                Chapter {chapter.orderIndex} · {chapter.title}
-                              </span>
-                              <button
-                                type="button"
-                                className="rounded-full border border-border-default px-3 py-1 text-[11px]"
-                                onClick={startCheckout}
-                                disabled={unlocking}
+                          {lockedChapters.map((chapter) => {
+                            const chapterPrice = formatPriceAmount(
+                              chapter.price ?? null,
+                              pricing.currency
+                            );
+                            return (
+                              <div
+                                key={chapter.id}
+                                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border-default bg-card px-3 py-2"
                               >
-                                {unlocking ? "Unlocking..." : "Unlock more"}
-                              </button>
-                            </div>
-                          ))}
+                                <span>
+                                  Chapter {chapter.orderIndex} · {chapter.title}
+                                </span>
+                                <button
+                                  type="button"
+                                  className="rounded-full border border-border-default px-3 py-1 text-[11px]"
+                                  onClick={startCheckout}
+                                  disabled={unlocking}
+                                >
+                                  {unlocking
+                                    ? "Unlocking..."
+                                    : chapterPrice
+                                      ? `Unlock — ${chapterPrice}`
+                                      : "Unlock chapter"}
+                                </button>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -676,6 +702,34 @@ export default function NovelDetailPage() {
           </button>
         </div>
       </div>
+      {showCheckoutNotice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-4">
+          <div className="w-full max-w-sm rounded-2xl border border-border-default bg-card p-5 text-sm text-text-secondary">
+            <h3 className="text-base font-semibold text-text-primary">
+              Checkout is being prepared
+            </h3>
+            <p className="mt-2 text-xs text-text-muted">
+              We’re finalizing payment setup. Please check back soon.
+            </p>
+            <p className="mt-3 text-xs text-text-muted">
+              Need help?{" "}
+              <Link href="/support" className="underline">
+                support@hookedup.me
+              </Link>
+            </p>
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                className="btn-secondary px-4 py-2 text-xs"
+                onClick={() => setShowCheckoutNotice(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
+

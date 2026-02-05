@@ -3,6 +3,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "../lib/supabaseClient";
+import PricingBadge from "../components/PricingBadge";
+import PricingSnippet from "../components/PricingSnippet";
+import {
+  formatPriceAmount,
+  formatPriceWithCurrency,
+  resolvePricingMeta
+} from "../lib/pricing";
 
 type NovelItem = {
   id: string;
@@ -10,6 +17,15 @@ type NovelItem = {
   coverImageUrl: string | null;
   description: string | null;
   category?: "DRAMA" | "AFTER_DARK";
+  pricingMode?: "BOOK" | "CHAPTER";
+  bookPrice?: string | number | null;
+  bookPromoPrice?: string | number | null;
+  currency?: string | null;
+  chapters?: Array<{
+    isFree?: boolean;
+    isPublished?: boolean;
+    price?: string | number | null;
+  }> | null;
 };
 
 const CATEGORY_TABS: Array<{ id: "DRAMA" | "AFTER_DARK"; label: string }> = [
@@ -46,7 +62,9 @@ export default function StoriesPage() {
       }
       const { data, error } = await supabase
         .from("Novel")
-        .select("id,title,coverImageUrl,description,category,isFeatured,createdAt,status")
+        .select(
+          "id,title,coverImageUrl,description,category,isFeatured,createdAt,status,pricingMode,bookPrice,bookPromoPrice,currency,chapters:NovelChapter(isFree,isPublished,price)"
+        )
         .eq("status", "PUBLISHED")
         .eq("category", activeTab)
         .order("isFeatured", { ascending: false })
@@ -77,9 +95,9 @@ export default function StoriesPage() {
         }
         const { data, error } = await supabase
           .from("Novel")
-          .select(
-            "id,title,coverImageUrl,description,category,isFeatured,createdAt,status"
-          )
+        .select(
+          "id,title,coverImageUrl,description,category,isFeatured,createdAt,status,pricingMode,bookPrice,bookPromoPrice,currency,chapters:NovelChapter(isFree,isPublished,price)"
+        )
           .eq("status", "PUBLISHED")
           .eq("category", activeTab)
           .order("isFeatured", { ascending: false })
@@ -131,6 +149,21 @@ export default function StoriesPage() {
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {novels.map((novel) => {
           const teaser = (novel.description ?? novel.title).split("\n")[0] ?? "";
+          const pricing = resolvePricingMeta({
+            pricingMode: novel.pricingMode,
+            bookPrice: novel.bookPrice,
+            bookPromoPrice: novel.bookPromoPrice,
+            currency: novel.currency,
+            chapters: novel.chapters ?? []
+          });
+          const priceLabel = formatPriceWithCurrency(
+            pricing.price,
+            pricing.currency
+          );
+          const priceAmount = formatPriceAmount(
+            pricing.price,
+            pricing.currency
+          );
           return (
             <div key={novel.id} className="ui-card p-4 text-text-primary">
               <button
@@ -138,7 +171,10 @@ export default function StoriesPage() {
                 className="block w-full text-left"
                 onClick={() => router.push(`/stories/${novel.id}`)}
               >
-                <div className="overflow-hidden rounded-xl border border-border-default bg-card">
+                <div className="group relative overflow-hidden rounded-xl border border-border-default bg-card">
+                  <div className="absolute right-3 top-3 z-10">
+                    <PricingBadge type={pricing.paywallType} />
+                  </div>
                   {novel.coverImageUrl ? (
                     <img
                       src={resolveMediaUrl(novel.coverImageUrl) ?? ""}
@@ -150,6 +186,26 @@ export default function StoriesPage() {
                       No cover
                     </div>
                   )}
+                  <div className="absolute inset-0 flex flex-col justify-end gap-3 bg-slate-950/50 px-4 py-4 opacity-0 transition duration-200 group-hover:opacity-100">
+                    <PricingBadge type={pricing.paywallType} />
+                    <p className="line-clamp-2 text-sm text-white/90">
+                      {teaser || novel.title}
+                    </p>
+                    <PricingSnippet
+                      type={pricing.paywallType}
+                      freeChaptersCount={pricing.freeChaptersCount}
+                      price={pricing.price}
+                      currency={pricing.currency}
+                      className="text-white/90"
+                    />
+                    <span className="inline-flex w-fit items-center justify-center rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-slate-900">
+                      {pricing.paywallType === "FREE"
+                        ? "Read now"
+                        : priceAmount
+                          ? `Unlock — ${priceAmount}`
+                          : "Unlock"}
+                    </span>
+                  </div>
                 </div>
                 <p className="mt-3 text-sm font-semibold line-clamp-1">
                   {novel.title}
@@ -157,6 +213,14 @@ export default function StoriesPage() {
                 <p className="mt-1 text-xs text-text-secondary line-clamp-4">
                   {teaser}
                 </p>
+                <div className="mt-2">
+                  <PricingSnippet
+                    type={pricing.paywallType}
+                    freeChaptersCount={pricing.freeChaptersCount}
+                    price={pricing.price}
+                    currency={pricing.currency}
+                  />
+                </div>
               </button>
               <button
                 type="button"
@@ -165,6 +229,11 @@ export default function StoriesPage() {
               >
                 Continue reading
               </button>
+              {pricing.paywallType !== "FREE" && (
+                <p className="mt-2 text-center text-[11px] text-text-muted">
+                  {priceLabel ? `From ${priceLabel}` : "Pricing available soon"}
+                </p>
+              )}
             </div>
           );
         })}
