@@ -164,6 +164,8 @@ export default function StoriesPage() {
             pricing.price,
             pricing.currency
           );
+          const totalChaptersCount =
+            pricing.freeChaptersCount + pricing.paidChaptersCount;
           return (
             <div key={novel.id} className="ui-card p-4 text-text-primary">
               <button
@@ -200,6 +202,7 @@ export default function StoriesPage() {
                     <PricingSnippet
                       type={pricing.paywallType}
                       freeChaptersCount={pricing.freeChaptersCount}
+                      totalChaptersCount={totalChaptersCount}
                       price={pricing.price}
                       currency={pricing.currency}
                       className="text-white/90"
@@ -225,6 +228,7 @@ export default function StoriesPage() {
                   <PricingSnippet
                     type={pricing.paywallType}
                     freeChaptersCount={pricing.freeChaptersCount}
+                    totalChaptersCount={totalChaptersCount}
                     price={pricing.price}
                     currency={pricing.currency}
                   />
