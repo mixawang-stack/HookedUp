@@ -1,11 +1,11 @@
-"use client";
+﻿"use client";
 
 export const dynamic = "force-dynamic";
 // BUILD_MARKER_PRIVATE_PAGE_TSX__2026_01_16
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import React, { Suspense, useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 import { emitHostStatus } from "../lib/hostStatus";
 import { getSupabaseClient } from "../lib/supabaseClient";
@@ -619,6 +619,10 @@ function PrivateConversationDrawer({
   );
   const [me, setMe] = useState<SenderProfile | null>(null);
   const [isMuted, setIsMuted] = useState(false);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const channelRef = useRef<ReturnType<
+    NonNullable<ReturnType<typeof getSupabaseClient>>["channel"]
+  > | null>(null);
   const redirectToLogin = (message?: string) => {
     setStatus(message ?? "Please sign in to continue.");
     onClose();
@@ -692,6 +696,9 @@ function PrivateConversationDrawer({
       setCursor(null);
       setIsMuted(Boolean(conversation.isMuted));
       setStatus(null);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("private_last_seen", new Date().toISOString());
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to load.";
       setStatus(message);
@@ -712,6 +719,57 @@ function PrivateConversationDrawer({
     loadMessages(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversation.id]);
+
+  useEffect(() => {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      return;
+    }
+    channelRef.current?.unsubscribe();
+    const channel = supabase
+      .channel(`private-${conversation.matchId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "Message",
+          filter: `matchId=eq.${conversation.matchId}`
+        },
+        (payload) => {
+          const record = payload.new as MessageItem;
+          if (!record?.id) return;
+          setMessages((prev) => {
+            if (prev.find((msg) => msg.id === record.id)) {
+              return prev;
+            }
+            return [
+              ...prev,
+              {
+                ...record,
+                sender: null
+              }
+            ];
+          });
+          if (typeof window !== "undefined") {
+            localStorage.setItem(
+              "private_last_seen",
+              new Date().toISOString()
+            );
+          }
+        }
+      )
+      .subscribe();
+    channelRef.current = channel;
+    return () => {
+      channelRef.current?.unsubscribe();
+    };
+  }, [conversation.matchId]);
+
+  useEffect(() => {
+    if (!bottomRef.current) return;
+    bottomRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [sortedMessages.length]);
 
   const sendMessage = async (overrideContent?: string) => {
     if (!me?.id) {
@@ -759,6 +817,9 @@ function PrivateConversationDrawer({
         setInput("");
       }
       setLastFailedMessage(null);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("private_last_seen", new Date().toISOString());
+      }
     } catch (error) {
       const rawMessage =
         error instanceof Error ? error.message : "Failed to send.";
@@ -830,8 +891,7 @@ function PrivateConversationDrawer({
           className="rounded-full border border-[#E7D7CC] bg-[#FBF4EE] px-4 py-2 text-[#6B5A52] hover:bg-[#F3E7DE]"
           aria-label="More"
         >
-          ⋯
-        </button>
+          ...        </button>
       </div>
 
       <div className="flex flex-1 flex-col overflow-hidden">
@@ -923,6 +983,7 @@ function PrivateConversationDrawer({
                 </div>
               );
             })}
+            <div ref={bottomRef} />
           </div>
         </div>
 
@@ -947,11 +1008,12 @@ function PrivateConversationDrawer({
               aria-label="Send"
               title="Send"
             >
-              ➤
-            </button>
+              鉃?            </button>
           </form>
         </div>
       </div>
     </div>
   );
 }
+
+
