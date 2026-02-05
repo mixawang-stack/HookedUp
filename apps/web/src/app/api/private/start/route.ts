@@ -32,34 +32,66 @@ export async function POST(request: Request) {
     }
 
     const [user1Id, user2Id] = normalizePair(user.id, targetUserId);
-    const { data: match, error: matchError } = await supabase
+    const { data: existingMatch } = await supabase
       .from("Match")
-      .upsert(
-        {
+      .select("id")
+      .eq("user1Id", user1Id)
+      .eq("user2Id", user2Id)
+      .maybeSingle();
+
+    let matchId = existingMatch?.id ?? null;
+    if (!matchId) {
+      const { data: insertedMatch, error: matchError } = await supabase
+        .from("Match")
+        .insert({
+          id: crypto.randomUUID(),
           user1Id,
           user2Id,
           matchedAt: new Date().toISOString()
-        },
-        { onConflict: "user1Id,user2Id" }
-      )
-      .select("id")
-      .maybeSingle();
+        })
+        .select("id")
+        .maybeSingle();
 
-    if (matchError || !match?.id) {
-      return NextResponse.json(
-        {
-          error: "MATCH_CREATE_FAILED",
-          details: matchError?.message ?? null
-        },
-        { status: 500 }
-      );
+      if (matchError || !insertedMatch?.id) {
+        return NextResponse.json(
+          {
+            error: "MATCH_CREATE_FAILED",
+            details: matchError?.message ?? null
+          },
+          { status: 500 }
+        );
+      }
+      matchId = insertedMatch.id;
     }
 
-    const { data: conversation, error: convoError } = await supabase
+    const { data: existingConversation } = await supabase
       .from("Conversation")
-      .upsert({ matchId: match.id }, { onConflict: "matchId" })
       .select("id")
+      .eq("matchId", matchId)
       .maybeSingle();
+
+    let conversationId = existingConversation?.id ?? null;
+    if (!conversationId) {
+      const { data: conversation, error: convoError } = await supabase
+        .from("Conversation")
+        .insert({
+          id: crypto.randomUUID(),
+          matchId
+        })
+        .select("id")
+        .maybeSingle();
+
+      if (convoError || !conversation?.id) {
+        return NextResponse.json(
+          {
+            error: "CONVERSATION_CREATE_FAILED",
+            details: convoError?.message ?? null
+          },
+          { status: 500 }
+        );
+      }
+      conversationId = conversation.id;
+    }
 
     if (convoError || !conversation?.id) {
       return NextResponse.json(
@@ -71,7 +103,7 @@ export async function POST(request: Request) {
     await Promise.all([
       supabase.from("ConversationParticipant").upsert(
         {
-          conversationId: conversation.id,
+          conversationId,
           userId: user1Id,
           isMuted: false
         },
@@ -79,7 +111,7 @@ export async function POST(request: Request) {
       ),
       supabase.from("ConversationParticipant").upsert(
         {
-          conversationId: conversation.id,
+          conversationId,
           userId: user2Id,
           isMuted: false
         },
@@ -87,7 +119,7 @@ export async function POST(request: Request) {
       )
     ]);
 
-    return NextResponse.json({ conversationId: conversation.id });
+    return NextResponse.json({ conversationId });
   } catch (error) {
     const message = error instanceof Error ? error.message : "UNKNOWN_ERROR";
     const status = message === "UNAUTHORIZED" ? 401 : 500;
