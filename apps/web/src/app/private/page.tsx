@@ -23,7 +23,7 @@ type ConversationItem = {
   isMuted: boolean;
   mutedAt: string | null;
   unreadCount: number;
-  lastMessageAt?: string | null;
+  lastMessageAt: string | null;
 };
 
 type SenderProfile = {
