@@ -169,6 +169,7 @@ export default function HallPage() {
   const [profileCard, setProfileCard] = useState<PublicProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [meProfile, setMeProfile] = useState<PublicProfile | null>(null);
+  const [blockedIds, setBlockedIds] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const redirectToLogin = () => {
     if (typeof window !== "undefined") {
@@ -180,6 +181,7 @@ export default function HallPage() {
   };
 
   const isSignedIn = Boolean(currentUserId);
+  const blockedIdSet = useMemo(() => new Set(blockedIds), [blockedIds]);
 
 
   useEffect(() => {
@@ -255,6 +257,29 @@ export default function HallPage() {
     });
   }, []);
 
+  useEffect(() => {
+    if (!currentUserId) {
+      setBlockedIds([]);
+      return;
+    }
+    const loadBlocks = async () => {
+      const supabase = getSupabaseClient();
+      if (!supabase) return;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token ?? null;
+      if (!accessToken) return;
+      const res = await fetch("/api/blocks", {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      if (!res.ok) return;
+      const payload = (await res.json().catch(() => ({}))) as {
+        blockedIds?: string[];
+      };
+      setBlockedIds(payload.blockedIds ?? []);
+    };
+    loadBlocks().catch(() => undefined);
+  }, [currentUserId]);
+
   const fetchHall = async () => {
     const supabase = getSupabaseClient();
     if (!supabase) {
@@ -268,8 +293,15 @@ export default function HallPage() {
     }
     const tracesPayload = (await tracesRes.json()) as { data?: TraceItem[] };
     const tracesData = tracesPayload.data ?? [];
+    const filteredTracesData = tracesData.filter((trace) => {
+      const author = Array.isArray(trace.author)
+        ? trace.author[0] ?? null
+        : trace.author ?? null;
+      const authorId = author?.id ?? null;
+      return authorId ? !blockedIdSet.has(authorId) : true;
+    });
 
-    const traceIds = (tracesData ?? []).map((trace) => trace.id);
+    const traceIds = (filteredTracesData ?? []).map((trace) => trace.id);
     const [repliesRes, likesRes] = await Promise.all([
       supabase
         .from("TraceReply")
@@ -296,7 +328,7 @@ export default function HallPage() {
     });
 
     const traces: TraceItem[] =
-      tracesData?.map((trace) => ({
+      filteredTracesData?.map((trace) => ({
         id: trace.id,
         content: trace.content,
         createdAt: trace.createdAt,
@@ -529,6 +561,15 @@ export default function HallPage() {
       setStatus("Failed to load trace details.");
       return;
     }
+    const traceAuthor = Array.isArray(trace.author)
+      ? trace.author[0] ?? null
+      : trace.author ?? null;
+    if (traceAuthor?.id && blockedIdSet.has(traceAuthor.id)) {
+      setSelectedTraceId(null);
+      setTraceDetail(null);
+      setStatus("This post is not available.");
+      return;
+    }
     const { data: replies } = await supabase
       .from("TraceReply")
       .select("id,content,createdAt,author:User(id,maskName,maskAvatarUrl,role)")
@@ -540,27 +581,34 @@ export default function HallPage() {
         id: trace.id,
         content: trace.content,
         createdAt: trace.createdAt,
-        replyCount: replies?.length ?? 0,
-        author: Array.isArray(trace.author)
-          ? trace.author[0] ?? null
-          : trace.author ?? null,
+        replyCount:
+          replies?.filter((reply) => {
+            const authorId = (reply.author?.[0] ?? reply.author ?? null)?.id;
+            return authorId ? !blockedIdSet.has(authorId) : true;
+          }).length ?? 0,
+        author: traceAuthor,
         imageUrl: trace.imageUrl ?? null,
         imageWidth: trace.imageWidth ?? null,
         imageHeight: trace.imageHeight ?? null,
         likeCount: 0
       },
       replies:
-        replies?.map((reply) => ({
-          ...reply,
-          author: reply.author?.[0] ?? null
-        })) ?? [],
+        replies
+          ?.filter((reply) => {
+            const authorId = (reply.author?.[0] ?? reply.author ?? null)?.id;
+            return authorId ? !blockedIdSet.has(authorId) : true;
+          })
+          .map((reply) => ({
+            ...reply,
+            author: reply.author?.[0] ?? null
+          })) ?? [],
       nextCursor: null
     });
   };
 
   useEffect(() => {
     fetchHall().catch(() => setStatus("Failed to load the Forum."));
-  }, [currentUserId]);
+  }, [currentUserId, blockedIds.join(",")]);
 
   useEffect(() => {
     if (typeof window === "undefined") {

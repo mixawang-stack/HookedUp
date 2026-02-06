@@ -108,6 +108,7 @@ export default function NovelDetailPage() {
         `
         )
         .eq("id", novelId)
+        .order("orderIndex", { ascending: true, foreignTable: "NovelChapter" })
         .single();
       if (error || !data) {
         setStatus("Failed to load novel.");
@@ -138,7 +139,14 @@ export default function NovelDetailPage() {
 
   const chapters = useMemo(() => {
     const all = novel?.chapters ?? [];
-    return all.filter((chapter) => chapter.isPublished);
+    return all
+      .filter((chapter) => chapter.isPublished)
+      .slice()
+      .sort(
+        (a, b) =>
+          (a.orderIndex ?? Number.POSITIVE_INFINITY) -
+          (b.orderIndex ?? Number.POSITIVE_INFINITY)
+      );
   }, [novel]);
   const freeChapters = useMemo(
     () => chapters.filter((chapter) => chapter.isFree),

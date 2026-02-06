@@ -1,9 +1,5 @@
 import { getSupabaseAdmin } from "../../api/_lib/supabaseAdmin";
-import {
-  fetchPendingWebhookEvents,
-  incrementAttempts,
-  markWebhookEvent
-} from "./store";
+import { fetchPendingWebhookEvents, markWebhookEvent } from "./store";
 
 type CreemEvent = {
   event_id: string;
@@ -286,7 +282,6 @@ export const processCreemEvents = async (limit = 50) => {
       type: item.type as string,
       payload_json: item.payload_json as Record<string, unknown>
     };
-    await incrementAttempts(event.event_id);
     try {
       const result = await handleCreemEvent(event);
       processed += 1;

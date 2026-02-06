@@ -4,12 +4,14 @@ create table if not exists public.webhook_events (
   provider text not null,
   event_id text not null,
   type text not null,
+  event_type text,
   created_at timestamptz not null default now(),
   payload_json jsonb not null,
   received_at timestamptz not null default now(),
   process_status text not null default 'pending',
   processed_at timestamptz,
-  error text
+  error text,
+  attempts integer not null default 0
 );
 
 create unique index if not exists webhook_events_provider_event_id_key
@@ -18,6 +20,7 @@ create unique index if not exists webhook_events_provider_event_id_key
 -- Orders
 create table if not exists public.orders (
   id uuid primary key default gen_random_uuid(),
+  provider text,
   provider_checkout_id text not null unique,
   status text not null,
   amount numeric,
@@ -31,6 +34,7 @@ create table if not exists public.orders (
 -- Subscriptions
 create table if not exists public.subscriptions (
   id uuid primary key default gen_random_uuid(),
+  provider text,
   provider_subscription_id text not null unique,
   status text not null,
   current_period_end timestamptz,

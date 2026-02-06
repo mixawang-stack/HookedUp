@@ -15,9 +15,9 @@ begin
   from http(
     (
       'POST',
-      'https://YOUR_PRODUCTION_DOMAIN/api/cron/process-creem-events',
+      'https://hookedup.me/api/cron/process-creem-events',
       ARRAY[
-        http_header('x-cron-secret', 'YOUR_CRON_SECRET')
+        http_header('x-cron-secret', 'hookedupdada6578san2nd')
       ],
       'application/json',
       '{}'::text

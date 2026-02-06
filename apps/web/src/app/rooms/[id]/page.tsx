@@ -75,6 +75,7 @@ export default function RoomPage() {
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [shareStatus, setShareStatus] = useState<string | null>(null);
   const [shareLoading, setShareLoading] = useState(false);
+  const [blockedIds, setBlockedIds] = useState<string[]>([]);
 
   const [profileCard, setProfileCard] = useState<{
     id: string;
@@ -94,6 +95,7 @@ export default function RoomPage() {
   const [profileLoading, setProfileLoading] = useState(false);
 
   const isSignedIn = Boolean(userId);
+  const blockedIdSet = useMemo(() => new Set(blockedIds), [blockedIds]);
 
   const openProfileCard = async (targetUserId: string) => {
     if (!isSignedIn) {
@@ -204,6 +206,29 @@ export default function RoomPage() {
   }, []);
 
   useEffect(() => {
+    if (!userId) {
+      setBlockedIds([]);
+      return;
+    }
+    const loadBlocks = async () => {
+      const supabase = getSupabaseClient();
+      if (!supabase) return;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token ?? null;
+      if (!accessToken) return;
+      const res = await fetch("/api/blocks", {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      if (!res.ok) return;
+      const payload = (await res.json().catch(() => ({}))) as {
+        blockedIds?: string[];
+      };
+      setBlockedIds(payload.blockedIds ?? []);
+    };
+    loadBlocks().catch(() => undefined);
+  }, [userId]);
+
+  useEffect(() => {
     if (!roomId) {
       return;
     }
@@ -261,6 +286,9 @@ export default function RoomPage() {
         if (!roomData) {
           throw new Error("Room unavailable.");
         }
+        if (blockedIdSet.has(roomData.createdById)) {
+          throw new Error("Room unavailable.");
+        }
 
         let currentUserRole: RoomDetail["currentUserRole"] = null;
         if (userId) {
@@ -284,8 +312,11 @@ export default function RoomPage() {
           currentUserRole,
           selectedGame: undefined
         });
+        const filteredMessages = (messagesData ?? []).filter(
+          (message) => !blockedIdSet.has(message.senderId)
+        );
         setMessages(
-          (messagesData ?? []).map((message) => ({
+          filteredMessages.map((message) => ({
             ...message,
             sender: message.sender?.[0] ?? null
           })) as RoomMessage[]
@@ -306,7 +337,7 @@ export default function RoomPage() {
     return () => {
       active = false;
     };
-  }, [roomId, userId]);
+  }, [roomId, userId, blockedIds.join(",")]);
 
   useEffect(() => {
     if (!room) {

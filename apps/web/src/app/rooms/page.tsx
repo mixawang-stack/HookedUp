@@ -36,7 +36,11 @@ type RoomItem = {
   capacity: number | null;
   memberCount: number;
   createdAt: string;
-  createdBy?: { maskName: string | null; maskAvatarUrl: string | null } | null;
+  createdBy?: {
+    id: string;
+    maskName: string | null;
+    maskAvatarUrl: string | null;
+  } | null;
   novel?: {
     id: string;
     title: string;
@@ -63,6 +67,7 @@ export default function RoomsPage() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterTags, setFilterTags] = useState("");
   const [filterQuery, setFilterQuery] = useState("");
+  const [blockedIds, setBlockedIds] = useState<string[]>([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [capacity, setCapacity] = useState("");
@@ -96,7 +101,7 @@ export default function RoomsPage() {
           capacity,
           createdAt,
           novel:Novel(id,title,coverImageUrl),
-          createdBy:User(maskName,maskAvatarUrl),
+          createdBy:User(id,maskName,maskAvatarUrl),
           memberships:RoomMembership(count)
         `
         )
@@ -113,6 +118,13 @@ export default function RoomsPage() {
           createdBy: room.createdBy?.[0] ?? null,
           novel: room.novel?.[0] ?? null
         })) ?? [];
+
+      if (blockedIds.length > 0) {
+        items = items.filter((room) => {
+          const hostId = room.createdBy?.id ?? null;
+          return hostId ? !blockedIds.includes(hostId) : true;
+        });
+      }
 
       if (statusValue !== "all") {
         items = items.filter(
@@ -158,6 +170,29 @@ export default function RoomsPage() {
   }, []);
 
   useEffect(() => {
+    if (!currentUserId) {
+      setBlockedIds([]);
+      return;
+    }
+    const loadBlocks = async () => {
+      const supabase = getSupabaseClient();
+      if (!supabase) return;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token ?? null;
+      if (!accessToken) return;
+      const res = await fetch("/api/blocks", {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      if (!res.ok) return;
+      const payload = (await res.json().catch(() => ({}))) as {
+        blockedIds?: string[];
+      };
+      setBlockedIds(payload.blockedIds ?? []);
+    };
+    loadBlocks().catch(() => undefined);
+  }, [currentUserId]);
+
+  useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
@@ -174,6 +209,13 @@ export default function RoomsPage() {
       document.removeEventListener("visibilitychange", handleRefresh);
     };
   }, [filterStatus, filterTags, filterQuery]);
+
+  useEffect(() => {
+    if (blockedIds.length === 0 && !currentUserId) {
+      return;
+    }
+    loadRooms(null).catch(() => setStatus("Failed to load."));
+  }, [blockedIds.join(","), currentUserId]);
 
   useEffect(() => {
     emitHostStatus({ page: "rooms", cold: rooms.length === 0 });

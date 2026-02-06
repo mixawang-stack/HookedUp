@@ -58,6 +58,7 @@ function PrivateListPageInner() {
   const [authReady, setAuthReady] = useState(false);
   const [activeConversation, setActiveConversation] =
     useState<ConversationItem | null>(null);
+  const [blockedIds, setBlockedIds] = useState<Set<string>>(new Set());
   const searchParams = useSearchParams();
   const requestedConversationId = searchParams?.get("conversationId");
   const requestedUserId = searchParams?.get("user") ?? searchParams?.get("userId");
@@ -73,6 +74,29 @@ function PrivateListPageInner() {
     };
     loadUser().catch(() => setAuthReady(true));
   }, []);
+
+  useEffect(() => {
+    if (!userId) {
+      setBlockedIds(new Set());
+      return;
+    }
+    const loadBlocks = async () => {
+      const supabase = getSupabaseClient();
+      if (!supabase) return;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token ?? null;
+      if (!accessToken) return;
+      const res = await fetch("/api/blocks", {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      if (!res.ok) return;
+      const payload = (await res.json().catch(() => ({}))) as {
+        blockedIds?: string[];
+      };
+      setBlockedIds(new Set(payload.blockedIds ?? []));
+    };
+    loadBlocks().catch(() => undefined);
+  }, [userId]);
 
   const loadConversations = async (nextCursor?: string | null) => {
     if (!userId) {
@@ -452,14 +476,67 @@ function PrivateListPageInner() {
     );
   }, [conversations, searchQuery]);
 
+  const updateBlockedIds = (updater: (next: Set<string>) => void) => {
+    setBlockedIds((prev) => {
+      const next = new Set(prev);
+      updater(next);
+      return next;
+    });
+  };
+
+  const toggleBlockUser = async (targetUserId: string, block: boolean) => {
+    if (!userId) {
+      setStatus("Please sign in to continue.");
+      return false;
+    }
+    try {
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        throw new Error("Supabase not configured.");
+      }
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token ?? null;
+      if (!accessToken) {
+        throw new Error("Please sign in again.");
+      }
+      const res = await fetch("/api/blocks", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`
+        },
+        body: JSON.stringify({
+          targetUserId,
+          action: block ? "block" : "unblock"
+        })
+      });
+      if (!res.ok) {
+        throw new Error("Failed to update block.");
+      }
+      updateBlockedIds((next) => {
+        if (block) {
+          next.add(targetUserId);
+        } else {
+          next.delete(targetUserId);
+        }
+      });
+      return true;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to update block.";
+      setStatus(message);
+      return false;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#FBF4EE]">
       <div className="mx-auto max-w-6xl px-6 py-10">
         <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-[#3A2E2A]">
+          <h1 className="text-5xl font-extrabold tracking-tight text-[#3A2E2A]">
             Private Messages
           </h1>
-          <p className="mt-2 text-sm text-[#6B5A52]">
+          <p className="mt-2 text-lg text-[#6B5A52]">
             Connect one-on-one with other community members
           </p>
           {status && <p className="mt-2 text-sm text-brand-secondary">{status}</p>}
@@ -498,6 +575,7 @@ function PrivateListPageInner() {
                     item.lastMessageSnippet?.trim() || "No messages yet";
                   const lastTime = formatListTime(item.lastMessageAt);
                   const active = activeConversation?.id === item.id;
+                  const isBlocked = blockedIds.has(item.otherUser.id);
                   return (
                     <button
                       key={item.id}
@@ -506,7 +584,8 @@ function PrivateListPageInner() {
                         "w-full rounded-2xl px-3 py-3 text-left transition",
                         active
                           ? "bg-[#F3E7DE] border border-[#E7D7CC]"
-                          : "hover:bg-[#FBF4EE]"
+                          : "hover:bg-[#FBF4EE]",
+                        isBlocked ? "opacity-60" : ""
                       ].join(" ")}
                     >
                       <div className="flex items-center gap-3">
@@ -538,6 +617,11 @@ function PrivateListPageInner() {
                             {item.unreadCount ? (
                               <span className="shrink-0 rounded-full bg-[#E3AFA0] px-2 py-0.5 text-xs font-semibold text-white">
                                 {item.unreadCount}
+                              </span>
+                            ) : null}
+                            {isBlocked ? (
+                              <span className="shrink-0 rounded-full border border-[#E7D7CC] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#8A766C]">
+                                Blocked
                               </span>
                             ) : null}
                           </div>
@@ -576,6 +660,11 @@ function PrivateListPageInner() {
                 <PrivateConversationDrawer
                   conversation={activeConversation}
                   onClose={closeConversation}
+                  isBlocked={blockedIds.has(activeConversation.otherUser.id)}
+                  onToggleMute={() => toggleMute(activeConversation)}
+                  onToggleBlock={(block) =>
+                    toggleBlockUser(activeConversation.otherUser.id, block)
+                  }
                 />
               ) : (
                 <div className="flex h-full flex-1 items-center justify-center text-sm text-[#6B5A52]">
@@ -601,11 +690,17 @@ export default function PrivateListPage() {
 type DrawerProps = {
   conversation: ConversationItem;
   onClose: () => void;
+  isBlocked: boolean;
+  onToggleMute: () => void;
+  onToggleBlock: (block: boolean) => Promise<boolean> | boolean;
 };
 
 function PrivateConversationDrawer({
   conversation,
-  onClose
+  onClose,
+  isBlocked,
+  onToggleMute,
+  onToggleBlock
 }: DrawerProps): JSX.Element {
   const router = useRouter();
   const [messages, setMessages] = useState<MessageItem[]>([]);
@@ -619,6 +714,12 @@ function PrivateConversationDrawer({
   );
   const [me, setMe] = useState<SenderProfile | null>(null);
   const [isMuted, setIsMuted] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [showReport, setShowReport] = useState(false);
+  const [reportDetail, setReportDetail] = useState("");
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const canActOnUser = Boolean(conversation.otherUser.id);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const channelRef = useRef<ReturnType<
     NonNullable<ReturnType<typeof getSupabaseClient>>["channel"]
@@ -628,6 +729,23 @@ function PrivateConversationDrawer({
     onClose();
     router.push("/login?redirect=/private");
   };
+
+  useEffect(() => {
+    setIsMuted(Boolean(conversation.isMuted));
+  }, [conversation.isMuted]);
+
+  useEffect(() => {
+    const onClick = (event: MouseEvent) => {
+      if (!menuRef.current) return;
+      if (!menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -796,6 +914,10 @@ function PrivateConversationDrawer({
       setStatus("Please sign in to send messages.");
       return;
     }
+    if (isBlocked) {
+      setStatus("You have blocked this user.");
+      return;
+    }
     const content = (overrideContent ?? input).trim();
     if (!content) return;
 
@@ -906,12 +1028,54 @@ function PrivateConversationDrawer({
           </div>
         </div>
 
-        <button
-          type="button"
-          className="rounded-full border border-[#E7D7CC] bg-[#FBF4EE] px-4 py-2 text-[#6B5A52] hover:bg-[#F3E7DE]"
-          aria-label="More"
-        >
-          ...        </button>
+        <div className="relative" ref={menuRef}>
+          <button
+            type="button"
+            className="rounded-full border border-[#E7D7CC] bg-[#FBF4EE] px-4 py-2 text-[#6B5A52] hover:bg-[#F3E7DE]"
+            aria-label="More"
+            onClick={() => setMenuOpen((prev) => !prev)}
+          >
+            ⋯
+          </button>
+          {menuOpen && (
+            <div className="absolute right-0 top-full z-20 mt-2 w-44 rounded-2xl border border-[#E7D7CC] bg-white shadow-[0_10px_30px_rgba(0,0,0,0.08)]">
+              <button
+                type="button"
+                className="w-full px-4 py-2 text-left text-sm text-[#3A2E2A] hover:bg-[#FBF4EE]"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onToggleMute();
+                  setIsMuted((prev) => !prev);
+                }}
+                disabled={!canActOnUser}
+              >
+                {isMuted ? "Unmute" : "Mute"}
+              </button>
+              <button
+                type="button"
+                className="w-full px-4 py-2 text-left text-sm text-[#3A2E2A] hover:bg-[#FBF4EE]"
+                onClick={async () => {
+                  setMenuOpen(false);
+                  await onToggleBlock(!isBlocked);
+                }}
+                disabled={!canActOnUser}
+              >
+                {isBlocked ? "Unblock" : "Block"}
+              </button>
+              <button
+                type="button"
+                className="w-full px-4 py-2 text-left text-sm text-[#3A2E2A] hover:bg-[#FBF4EE]"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setShowReport(true);
+                }}
+                disabled={!canActOnUser}
+              >
+                Report
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-1 flex-col overflow-hidden">
@@ -932,6 +1096,12 @@ function PrivateConversationDrawer({
                     </button>
                   )}
                 </div>
+              </div>
+            )}
+
+            {isBlocked && (
+              <div className="rounded-2xl border border-[#E7D7CC] bg-[#FBF4EE] p-3 text-xs text-[#6B5A52]">
+                You have blocked this user. Unblock to send messages.
               </div>
             )}
 
@@ -1021,17 +1191,103 @@ function PrivateConversationDrawer({
               value={input}
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={handleKeyDown}
+              disabled={isBlocked}
             />
             <button
               type="submit"
               className="h-12 w-12 rounded-full bg-[#B58B6D] text-white shadow hover:opacity-90"
               aria-label="Send"
               title="Send"
+              disabled={isBlocked}
             >
-              <svg viewBox="0 0 24 24" className="h-7 w-7" fill="currentColor"><path d="M3 12l18-9-5 18-4-6-6-3 17-8" /></svg>            </button>
+              <svg viewBox="0 0 24 24" className="h-8 w-8" fill="currentColor">
+                <path d="M3 12l18-9-5 18-4-6-6-3 17-8" />
+              </svg>
+            </button>
           </form>
         </div>
       </div>
+
+      {showReport && (
+        <div role="dialog" aria-modal="true">
+          <div
+            className="fixed inset-0 z-50 bg-black/40"
+            onClick={() => setShowReport(false)}
+          />
+          <div className="fixed left-1/2 top-1/2 z-[60] w-[420px] max-w-[90vw] -translate-x-1/2 -translate-y-1/2 rounded-3xl border border-[#E7D7CC] bg-[#FFFDFB] p-6 shadow-[0_20px_50px_rgba(0,0,0,0.15)]">
+            <h3 className="text-lg font-semibold text-[#3A2E2A]">
+              Report user
+            </h3>
+            <p className="mt-1 text-sm text-[#6B5A52]">
+              Tell us what happened. This will also block the user.
+            </p>
+            <textarea
+              className="mt-4 w-full rounded-2xl border border-[#E7D7CC] bg-[#FBF4EE] px-4 py-3 text-sm text-[#3A2E2A] placeholder:text-[#9B877D] outline-none focus:ring-2 focus:ring-[#E7D7CC]"
+              rows={4}
+              placeholder="Describe the issue..."
+              value={reportDetail}
+              onChange={(event) => setReportDetail(event.target.value)}
+            />
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-full border border-[#E7D7CC] px-4 py-2 text-sm text-[#6B5A52]"
+                onClick={() => setShowReport(false)}
+                disabled={reportSubmitting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded-full bg-[#B58B6D] px-4 py-2 text-sm font-semibold text-white"
+                disabled={reportSubmitting || reportDetail.trim().length === 0}
+                onClick={async () => {
+                  if (!reportDetail.trim()) return;
+                  setReportSubmitting(true);
+                  try {
+                    const supabase = getSupabaseClient();
+                    if (!supabase) {
+                      throw new Error("Supabase not configured.");
+                    }
+                    const { data: sessionData } = await supabase.auth.getSession();
+                    const accessToken = sessionData.session?.access_token ?? null;
+                    if (!accessToken) {
+                      throw new Error("Please sign in again.");
+                    }
+                    const res = await fetch("/api/reports", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${accessToken}`
+                      },
+                      body: JSON.stringify({
+                        targetType: "user",
+                        targetId: conversation.otherUser.id,
+                        reasonType: "safety",
+                        detail: reportDetail.trim()
+                      })
+                    });
+                    if (!res.ok) {
+                      throw new Error("Failed to submit report.");
+                    }
+                    await onToggleBlock(true);
+                    setReportDetail("");
+                    setShowReport(false);
+                  } catch (error) {
+                    const message =
+                      error instanceof Error ? error.message : "Failed to submit report.";
+                    setStatus(message);
+                  } finally {
+                    setReportSubmitting(false);
+                  }
+                }}
+              >
+                Submit report
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
