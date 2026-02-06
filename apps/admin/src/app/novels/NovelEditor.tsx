@@ -411,11 +411,12 @@ export default function NovelEditor({ novelId }: Props) {
     setContentUploading(true);
     setStatus(null);
     setContentStatus(null);
-    const isPdf = file.name.toLowerCase().endsWith(".pdf");
-    const isDocx = file.name.toLowerCase().endsWith(".docx");
-    const isDoc = file.name.toLowerCase().endsWith(".doc");
-    const isTxt = file.name.toLowerCase().endsWith(".txt");
-    const isMd = file.name.toLowerCase().endsWith(".md");
+    const lowerName = file.name.toLowerCase();
+    const isPdf = lowerName.endsWith(".pdf");
+    const isDocx = lowerName.endsWith(".docx");
+    const isDoc = lowerName.endsWith(".doc");
+    const isTxt = lowerName.endsWith(".txt");
+    const isMd = lowerName.endsWith(".md");
 
     try {
       const path = `novels/${id}/${Date.now()}-${toSafeFileName(file.name)}`;
@@ -430,12 +431,12 @@ export default function NovelEditor({ novelId }: Props) {
         .from(STORAGE_BUCKET)
         .getPublicUrl(path);
 
-      if (isPdf || isDocx) {
+      if (isPdf) {
         await supabase
           .from("Novel")
           .update({
             attachmentUrl: urlData.publicUrl,
-            contentSourceType: isPdf ? "PDF" : "DOCX",
+            contentSourceType: "PDF",
             parsedChaptersCount: 0,
             lastParsedAt: new Date().toISOString()
           })
@@ -444,7 +445,7 @@ export default function NovelEditor({ novelId }: Props) {
         return true;
       }
 
-      if (isDoc) {
+      if (isDoc || isDocx) {
         const { data: sessionData } = await supabase.auth.getSession();
         const token = sessionData.session?.access_token;
         if (!token) {
@@ -460,7 +461,7 @@ export default function NovelEditor({ novelId }: Props) {
           body: JSON.stringify({ bucket: STORAGE_BUCKET, path })
         });
         if (!res.ok) {
-          setStatus("Failed to parse DOC file.");
+          setStatus("Failed to parse document.");
           return false;
         }
         const payload = (await res.json()) as { text?: string };
@@ -484,11 +485,12 @@ export default function NovelEditor({ novelId }: Props) {
           await supabase.from("NovelChapter").insert(chaptersPayload);
         }
         const wordCount = text.split(/\s+/).filter(Boolean).length;
+        const contentSourceType = isDocx ? "DOCX" : "DOC";
         await supabase
           .from("Novel")
           .update({
             attachmentUrl: urlData.publicUrl,
-            contentSourceType: "DOCX",
+            contentSourceType,
             parsedChaptersCount: chaptersPayload.length,
             chapterCount: chaptersPayload.length,
             wordCount,
