@@ -71,6 +71,7 @@ export default function RoomsPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [capacity, setCapacity] = useState("");
+  const [novelTitles, setNovelTitles] = useState<Set<string>>(new Set());
 
   const loadRooms = async (
     nextCursor?: string | null,
@@ -138,6 +139,16 @@ export default function RoomsPage() {
         });
       }
 
+      if (novelTitles.size > 0) {
+        items = items.filter((room) => {
+          if (!room.isOfficial) return false;
+          const baseTitle = (room.title ?? "")
+            .replace(/\s*Discussion Room\s*$/i, "")
+            .trim();
+          return novelTitles.has(baseTitle);
+        });
+      }
+
       if (statusValue !== "all") {
         items = items.filter(
           (room) => room.status === statusValue.toUpperCase()
@@ -182,6 +193,25 @@ export default function RoomsPage() {
   }, []);
 
   useEffect(() => {
+    const loadNovelTitles = async () => {
+      const supabase = getSupabaseClient();
+      if (!supabase) return;
+      const { data, error } = await supabase
+        .from("Novel")
+        .select("title")
+        .eq("status", "PUBLISHED");
+      if (error) return;
+      const titles = new Set(
+        (data ?? [])
+          .map((item) => (item.title ?? "").trim())
+          .filter((value) => value.length > 0)
+      );
+      setNovelTitles(titles);
+    };
+    loadNovelTitles().catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
     if (!currentUserId) {
       setBlockedIds([]);
       return;
@@ -220,7 +250,7 @@ export default function RoomsPage() {
       window.removeEventListener("focus", handleRefresh);
       document.removeEventListener("visibilitychange", handleRefresh);
     };
-  }, [filterStatus, filterTags, filterQuery]);
+  }, [filterStatus, filterTags, filterQuery, novelTitles.size]);
 
   useEffect(() => {
     if (blockedIds.length === 0 && !currentUserId) {
