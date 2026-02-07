@@ -76,8 +76,8 @@ export default function AdminUsersPage() {
     if (statusFilter.trim()) params.set("status", statusFilter.trim());
 
     const supabase = getSupabaseClient();
-    const { data: sessionData } = await supabase?.auth.getSession();
-    const token = sessionData?.session?.access_token;
+    const sessionResult = supabase ? await supabase.auth.getSession() : null;
+    const token = sessionResult?.data?.session?.access_token;
     const headers: Record<string, string> = {};
     if (token) {
       headers.Authorization = `Bearer ${token}`;
