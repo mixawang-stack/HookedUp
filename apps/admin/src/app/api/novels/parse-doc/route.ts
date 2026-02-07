@@ -2,6 +2,10 @@ import { createClient } from "@supabase/supabase-js";
 import WordExtractor from "word-extractor";
 import mammoth from "mammoth";
 import { NextResponse } from "next/server";
+import { promises as fs } from "fs";
+import os from "os";
+import path from "path";
+import crypto from "crypto";
 
 export const runtime = "nodejs";
 
@@ -21,8 +25,14 @@ const getBearerToken = (request: Request) => {
 
 const parseDocFile = async (buffer: Buffer) => {
   const extractor = new WordExtractor();
-  const doc = await extractor.extract(buffer);
-  return doc.getBody();
+  const tempPath = path.join(os.tmpdir(), `hookedup-doc-${crypto.randomUUID()}.doc`);
+  await fs.writeFile(tempPath, buffer);
+  try {
+    const doc = await extractor.extract(tempPath);
+    return doc.getBody();
+  } finally {
+    await fs.unlink(tempPath).catch(() => undefined);
+  }
 };
 
 const parseDocxFile = async (arrayBuffer: ArrayBuffer) => {
