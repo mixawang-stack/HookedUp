@@ -26,7 +26,10 @@ const getBearerToken = (request: Request) => {
 
 const parseDocFile = async (buffer: Buffer) => {
   const extractor = new WordExtractor();
-  const tempPath = path.join(os.tmpdir(), `hookedup-doc-${crypto.randomUUID()}.doc`);
+  const tempPath = path.join(
+    os.tmpdir(),
+    `hookedup-doc-${crypto.randomUUID()}.doc`
+  );
   await fs.writeFile(tempPath, buffer);
   try {
     const doc = await extractor.extract(tempPath);
@@ -36,9 +39,18 @@ const parseDocFile = async (buffer: Buffer) => {
   }
 };
 
-const parseDocxFile = async (arrayBuffer: ArrayBuffer) => {
-  const result = await mammoth.extractRawText({ arrayBuffer });
-  return result.value ?? "";
+const parseDocxFile = async (buffer: Buffer) => {
+  const tempPath = path.join(
+    os.tmpdir(),
+    `hookedup-docx-${crypto.randomUUID()}.docx`
+  );
+  await fs.writeFile(tempPath, buffer);
+  try {
+    const result = await mammoth.extractRawText({ path: tempPath });
+    return result.value ?? "";
+  } finally {
+    await fs.unlink(tempPath).catch(() => undefined);
+  }
 };
 
 const readNodeStream = async (stream: Readable) => {
@@ -49,27 +61,33 @@ const readNodeStream = async (stream: Readable) => {
   return Buffer.concat(chunks);
 };
 
-const readToArrayBuffer = async (data: unknown) => {
+const readToBuffer = async (data: unknown) => {
   if (!data) {
     throw new Error("EMPTY_FILE");
   }
-  if (data instanceof ArrayBuffer) {
+  if (Buffer.isBuffer(data)) {
     return data;
   }
   if (ArrayBuffer.isView(data)) {
-    return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+    return Buffer.from(
+      data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
+    );
+  }
+  if (data instanceof ArrayBuffer) {
+    return Buffer.from(data);
   }
   const blobLike = data as { arrayBuffer?: () => Promise<ArrayBuffer> };
   if (typeof blobLike.arrayBuffer === "function") {
-    return await blobLike.arrayBuffer();
+    const arrayBuffer = await blobLike.arrayBuffer();
+    return Buffer.from(arrayBuffer);
   }
   const readableLike = data as { getReader?: () => unknown };
   if (typeof readableLike.getReader === "function") {
-    return await new Response(data as BodyInit).arrayBuffer();
+    const arrayBuffer = await new Response(data as BodyInit).arrayBuffer();
+    return Buffer.from(arrayBuffer);
   }
   if (data instanceof Readable) {
-    const buffer = await readNodeStream(data);
-    return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+    return await readNodeStream(data);
   }
   throw new Error("UNSUPPORTED_FILE_STREAM");
 };
@@ -111,16 +129,16 @@ export async function POST(request: Request) {
   if (error || !data) {
     return NextResponse.json({ error: "DOWNLOAD_FAILED" }, { status: 500 });
   }
-  const arrayBuffer = await readToArrayBuffer(data);
+  const buffer = await readToBuffer(data);
   const lowerPath = path.toLowerCase();
 
   try {
     if (lowerPath.endsWith(".docx")) {
-      const text = await parseDocxFile(arrayBuffer);
+      const text = await parseDocxFile(buffer);
       return NextResponse.json({ text });
     }
     if (lowerPath.endsWith(".doc")) {
-      const text = await parseDocFile(Buffer.from(arrayBuffer));
+      const text = await parseDocFile(buffer);
       return NextResponse.json({ text });
     }
     return NextResponse.json({ error: "UNSUPPORTED_FILE" }, { status: 400 });
