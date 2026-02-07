@@ -6,6 +6,7 @@ import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
 import crypto from "crypto";
+import { Readable } from "stream";
 
 export const runtime = "nodejs";
 
@@ -40,6 +41,14 @@ const parseDocxFile = async (arrayBuffer: ArrayBuffer) => {
   return result.value ?? "";
 };
 
+const readNodeStream = async (stream: Readable) => {
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks);
+};
+
 const readToArrayBuffer = async (data: unknown) => {
   if (!data) {
     throw new Error("EMPTY_FILE");
@@ -54,12 +63,15 @@ const readToArrayBuffer = async (data: unknown) => {
   if (typeof blobLike.arrayBuffer === "function") {
     return await blobLike.arrayBuffer();
   }
-  // Fallback for ReadableStream or Response-like bodies in Node
-  try {
+  const readableLike = data as { getReader?: () => unknown };
+  if (typeof readableLike.getReader === "function") {
     return await new Response(data as BodyInit).arrayBuffer();
-  } catch {
-    throw new Error("UNSUPPORTED_FILE_STREAM");
   }
+  if (data instanceof Readable) {
+    const buffer = await readNodeStream(data);
+    return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+  }
+  throw new Error("UNSUPPORTED_FILE_STREAM");
 };
 
 export async function POST(request: Request) {
