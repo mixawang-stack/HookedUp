@@ -75,7 +75,16 @@ export default function AdminUsersPage() {
     if (gender.trim()) params.set("gender", gender.trim());
     if (statusFilter.trim()) params.set("status", statusFilter.trim());
 
-    const res = await fetch(`/api/admin/users?${params.toString()}`);
+    const supabase = getSupabaseClient();
+    const { data: sessionData } = await supabase?.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const res = await fetch(`/api/admin/users?${params.toString()}`, {
+      headers
+    });
     if (!res.ok) {
       if (res.status === 401) {
         setStatus("Unauthorized. Please sign in again.");

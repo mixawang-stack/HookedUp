@@ -30,6 +30,28 @@ const parseDocxFile = async (arrayBuffer: ArrayBuffer) => {
   return result.value ?? "";
 };
 
+const readToArrayBuffer = async (data: unknown) => {
+  if (!data) {
+    throw new Error("EMPTY_FILE");
+  }
+  if (data instanceof ArrayBuffer) {
+    return data;
+  }
+  if (ArrayBuffer.isView(data)) {
+    return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+  }
+  const blobLike = data as { arrayBuffer?: () => Promise<ArrayBuffer> };
+  if (typeof blobLike.arrayBuffer === "function") {
+    return await blobLike.arrayBuffer();
+  }
+  // Fallback for ReadableStream or Response-like bodies in Node
+  try {
+    return await new Response(data as BodyInit).arrayBuffer();
+  } catch {
+    throw new Error("UNSUPPORTED_FILE_STREAM");
+  }
+};
+
 export async function POST(request: Request) {
   if (!supabaseUrl || !serviceRoleKey) {
     return NextResponse.json(
@@ -67,7 +89,7 @@ export async function POST(request: Request) {
   if (error || !data) {
     return NextResponse.json({ error: "DOWNLOAD_FAILED" }, { status: 500 });
   }
-  const arrayBuffer = await data.arrayBuffer();
+  const arrayBuffer = await readToArrayBuffer(data);
   const lowerPath = path.toLowerCase();
 
   try {
