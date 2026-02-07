@@ -126,6 +126,18 @@ export default function RoomsPage() {
         });
       }
 
+      if (items.length > 0) {
+        const seenOfficialTitles = new Set<string>();
+        items = items.filter((room) => {
+          if (!room.isOfficial) return true;
+          const key = room.title?.trim() ?? "";
+          if (!key) return true;
+          if (seenOfficialTitles.has(key)) return false;
+          seenOfficialTitles.add(key);
+          return true;
+        });
+      }
+
       if (statusValue !== "all") {
         items = items.filter(
           (room) => room.status === statusValue.toUpperCase()
